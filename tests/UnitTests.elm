@@ -123,13 +123,12 @@ suite =
                     , Item.priceKey "iron_pickaxe" { fine = True, quality = Just Item.Perfect }
                     ]
                         |> Expect.equal [ "iron_bar", "iron_bar/fine", "iron_pickaxe/fine/perfect" ]
-            , test "are named and labelled as fine" <|
+            , test "keep the plain item name and are labelled as fine" <|
                 \_ ->
-                    ( [ ( "iron_bar", True ), ( "floras_silver_spoon", True ), ( "iron_bar", False ) ]
-                        |> List.filterMap (\( id, fine ) -> Item.byId id |> Maybe.map (\i -> Item.displayName i { fine = fine, quality = Nothing }))
+                    ( Item.byId "iron_bar" |> Maybe.map (\i -> Item.fullName i { fine = True, quality = Just Item.Perfect })
                     , Item.byId "iron_bar" |> Maybe.map (\i -> Item.gradeLabel i { fine = True, quality = Nothing })
                     )
-                        |> Expect.equal ( [ "Fine iron bar", "Fine Flora's silver spoon", "Iron bar" ], Just "Fine · Material" )
+                        |> Expect.equal ( Just "Iron bar · Perfect", Just "Fine · Material" )
             , test "a fine choice is dropped for items that can't be fine" <|
                 \_ ->
                     [ "iron_bar", "agility_chip" ]

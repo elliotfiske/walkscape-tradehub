@@ -105,7 +105,7 @@ featuredCard model =
                     [ Html.div [ Attr.class "flex items-center gap-3.5" ]
                         [ Ui.itemIcon "w-[52px] h-[52px]" item quality
                         , Html.div [ Attr.class "flex-1" ]
-                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text (Item.displayName item quality) ]
+                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text (item.name) ]
                             , Ui.gradeTag item quality
                             ]
                         , case est of

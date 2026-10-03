@@ -53,7 +53,7 @@ viewListing model listing item =
             [ Html.div [ Attr.class "flex items-center gap-3 flex-wrap" ]
                 [ Html.a [ Attr.href "/market", Attr.class "w-9 h-9 rounded-lg bg-raised border border-rule grid place-items-center text-gold no-underline" ] [ Html.text "‹" ]
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] md:text-[28px]", Ui.testId "listing-title" ]
-                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ Item.displayName item listing.variant) ]
+                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.fineTag listing.variant ]
                 , statusTag model listing
                 ]
             , Html.div [ Attr.class "grid md:grid-cols-2 gap-4" ]
@@ -104,7 +104,7 @@ termsCard model listing item =
         [ Html.div [ Attr.class "flex items-center gap-3" ]
             [ Ui.itemIcon "w-12 h-12" item listing.variant
             , Html.div [ Attr.class "flex-1" ]
-                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text (Item.displayName item listing.variant) ]
+                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text (item.name) ]
                 , Ui.gradeTag item listing.variant
                 ]
             , Ui.sideBadge listing
