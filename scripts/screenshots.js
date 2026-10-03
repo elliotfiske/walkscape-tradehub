@@ -1,0 +1,68 @@
+#!/usr/bin/env node
+// Screenshot every route × viewport in scripts/screenshot-routes.json with a
+// fresh headless Chromium (Playwright). Unlike cdp-screenshot.js this needs no
+// running debug Chrome — just a base URL — so it works in CI and cloud
+// sessions, against `lamdera live` or a deployed preview.
+//
+// Usage:
+//   node scripts/screenshots.js                               # localhost:8000 → screenshots/
+//   node scripts/screenshots.js --base http://localhost:8002 --out /tmp/shots
+//   node scripts/screenshots.js --base https://<app>-pr-12.lamdera.app
+//
+// Prints one PNG path per line on stdout. Browser: Playwright's own lookup
+// (PLAYWRIGHT_BROWSERS_PATH — preinstalled in cloud sessions; in CI run
+// `npx playwright-core install chromium` first), or CHROME_BIN to override.
+
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright-core');
+
+function arg(name, fallback) {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : fallback;
+}
+
+(async () => {
+  const base = arg('base', 'http://localhost:8000').replace(/\/$/, '');
+  const outDir = path.resolve(arg('out', 'screenshots'));
+  const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'screenshot-routes.json'), 'utf8'));
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROME_BIN || undefined,
+    args: ['--no-sandbox'],
+  });
+  let failed = 0;
+  try {
+    for (const vp of config.viewports) {
+      const context = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height },
+        deviceScaleFactor: 1,
+        isMobile: vp.width < 600,
+      });
+      const page = await context.newPage();
+      for (const route of config.routes) {
+        const file = path.join(outDir, `${route.name}-${vp.name}.png`);
+        try {
+          await page.goto(base + route.path, { waitUntil: 'load', timeout: 30000 });
+          // `lamdera live` keeps long-lived connections (websocket, dev-tool
+          // polling) open, so networkidle may never fire — treat it as a
+          // best-effort wait rather than a requirement.
+          await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+          // Lamdera opens a websocket and renders the first ToFrontend after
+          // load; give it a beat so we don't capture the pre-connect frame.
+          await page.waitForTimeout(Number(route.settleMs ?? 1000));
+          await page.screenshot({ path: file, fullPage: true });
+          console.log(file);
+        } catch (e) {
+          failed++;
+          console.error(`[screenshots] ${route.name}@${vp.name}: ${e.message}`);
+        }
+      }
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  process.exit(failed ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

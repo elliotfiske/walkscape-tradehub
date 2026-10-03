@@ -28,6 +28,12 @@ lamdera check --force
 
 If `lamdera check` reports no type changes, there's nothing to commit — proceed.
 
+**In a cloud session (claude.ai/code):** this works the same way if the
+environment has the `LAMDERA_CLI_AUTH` secret, which the SessionStart hook
+writes to `~/.elm/.lamdera-cli`. If `check` says "No CLI auth", ask the user to
+add that secret. Meanwhile, CI's `Evergreen check` step in `tests.yml` fails the
+PR if a migration is missing.
+
 ## Why this is needed (context)
 
 - Production deploys run from **`main`** (`lamdera deploy` ≡
@@ -43,7 +49,14 @@ Net effect: migrations must ride in through the normal PR, so they're committed
 on `main` by the time someone deploys. Hence: **generate + commit the migration
 in your PR.**
 
-## Deploy (for whoever ships it, after merge)
+## Deploy (automatic after merge)
+
+Merging to `main` triggers `.github/workflows/deploy.yml`, which runs
+`npm run deploy` on CI. Every PR push also deploys a preview to
+`<app>-pr-<N>.lamdera.app` (`.github/workflows/preview.yml`). The steps below
+are the manual fallback.
+
+## Manual deploy
 
 From the **primary checkout** (the main clone — not a Conductor
 worktree, where lamdera can't run):

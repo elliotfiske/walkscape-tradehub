@@ -1,0 +1,143 @@
+name: Preview
+
+# Every PR push → a Lamdera preview app at <app>-pr-<N>.lamdera.app, plus
+# screenshots of the PR's UI, summarized in one sticky PR comment.
+#
+# Preview apps don't keep backend state across deploys and skip Evergreen, so
+# this is safe to run on every push. The `pr-<N>` branch name keeps the
+# subdomain valid (feature branches like claude/foo contain slashes).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # push screenshots to the ci/screenshots branch
+  pull-requests: write # sticky comment
+
+jobs:
+  deploy:
+    # Forks don't get secrets.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.push.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+        with:
+          ssh-key: ${{ secrets.LAMDERA_SSH_KEY }}
+
+      - name: Push preview
+        id: push
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HAS_KEY: ${{ secrets.LAMDERA_SSH_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::error::LAMDERA_SSH_KEY secret not set; can't push the preview"
+            exit 1
+          fi
+          git push --force --no-verify lamdera "HEAD:refs/heads/pr-${PR}"
+          echo "url=https://${LAMDERA_APP}-pr-${PR}.lamdera.app" >> "$GITHUB_OUTPUT"
+
+  screenshots:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.publish.outputs.commit }}
+      files: ${{ steps.shoot.outputs.files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+
+      - name: Install Chromium
+        run: npx playwright-core install --with-deps chromium
+
+      # Screenshot a local `lamdera live` rather than the preview: it's ready
+      # immediately and doesn't depend on the Lamdera build queue.
+      - name: Take screenshots
+        id: shoot
+        run: |
+          npm run build:css
+          lamdera live --port=8000 > lamdera-live.log 2>&1 &
+          for _ in $(seq 1 60); do curl -fsS -o /dev/null http://localhost:8000/ && break; sleep 1; done
+          node scripts/screenshots.js --base http://localhost:8000 --out shots
+          echo "files=$(cd shots && ls *.png | paste -sd, -)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: screenshots-pr-${{ github.event.pull_request.number }}
+          path: shots/
+
+      - name: Publish to ci/screenshots branch
+        id: publish
+        env:
+          PREFIX: pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}
+        run: echo "commit=$(bash scripts/ci-publish-screenshots.sh shots "$PREFIX")" >> "$GITHUB_OUTPUT"
+
+  comment:
+    needs: [deploy, screenshots]
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upsert PR comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PREVIEW_URL: ${{ needs.deploy.outputs.url }}
+          SHOTS_RESULT: ${{ needs.screenshots.result }}
+          SHOTS_COMMIT: ${{ needs.screenshots.outputs.commit }}
+          SHOTS_FILES: ${{ needs.screenshots.outputs.files }}
+        with:
+          script: |
+            const marker = '<!-- lamdera-preview -->';
+            const pr = context.payload.pull_request;
+            const sha = pr.head.sha;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const env = process.env;
+
+            const lines = [marker, `### Lamdera preview for \`${sha.slice(0, 7)}\``, ''];
+            if (env.DEPLOY_RESULT === 'success') {
+              lines.push(`**Preview:** ${env.PREVIEW_URL}`);
+              lines.push('', '_Lamdera builds the preview after the push, so it may take a minute to update. Preview backends reset on every deploy._');
+            } else {
+              lines.push(`**Preview:** ❌ deploy ${env.DEPLOY_RESULT} ([logs](${runUrl}))`);
+            }
+            lines.push('');
+            if (env.SHOTS_RESULT === 'success' && env.SHOTS_COMMIT) {
+              const base = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/blob/${env.SHOTS_COMMIT}/pr-${pr.number}/${sha}`;
+              const files = env.SHOTS_FILES.split(',').filter(Boolean);
+              lines.push('<details open><summary>Screenshots (local <code>lamdera live</code>)</summary>', '');
+              for (const f of files) lines.push(`**${f.replace(/\.png$/, '')}**`, '', `<img src="${base}/${f}?raw=true" width="400">`, '');
+              lines.push('</details>');
+            } else {
+              lines.push(`**Screenshots:** ❌ ${env.SHOTS_RESULT} ([logs](${runUrl}))`);
+            }
+            const body = lines.join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body });
+            }
