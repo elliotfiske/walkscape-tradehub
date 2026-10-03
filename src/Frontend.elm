@@ -218,6 +218,16 @@ handleAuthCallback model callbackMethodId url =
             )
 
 
+isAuthorized : Auth.Common.Flow -> Bool
+isAuthorized flow =
+    case flow of
+        Auth.Common.Authorized _ _ ->
+            True
+
+        _ ->
+            False
+
+
 navigate : Model -> Route -> Cmd_
 navigate model route =
     Effect.Browser.Navigation.pushUrl model.key (Route.toString route)
@@ -515,8 +525,22 @@ updateFromBackend msg model =
 
         YouAre me ->
             let
+                -- On the OAuth redirect the connect-time `YouAre Nothing` lands
+                -- before the callback is processed; keep showing "logging you
+                -- in" instead of flashing "signed out".
+                stillSigningIn =
+                    me == Nothing && isAuthorized model.authFlow
+
                 newModel =
-                    { model | me = me, authFlow = Auth.Common.Idle }
+                    { model
+                        | me = me
+                        , authFlow =
+                            if stillSigningIn then
+                                model.authFlow
+
+                            else
+                                Auth.Common.Idle
+                    }
 
                 onboarding =
                     case me of
