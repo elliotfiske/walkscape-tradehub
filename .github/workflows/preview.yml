@@ -76,8 +76,31 @@ jobs:
         run: |
           npm run build:css
           lamdera live --port=8000 > lamdera-live.log 2>&1 &
-          for _ in $(seq 1 60); do curl -fsS -o /dev/null http://localhost:8000/ && break; sleep 1; done
-          node scripts/screenshots.js --base http://localhost:8000 --out shots
+          up=false
+          for _ in $(seq 1 120); do
+            if curl -fsS -o /dev/null http://localhost:8000/; then up=true; break; fi
+            sleep 1
+          done
+          if [ "$up" != "true" ]; then
+            echo "::error::lamdera live never answered on :8000"
+            tail -50 lamdera-live.log
+            exit 1
+          fi
+          # Warm every route so lamdera live has compiled before Chromium
+          # starts competing for CPU.
+          for route in $(node -p 'require("./scripts/screenshot-routes.json").routes.map((r) => r.path).join(" ")'); do
+            curl -fsS -o /dev/null "http://localhost:8000${route}"
+          done
+          status=0
+          node scripts/screenshots.js --base http://localhost:8000 --out shots || status=$?
+          if [ "$status" != "0" ]; then
+            echo "--- lamdera-live.log (tail) ---"
+            tail -50 lamdera-live.log
+            echo "--- load ---"
+            uptime
+            free -m
+            exit "$status"
+          fi
           echo "files=$(cd shots && ls *.png | paste -sd, -)" >> "$GITHUB_OUTPUT"
 
       - name: Upload screenshots
