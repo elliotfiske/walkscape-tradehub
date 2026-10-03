@@ -78,10 +78,8 @@ emptyListingForm =
     { itemQuery = ""
     , itemId = Nothing
     , quality = Item.Normal
+    , fine = False
     , side = Selling
-    , swap = False
-    , swapItemId = Nothing
-    , swapQuery = ""
     , quantity = "1"
     , price = ""
     , note = ""
@@ -147,6 +145,7 @@ init url key =
                 , rarities = []
                 , qualities = []
                 , sort = Newest
+                , fineOnly = False
                 , hideOutliers = False
                 , search = ""
                 }
@@ -357,6 +356,9 @@ update msg model =
         HideOutliersToggled ->
             updateFilters (\f -> { f | hideOutliers = not f.hideOutliers }) model
 
+        FineOnlyToggled ->
+            updateFilters (\f -> { f | fineOnly = not f.fineOnly }) model
+
         FiltersToggled ->
             ( { model | filtersOpen = not model.filtersOpen }, Command.none )
 
@@ -367,7 +369,17 @@ update msg model =
             updateListingForm (\f -> { f | itemQuery = query }) model
 
         ListingItemPicked itemId ->
-            updateListingForm (\f -> { f | itemId = Just itemId, itemQuery = "", error = Nothing }) model
+            -- Searching "fine iron bar" and picking Iron bar means the fine one.
+            updateListingForm
+                (\f ->
+                    { f
+                        | itemId = Just itemId
+                        , itemQuery = ""
+                        , fine = String.startsWith "fine " (String.toLower (String.trim f.itemQuery))
+                        , error = Nothing
+                    }
+                )
+                model
 
         ListingItemCleared ->
             updateListingForm (\f -> { f | itemId = Nothing }) model
@@ -375,17 +387,11 @@ update msg model =
         ListingQualityPicked quality ->
             updateListingForm (\f -> { f | quality = quality }) model
 
+        ListingFineToggled fine ->
+            updateListingForm (\f -> { f | fine = fine }) model
+
         ListingSidePicked side ->
             updateListingForm (\f -> { f | side = side }) model
-
-        ListingSwapToggled swap ->
-            updateListingForm (\f -> { f | swap = swap }) model
-
-        ListingSwapQueryChanged query ->
-            updateListingForm (\f -> { f | swapQuery = query }) model
-
-        ListingSwapItemPicked itemId ->
-            updateListingForm (\f -> { f | swapItemId = Just itemId, swapQuery = "" }) model
 
         ListingQuantityChanged quantity ->
             updateListingForm (\f -> { f | quantity = quantity }) model
@@ -585,7 +591,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=84bda0f8" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=8ddf1718" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"

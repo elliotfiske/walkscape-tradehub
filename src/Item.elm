@@ -3,13 +3,16 @@ module Item exposing
     , Kind(..)
     , Quality(..)
     , Rarity
-    , abbreviation
+    , Variant
     , all
     , allQualities
     , allRarities
     , byId
+    , displayName
+    , fullName
     , gradeColor
     , gradeLabel
+    , plain
     , priceKey
     , qualityColor
     , qualityFromString
@@ -27,8 +30,14 @@ Loot items have a fixed rarity. Crafted items come in a quality that the
 lister picks, and prices are tracked separately for each quality. Everything
 else (materials, food, collectibles…) is `Plain`, labelled by its category.
 
-The data is generated into `ItemData` by `scripts/import-items.py` from
-walkscapedb.com, until there's an official WalkScape API.
+Most items can also be "fine", which the game treats as a better version of
+the item. A fine item is priced as its own item, so a listing's `Variant` is
+whether it's fine plus, for crafted items, its quality.
+
+The data is generated into `ItemData` by `scripts/import-items.py` from the
+WalkScape Tools API (only items the game lets you trade), and icons by
+`scripts/pull-icons.py` into `public/icons/<id>.png`. Ids are the game's own,
+like "iron\_pickaxe".
 
 -}
 
@@ -64,8 +73,22 @@ type alias Item =
     { id : String
     , name : String
     , kind : Kind
-    , icon : Maybe String
+    , canBeFine : Bool
+    , icon : String
     }
+
+
+type alias Variant =
+    { fine : Bool
+    , quality : Maybe Quality
+    }
+
+
+{-| Not fine, no quality: a loot or plain item as it usually comes.
+-}
+plain : Variant
+plain =
+    { fine = False, quality = Nothing }
 
 
 all : List Item
@@ -73,18 +96,8 @@ all =
     List.map fromRaw ItemData.raw
 
 
-{-| Our own pixel-art icons. Other items show a two-letter placeholder.
--}
-localIcons : Dict String String
-localIcons =
-    Dict.fromList
-        [ ( "shovel-axe", "/assets/shovel-axe.svg" )
-        , ( "iron-pickaxe", "/assets/eternal-iron-pickaxe.svg" )
-        ]
-
-
-fromRaw : ( String, String, ( String, String ) ) -> Item
-fromRaw ( id, name, ( kind, rarity ) ) =
+fromRaw : ( String, String, ( String, String, Bool ) ) -> Item
+fromRaw ( id, name, ( kind, rarity, canBeFine ) ) =
     { id = id
     , name = name
     , kind =
@@ -112,7 +125,8 @@ fromRaw ( id, name, ( kind, rarity ) ) =
 
             other ->
                 Plain (String.toUpper (String.left 1 other) ++ String.dropLeft 1 other)
-    , icon = Dict.get id localIcons
+    , canBeFine = canBeFine
+    , icon = "/icons/" ++ id ++ ".png"
     }
 
 
@@ -128,6 +142,7 @@ byId id =
 
 {-| Items whose name contains the query, names starting with it first.
 An empty query matches nothing; there are too many items to list them all.
+A leading "fine" is ignored, so "fine iron" finds the iron items.
 -}
 search : String -> List Item
 search query =
@@ -135,8 +150,15 @@ search query =
         normalize =
             String.toLower >> String.replace "-" " "
 
-        q =
+        trimmed =
             normalize (String.trim query)
+
+        q =
+            if String.startsWith "fine " trimmed then
+                String.trim (String.dropLeft 5 trimmed)
+
+            else
+                trimmed
 
         matches =
             List.filter (\item -> String.contains q (normalize item.name)) all
@@ -151,31 +173,55 @@ search query =
         starts ++ rest
 
 
-{-| Two-letter placeholder shown when an item has no icon, e.g. "ST".
+{-| "Fine iron bar" for a fine Iron bar. Names that start with a possessive
+("Flora's…") keep their capital.
 -}
-abbreviation : Item -> String
-abbreviation item =
-    case String.words item.name of
-        first :: second :: _ ->
-            String.toUpper (String.left 1 first ++ String.left 1 second)
+displayName : Item -> Variant -> String
+displayName item variant =
+    if variant.fine then
+        let
+            name =
+                case String.words item.name of
+                    first :: _ ->
+                        if String.endsWith "'s" first then
+                            item.name
 
-        [ single ] ->
-            String.toUpper (String.left 2 single)
+                        else
+                            String.toLower (String.left 1 item.name) ++ String.dropLeft 1 item.name
 
-        [] ->
-            "?"
+                    [] ->
+                        item.name
+        in
+        "Fine " ++ name
+
+    else
+        item.name
 
 
-{-| Identifies a price series: one per loot item, one per crafted item and quality.
+{-| The display name plus a crafted item's quality, e.g. "Fine iron
+pickaxe · Perfect".
 -}
-priceKey : String -> Maybe Quality -> String
-priceKey itemId quality =
-    case quality of
-        Just q ->
-            itemId ++ "/" ++ qualityToString q
+fullName : Item -> Variant -> String
+fullName item variant =
+    displayName item variant ++ (variant.quality |> Maybe.map (\q -> " · " ++ qualityLabel q) |> Maybe.withDefault "")
 
-        Nothing ->
-            itemId
+
+{-| Identifies a price series: one per item, with fine items and each crafted
+quality tracked separately, e.g. "iron_bar", "iron_bar/fine",
+"iron_pickaxe/fine/perfect".
+-}
+priceKey : String -> Variant -> String
+priceKey itemId variant =
+    String.join "/"
+        (itemId
+            :: (if variant.fine then
+                    [ "fine" ]
+
+                else
+                    []
+               )
+            ++ (variant.quality |> Maybe.map (\q -> [ qualityToString q ]) |> Maybe.withDefault [])
+        )
 
 
 allRarities : List Rarity
@@ -300,9 +346,9 @@ qualityColor quality =
 
 {-| Colour for a listed item: its quality if crafted, otherwise its rarity.
 -}
-gradeColor : Item -> Maybe Quality -> String
-gradeColor item quality =
-    case ( item.kind, quality ) of
+gradeColor : Item -> Variant -> String
+gradeColor item variant =
+    case ( item.kind, variant.quality ) of
         ( _, Just q ) ->
             qualityColor q
 
@@ -316,8 +362,21 @@ gradeColor item quality =
             rarityColor Common
 
 
-gradeLabel : Item -> Maybe Quality -> String
-gradeLabel item quality =
+{-| "Legendary", "Perfect", "Material"…, with "Fine · " in front for fine items.
+-}
+gradeLabel : Item -> Variant -> String
+gradeLabel item variant =
+    (if variant.fine then
+        "Fine · "
+
+     else
+        ""
+    )
+        ++ baseGradeLabel item variant.quality
+
+
+baseGradeLabel : Item -> Maybe Quality -> String
+baseGradeLabel item quality =
     case ( item.kind, quality ) of
         ( _, Just q ) ->
             qualityLabel q

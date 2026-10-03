@@ -17,22 +17,43 @@ changes hands, and there are no trade rooms yet.
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
 | `Pricing.elm` | Pure price-estimate rules: median, one vote per trader per day, outliers > 2.5× spread cut. |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides, and frontend-derived values (estimates, stats, filtered market). |
-| `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from walkscapedb.com/items (870 items; currency/lore skipped). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Only two items have our own icons. |
+| `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Most items can also be **fine**: a listing's `Item.Variant` is `{ fine, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `iron_pickaxe/fine/perfect`) and price page (`/prices/iron_bar?fine=1`). Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Name.elm` | WalkScape-name validation and look-alike detection. |
 | `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`). |
-| `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Google (vendored lamdera/auth) + Discord OAuth. Apple is placeholder-only. |
+| `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Discord OAuth (on the vendored lamdera/auth). Discord is the only sign-in. |
 
 ## Preview-mode placeholders
 
-- **Sign-in:** a provider with an empty client id in `Env.elm` (Apple always)
-  falls back to a "preview account" keyed to the Lamdera session. Set
-  `googleClientId`/`googleClientSecret` and `discordClientId`/`discordClientSecret`
-  to turn on real OAuth (callback URL: `<origin>/login/OAuthGoogle/callback`,
-  `<origin>/login/OAuthDiscord/callback`).
+- **Sign-in:** Discord only. With an empty `discordClientId` in `Env.elm` the
+  button falls back to a "preview account" keyed to the Lamdera session. Set
+  `discordClientId`/`discordClientSecret` to turn on real OAuth (callback URL:
+  `<origin>/login/OAuthDiscord/callback`). Accounts are keyed by the Discord
+  user id. Outside `Env.Production` the sign-in page also shows "Use a preview
+  account instead" (`#signin-preview`), which the E2E tests and the
+  screenshot scenarios use. **Testing OAuth under `lamdera live`:**
+  keep a second app tab open. The dev backend runs in a tab, so if the only tab
+  leaves for discord.com the pending sign-in is lost and the callback fails.
 - **Verification:** the coin-offer-to-TrailpostBot step is shown with a real
   random amount, but "Continue unverified" skips it (`ClaimStatus.PreviewUnverified`).
   Names are first-come and shown with an UNVERIFIED tag.
 - **WalkScape API** lookups (level, steps, last active) are shown as "with trading".
+
+## WalkScape Tools API (items and icons)
+
+Both scripts call https://tools-api-dev.dev.walkscape.app (docs at `/docs/`;
+the spec is embedded in `/docs/swagger-ui-init.js`) through
+`scripts/walkscape_api.py`, and need `WALKSCAPE_DATA_API_KEY` in `.env`
+(gitignored, never commit it).
+
+- `python3 scripts/import-items.py` regenerates `src/ItemData.elm` with every
+  tradeable item. Item ids end up in URLs and stored listings, so if the game
+  renames one, its old listings no longer find their item.
+- `python3 scripts/pull-icons.py` downloads each catalog item's icon into
+`public/icons/<item id>.png`. It skips the download when the API's assets
+version matches `public/icons/VERSION` (`--force` to override), and removes
+icons for items no longer in the catalog. Re-run it after
+`scripts/import-items.py`. The icons are committed because Lamdera serves
+`public/` from git.
 
 ## Screenshot loop (`scripts/cdp-drive.js`)
 

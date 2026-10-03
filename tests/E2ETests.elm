@@ -85,8 +85,7 @@ stopping at the verification step.
 signInAndClaim : Actions -> String -> List Action
 signInAndClaim actions name =
     [ actions.clickLink 100 "/signin"
-    , actions.click 100 (Dom.id "signin-apple")
-    , actions.click 100 (Dom.id "preview-signin-continue")
+    , actions.click 100 (Dom.id "signin-preview")
     , actions.input 300 (Dom.id "claim-name") name
     , actions.click 100 (Dom.id "claim-submit")
     ]
@@ -108,7 +107,7 @@ postListing : Actions -> { item : String, price : String, quantity : String } ->
 postListing actions { item, price, quantity } =
     [ actions.clickLink 100 "/market"
     , actions.clickLink 100 "/new"
-    , actions.input 100 (Dom.id "item-search") (String.replace "-" " " item)
+    , actions.input 100 (Dom.id "item-search") (String.replace "_" " " item)
     , actions.click 100 (Dom.id ("item-pick-" ++ item))
     , actions.input 100 (Dom.id "quantity") quantity
     , actions.input 100 (Dom.id "price") price
@@ -133,10 +132,8 @@ tests =
         [ connect "s1" "/" <|
             \user ->
                 [ user.clickLink 100 "/signin"
-                , user.click 100 (Dom.id "signin-apple")
-                , user.checkView 100 (byTestId "preview-signin" >> seesText "Apple sign-in isn't connected yet")
-                , user.click 100 (Dom.id "preview-signin-continue")
-                , user.checkView 300 (byTestId "signed-in-with" >> seesText "Signed in with Apple (preview account)")
+                , user.click 100 (Dom.id "signin-preview")
+                , user.checkView 300 (byTestId "signed-in-with" >> seesText "Signed in with a preview account")
                 , user.input 100 (Dom.id "claim-name") "Wanderling"
                 , user.click 100 (Dom.id "claim-submit")
                 , user.checkView 300 (byTestId "claimed-name" >> seesText "Wanderling")
@@ -182,7 +179,7 @@ tests =
         [ connect "seller" "/" <|
             \seller ->
                 onboard seller "Tallowmere"
-                    ++ postListing seller { item = "steel-toe-boots", price = "1,150", quantity = "2" }
+                    ++ postListing seller { item = "steel_toe_boots", price = "1,150", quantity = "2" }
                     ++ [ seller.checkView 100 (byTestId "listing-title" >> seesText "Selling 2x Steel-toe boots")
                        , seller.checkView 100 (hasTestId "pending-note")
                        , connect "buyer" "/market" <|
@@ -199,7 +196,7 @@ tests =
         [ connect "seller" "/" <|
             \seller ->
                 onboard seller "Juno_Trek"
-                    ++ postListing seller { item = "shovel-axe", price = "9800", quantity = "1" }
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
                                 onboard buyer "Wanderling"
@@ -253,7 +250,7 @@ tests =
         [ connect "seller" "/" <|
             \seller ->
                 onboard seller "Juno_Trek"
-                    ++ postListing seller { item = "shovel-axe", price = "9000", quantity = "1" }
+                    ++ postListing seller { item = "shovel_axe", price = "9000", quantity = "1" }
                     ++ [ connect "b1" "/" <|
                             \b1 ->
                                 onboard b1 "Pikewalker"
@@ -268,14 +265,49 @@ tests =
                                                     ++ [ b2.clickLink 100 "/market"
                                                        , b2.clickLink 100 "/listing/1"
                                                        , b2.click 100 (Dom.id "send-offer")
-                                                       , b2.clickLink 300 "/prices/shovel-axe"
+                                                       , b2.clickLink 300 "/prices/shovel_axe"
                                                        , b2.checkView 100 (byTestId "price-stats" >> seesText "9,000")
                                                        , b2.checkView 100 (byTestId "price-stats" >> seesText "from 3 unique traders")
                                                        , b2.checkView 100 (byTestId "price-points" >> seesText "Hollowfen")
                                                        , b2.clickLink 100 "/prices"
-                                                       , b2.checkView 100 (byTestId "price-row-shovel-axe" >> seesText "9,000")
+                                                       , b2.checkView 100 (byTestId "price-row-shovel_axe" >> seesText "9,000")
                                                        ]
                                        ]
+                       ]
+        ]
+    , start "Fine items are listed, filtered and priced separately from regular ones"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ postListing seller { item = "iron_bar", price = "100", quantity = "10" }
+                    ++ [ seller.clickLink 100 "/market"
+                       , seller.clickLink 100 "/new"
+
+                       -- Searching "fine …" picks the fine version.
+                       , seller.input 100 (Dom.id "item-search") "fine iron bar"
+                       , seller.click 100 (Dom.id "item-pick-iron_bar")
+                       , seller.checkView 100 (byTestId "picked-item" >> seesText "Fine iron bar")
+                       , seller.input 100 (Dom.id "quantity") "2"
+                       , seller.input 100 (Dom.id "price") "400"
+                       , seller.click 100 (Dom.id "post-listing")
+                       , seller.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
+                       , connect "buyer" "/" <|
+                            \buyer ->
+                                [ buyer.clickLink (minutes 16) "/market"
+                                , buyer.checkView 100 (byTestId "listing-1" >> seesText "Iron bar")
+                                , buyer.checkView 100 (byTestId "listing-2" >> seesText "Fine iron bar")
+                                , buyer.click 100 (Dom.id "fine-only")
+                                , buyer.checkView 100 (lacksTestId "listing-1")
+                                , buyer.checkView 100 (hasTestId "listing-2")
+                                , buyer.clickLink 100 "/prices"
+                                , buyer.checkView 100 (byTestId "price-row-iron_bar" >> seesText "100")
+                                , buyer.checkView 100 (byTestId "price-row-iron_bar/fine" >> seesText "400")
+                                , buyer.clickLink 100 "/prices/iron_bar?fine=1"
+                                , buyer.checkView 100 (byTestId "item-name" >> seesText "Fine iron bar")
+                                , buyer.checkView 100 (byTestId "price-stats" >> seesText "400")
+                                , buyer.clickLink 100 "/prices/iron_bar"
+                                , buyer.checkView 100 (byTestId "price-stats" >> seesText "100")
+                                ]
                        ]
         ]
     , start "Look-alike names are flagged on their listings"
@@ -285,7 +317,7 @@ tests =
                     ++ [ connect "fake" "/" <|
                             \fake ->
                                 onboard fake "Mosbeard_"
-                                    ++ postListing fake { item = "copper-ore", price = "5", quantity = "100" }
+                                    ++ postListing fake { item = "copper_ore", price = "5", quantity = "100" }
                                     ++ [ real.clickLink (minutes 16) "/market"
                                        , real.checkView 100 (byTestId "listing-1" >> byTestId "lookalike-warning" >> seesText "very close to Mossbeard")
                                        , real.clickLink 100 "/listing/1"
@@ -307,7 +339,7 @@ tests =
                        , user.click 100 (Dom.id "post-listing")
                        , user.checkView 100 (byTestId "listing-error" >> seesText "Pick an item first.")
                        , user.input 100 (Dom.id "item-search") "iron pick"
-                       , user.click 100 (Dom.id "item-pick-iron-pickaxe")
+                       , user.click 100 (Dom.id "item-pick-iron_pickaxe")
                        , user.click 100 (Dom.id "pick-quality-eternal")
                        , user.click 100 (Dom.id "post-listing")
                        , user.checkView 100 (byTestId "listing-error" >> seesText "Enter a price in coins")
@@ -324,7 +356,7 @@ tests =
                     ++ [ connect "other" "/" <|
                             \other ->
                                 onboard other "Hollowfen"
-                                    ++ postListing other { item = "cooked-largemouth-bass", price = "38", quantity = "50" }
+                                    ++ postListing other { item = "cooked_largemouth_bass", price = "38", quantity = "50" }
                                     ++ [ victim.clickLink (minutes 16) "/market"
                                        , victim.clickLink 100 "/listing/1"
                                        , victim.clickLink 100 "/report/Hollowfen"
@@ -359,8 +391,7 @@ tests =
                        , user.checkView 300 (hasTestId "featured-price")
                        , user.checkView 100 (lacksTestId "user-chip")
                        , user.clickLink 100 "/signin"
-                       , user.click 100 (Dom.id "signin-apple")
-                       , user.click 100 (Dom.id "preview-signin-continue")
+                       , user.click 100 (Dom.id "signin-preview")
                        , user.checkView 300 (byTestId "done-heading" >> seesText "Pikewalker is linked")
                        ]
         ]

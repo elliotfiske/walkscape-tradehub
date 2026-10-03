@@ -155,9 +155,9 @@ offerCard model received offer =
                     , Ui.testId ("trade-offer-" ++ String.fromInt offer.id)
                     ]
                     [ Html.div [ Attr.class "flex items-center gap-3" ]
-                        [ Ui.itemIcon "w-10 h-10" item listing.quality
+                        [ Ui.itemIcon "w-10 h-10" item listing.variant
                         , Html.div [ Attr.class "flex-1 min-w-0" ]
-                            [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name) ]
+                            [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ Item.displayName item listing.variant) ]
                             , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text ("with " ++ other ++ priceText) ]
                             ]
                         , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
@@ -192,9 +192,9 @@ listingCard model listing =
                     , Attr.class "flex items-center gap-3 no-underline text-ink hover:text-ink rounded-xl bg-card border border-edge px-3.5 py-3 hover:bg-raised"
                     , Ui.testId ("my-listing-" ++ String.fromInt listing.id)
                     ]
-                    [ Ui.itemIcon "w-10 h-10" item listing.quality
+                    [ Ui.itemIcon "w-10 h-10" item listing.variant
                     , Html.div [ Attr.class "flex-1 min-w-0" ]
-                        [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name ++ (listing.quality |> Maybe.map (\q -> " · " ++ Item.qualityLabel q) |> Maybe.withDefault "")) ]
+                        [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ Item.fullName item listing.variant) ]
                         , Html.div [ Attr.class "text-[13px] font-semibold" ] [ status ]
                         ]
                     , Ui.priceText listing

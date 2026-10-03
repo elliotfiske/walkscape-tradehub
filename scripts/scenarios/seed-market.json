@@ -19,14 +19,11 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "shot": "m-preview-signin"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
+ },
+ {
+  "shot": "m-claim"
  },
  {
   "type": [
@@ -64,10 +61,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -91,10 +85,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -118,10 +109,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -145,10 +133,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -172,10 +157,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -199,10 +181,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -226,10 +205,7 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
- },
- {
-  "click": "#preview-signin-continue",
+  "click": "#signin-preview",
   "delay": 1500
  },
  {
@@ -259,7 +235,7 @@
   ]
  },
  {
-  "click": "#item-pick-steel-toe-boots"
+  "click": "#item-pick-steel_toe_boots"
  },
  {
   "type": [
@@ -296,7 +272,7 @@
   ]
  },
  {
-  "click": "#item-pick-shovel-axe"
+  "click": "#item-pick-shovel_axe"
  },
  {
   "type": [
@@ -327,13 +303,7 @@
   ]
  },
  {
-  "click": "#item-pick-gold-ring"
- },
- {
-  "click": "#pay-swap"
- },
- {
-  "click": "#swap-pick-iron-bar"
+  "click": "#item-pick-gold_ring"
  },
  {
   "type": [
@@ -344,7 +314,7 @@
  {
   "type": [
    "#price",
-   "4"
+   "2400"
   ]
  },
  {
@@ -364,7 +334,7 @@
   ]
  },
  {
-  "click": "#item-pick-cooked-largemouth-bass"
+  "click": "#item-pick-cooked_largemouth_bass"
  },
  {
   "click": "#side-buy"
@@ -398,7 +368,7 @@
   ]
  },
  {
-  "click": "#item-pick-iron-pickaxe"
+  "click": "#item-pick-iron_pickaxe"
  },
  {
   "click": "#pick-quality-normal"
@@ -432,7 +402,7 @@
   ]
  },
  {
-  "click": "#item-pick-iron-pickaxe"
+  "click": "#item-pick-iron_pickaxe"
  },
  {
   "click": "#pick-quality-eternal"
@@ -472,7 +442,7 @@
   ]
  },
  {
-  "click": "#item-pick-shovel-axe"
+  "click": "#item-pick-shovel_axe"
  },
  {
   "type": [
@@ -503,7 +473,7 @@
   ]
  },
  {
-  "click": "#item-pick-shovel-axe"
+  "click": "#item-pick-shovel_axe"
  },
  {
   "type": [
@@ -534,7 +504,7 @@
   ]
  },
  {
-  "click": "#item-pick-iron-pickaxe"
+  "click": "#item-pick-iron_pickaxe"
  },
  {
   "click": "#pick-quality-normal"
@@ -568,7 +538,7 @@
   ]
  },
  {
-  "click": "#item-pick-steel-toe-boots"
+  "click": "#item-pick-steel_toe_boots"
  },
  {
   "type": [
@@ -599,7 +569,7 @@
   ]
  },
  {
-  "click": "#item-pick-iron-pickaxe"
+  "click": "#item-pick-iron_pickaxe"
  },
  {
   "click": "#pick-quality-eternal"
@@ -805,7 +775,7 @@
   "full": true
  },
  {
-  "goto": "/prices/shovel-axe"
+  "goto": "/prices/shovel_axe"
  },
  {
   "shot": "item-price",

@@ -43,9 +43,6 @@ unitPrice listing =
         Coins price ->
             Just price
 
-        Swap _ _ ->
-            Nothing
-
 
 {-| Price points for one listing: its own coin price, plus each offer on it
 that wasn't withdrawn. An offer "at your price" counts as another vote for the
@@ -96,6 +93,6 @@ pricePoints now listings offers key =
     in
     listings
         |> Dict.values
-        |> List.filter (\l -> isLive now l && Item.priceKey l.itemId l.quality == key)
+        |> List.filter (\l -> isLive now l && Item.priceKey l.itemId l.variant == key)
         |> List.concatMap (listingPoints offerList)
         |> List.sortBy (.at >> Time.posixToMillis)

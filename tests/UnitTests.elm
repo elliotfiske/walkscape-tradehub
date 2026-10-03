@@ -83,8 +83,10 @@ suite =
                             [ Route.Home
                             , Route.Market
                             , Route.Prices
-                            , Route.ItemPrice "iron-pickaxe" (Just Item.Eternal)
-                            , Route.ItemPrice "shovel-axe" Nothing
+                            , Route.ItemPrice "iron_pickaxe" { fine = False, quality = Just Item.Eternal }
+                            , Route.ItemPrice "iron_pickaxe" { fine = True, quality = Just Item.Good }
+                            , Route.ItemPrice "iron_bar" { fine = True, quality = Nothing }
+                            , Route.ItemPrice "shovel_axe" Item.plain
                             , Route.ListingPage 42
                             , Route.NewListing
                             , Route.MyTrades
@@ -100,30 +102,51 @@ suite =
                     List.map parse routes |> Expect.equal (List.map Just routes)
             ]
         , describe "Item catalog"
-            [ test "is imported from walkscapedb with kinds mapped" <|
+            [ test "is imported from the WalkScape API with kinds mapped" <|
                 \_ ->
-                    ( List.length Item.all > 800
-                    , Item.byId "shovel-axe" |> Maybe.map (\i -> Item.gradeLabel i Nothing)
-                    , [ "gold-ring", "copper-ore" ] |> List.filterMap Item.byId |> List.map (\i -> Item.gradeLabel i Nothing)
+                    ( List.length Item.all > 700
+                    , Item.byId "shovel_axe" |> Maybe.map (\i -> Item.gradeLabel i Item.plain)
+                    , [ "gold_ring", "copper_ore" ] |> List.filterMap Item.byId |> List.map (\i -> Item.gradeLabel i Item.plain)
                     )
                         |> Expect.equal ( True, Just "Legendary", [ "Crafted item", "Material" ] )
-            , test "search puts names that start with the query first" <|
+            , test "search puts names that start with the query first, ignoring a leading \"fine\"" <|
                 \_ ->
-                    Item.search "iron pick" |> List.map .id |> List.head |> Expect.equal (Just "iron-pickaxe")
+                    [ "iron pick", "Fine iron pick" ]
+                        |> List.map (Item.search >> List.map .id >> List.head)
+                        |> Expect.equal [ Just "iron_pickaxe", Just "iron_pickaxe" ]
+            ]
+        , describe "Fine items"
+            [ test "are a separate price series from regular ones, and from each crafted quality" <|
+                \_ ->
+                    [ Item.priceKey "iron_bar" Item.plain
+                    , Item.priceKey "iron_bar" { fine = True, quality = Nothing }
+                    , Item.priceKey "iron_pickaxe" { fine = True, quality = Just Item.Perfect }
+                    ]
+                        |> Expect.equal [ "iron_bar", "iron_bar/fine", "iron_pickaxe/fine/perfect" ]
+            , test "are named and labelled as fine" <|
+                \_ ->
+                    ( [ ( "iron_bar", True ), ( "floras_silver_spoon", True ), ( "iron_bar", False ) ]
+                        |> List.filterMap (\( id, fine ) -> Item.byId id |> Maybe.map (\i -> Item.displayName i { fine = fine, quality = Nothing }))
+                    , Item.byId "iron_bar" |> Maybe.map (\i -> Item.gradeLabel i { fine = True, quality = Nothing })
+                    )
+                        |> Expect.equal ( [ "Fine iron bar", "Fine Flora's silver spoon", "Iron bar" ], Just "Fine · Material" )
+            , test "a fine choice is dropped for items that can't be fine" <|
+                \_ ->
+                    [ "iron_bar", "agility_chip" ]
+                        |> List.map (\id -> Page.NewListing.toDraft { form | itemId = Just id, fine = True, price = "50" } |> Result.map (.variant >> .fine))
+                        |> Expect.equal [ Ok True, Ok False ]
             ]
         , describe "Page.NewListing.toDraft"
             [ test "accepts 1.2k style prices and sets quality for crafted items" <|
                 \_ ->
-                    Page.NewListing.toDraft { form | itemId = Just "iron-pickaxe", quality = Item.Perfect, price = "1.2k", quantity = "3" }
-                        |> Result.map (\d -> ( d.quality, d.payment, d.quantity ))
+                    Page.NewListing.toDraft { form | itemId = Just "iron_pickaxe", quality = Item.Perfect, price = "1.2k", quantity = "3" }
+                        |> Result.map (\d -> ( d.variant.quality, d.payment, d.quantity ))
                         |> Expect.equal (Ok ( Just Item.Perfect, Coins 1200, 3 ))
-            , test "loot items have no quality, swaps need an item" <|
+            , test "loot items have no quality" <|
                 \_ ->
-                    ( Page.NewListing.toDraft { form | itemId = Just "shovel-axe", swap = True, swapItemId = Just "iron-bar", price = "4" }
-                        |> Result.map (\d -> ( d.quality, d.payment ))
-                    , Page.NewListing.toDraft { form | itemId = Just "shovel-axe", swap = True, price = "4" } |> Result.toMaybe
-                    )
-                        |> Expect.equal ( Ok ( Nothing, Swap "iron-bar" 4 ), Nothing )
+                    Page.NewListing.toDraft { form | itemId = Just "shovel_axe", price = "4" }
+                        |> Result.map (\d -> ( d.variant.quality, d.payment ))
+                        |> Expect.equal (Ok ( Nothing, Coins 4 ))
             , test "rejects a zero quantity" <|
                 \_ ->
                     Page.NewListing.toDraft { form | itemId = Just "coal", price = "10", quantity = "0" }
@@ -137,10 +160,8 @@ form =
     { itemQuery = ""
     , itemId = Nothing
     , quality = Item.Normal
+    , fine = False
     , side = Selling
-    , swap = False
-    , swapItemId = Nothing
-    , swapQuery = ""
     , quantity = "1"
     , price = ""
     , note = ""

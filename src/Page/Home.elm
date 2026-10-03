@@ -7,13 +7,14 @@ import Html.Attributes as Attr
 import Item
 import Market
 import Pricing
+import Route
 import Types exposing (FrontendModel, FrontendMsg)
 import Ui
 
 
 {-| The price series with the most data, to feature on the homepage.
 -}
-featured : FrontendModel -> Maybe ( Item.Item, Maybe Item.Quality, List Pricing.Point )
+featured : FrontendModel -> Maybe ( Item.Item, Item.Variant, List Pricing.Point )
 featured model =
     Derived.activeSeries model
         |> List.map (\( item, q ) -> ( item, q, Market.pricePoints model.now model.listings model.offers (Item.priceKey item.id q) ))
@@ -42,7 +43,7 @@ view model =
                         [ Html.a [ Attr.href "/market", Attr.id "hero-browse", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "GO TO THE MARKET" ] ]
                     )
                 , if model.me == Nothing then
-                    Html.p [ Attr.class "text-faint text-sm mt-4" ] [ Html.text "Sign in with Apple, Google or Discord" ]
+                    Html.p [ Attr.class "text-faint text-sm mt-4" ] [ Html.text "Sign in with Discord" ]
 
                   else
                     Ui.empty
@@ -58,9 +59,9 @@ view model =
         , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line" ]
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]
             , Html.div [ Attr.class "grid md:grid-cols-3 gap-6" ]
-                [ startStep 1 "Sign in" "Use Apple, Google or Discord."
+                [ startStep 1 "Sign in" "Use your Discord account."
                 , startStep 2 "Claim your name" "Tell us your WalkScape name. Checking it with a coin offer to TrailpostBot comes with trading."
-                , startStep 3 "Post and offer" "List what you'd sell, buy or swap, and make offers on other people's listings."
+                , startStep 3 "Post and offer" "List what you'd sell or buy, and make offers on other people's listings."
                 ]
             ]
         , Html.footer [ Attr.class "px-4 md:px-[72px] py-6 text-faint text-[13px]" ]
@@ -96,7 +97,7 @@ featuredCard model =
                     Pricing.estimate points
             in
             Html.a
-                [ Attr.href ("/prices/" ++ item.id ++ (quality |> Maybe.map (\q -> "?quality=" ++ Item.qualityToString q) |> Maybe.withDefault ""))
+                [ Attr.href (Route.toString (Route.ItemPrice item.id quality))
                 , Attr.class "block no-underline text-ink hover:text-ink"
                 , Ui.testId "featured-price"
                 ]
@@ -104,7 +105,7 @@ featuredCard model =
                     [ Html.div [ Attr.class "flex items-center gap-3.5" ]
                         [ Ui.itemIcon "w-[52px] h-[52px]" item quality
                         , Html.div [ Attr.class "flex-1" ]
-                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
+                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text (Item.displayName item quality) ]
                             , Ui.gradeTag item quality
                             ]
                         , case est of
@@ -133,14 +134,14 @@ featuredCard model =
                 ]
 
         Nothing ->
-            case Item.byId "shovel-axe" of
+            case Item.byId "shovel_axe" of
                 Just item ->
                     Ui.card [ Attr.class "p-5 rounded-2xl", Ui.testId "featured-price" ]
                         [ Html.div [ Attr.class "flex items-center gap-3.5" ]
-                            [ Ui.itemIcon "w-[52px] h-[52px]" item Nothing
+                            [ Ui.itemIcon "w-[52px] h-[52px]" item Item.plain
                             , Html.div [ Attr.class "flex-1" ]
                                 [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
-                                , Ui.gradeTag item Nothing
+                                , Ui.gradeTag item Item.plain
                                 ]
                             ]
                         , Html.div [ Attr.class "my-5 h-[60px] rounded-lg border border-dashed border-rule grid place-items-center text-sm text-faint" ]

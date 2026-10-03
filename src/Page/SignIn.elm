@@ -1,6 +1,9 @@
 module Page.SignIn exposing (viewOnboarding, viewSignIn)
 
 import Auth.Common
+import Auth.Flow
+import AuthProviders
+import Env
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
@@ -68,12 +71,6 @@ stepper current =
 providerName : Provider -> String
 providerName provider =
     case provider of
-        Apple ->
-            "Apple"
-
-        Google ->
-            "Google"
-
         Discord ->
             "Discord"
 
@@ -82,14 +79,7 @@ providerLetter : Provider -> Html msg
 providerLetter provider =
     Html.span
         [ Attr.class
-            ("inline-grid place-items-center w-5 h-5 rounded text-[11px] font-bold "
-                ++ (if provider == Apple then
-                        "bg-black text-white"
-
-                    else
-                        "bg-white text-black"
-                   )
-            )
+            "inline-grid place-items-center w-5 h-5 rounded text-[11px] font-bold bg-white text-black"
         ]
         [ Html.text (String.left 1 (providerName provider)) ]
 
@@ -108,16 +98,21 @@ viewSignIn model =
     Html.div [ Attr.class "flex-1 flex flex-col" ]
         [ stepper StepSignIn
         , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] leading-tight mb-2" ] [ Html.text "Sign in or create an account" ]
-        , Html.p [ Attr.class "text-body mb-5" ] [ Html.text "New here? Pick any option below and we'll create your account." ]
+        , Html.p [ Attr.class "text-body mb-5" ] [ Html.text "New here? Signing in creates your account." ]
         , case model.previewSignInFor of
             Just provider ->
                 viewPreviewSignIn provider
 
             Nothing ->
                 Html.div [ Attr.class "flex flex-col gap-3" ]
-                    [ providerButton Apple "bg-[#f2efe7] text-black hover:bg-white"
-                    , providerButton Google "bg-raised border border-rule text-ink hover:bg-tab"
-                    , providerButton Discord "bg-discord text-white hover:brightness-110"
+                    [ providerButton Discord "bg-discord text-white hover:brightness-110"
+                    , if AuthProviders.isConfigured Discord && Env.mode == Env.Production then
+                        Ui.empty
+
+                      else
+                        -- Lets dev and the E2E tests sign in without real Discord.
+                        Html.button [ Attr.id "signin-preview", Events.onClick (PreviewSignInConfirmed Discord), Attr.class "text-soft text-sm py-1" ]
+                            [ Html.text "Use a preview account instead" ]
                     ]
         , case model.authFlow of
             Auth.Common.Errored _ ->
@@ -157,14 +152,22 @@ viewOnboarding : FrontendModel -> Html FrontendMsg
 viewOnboarding model =
     case model.me of
         Nothing ->
-            if model.authFlow /= Auth.Common.Idle then
-                Html.p [ Attr.class "mt-10 text-muted" ] [ Html.text "Signing you in…" ]
+            case model.authFlow of
+                Auth.Common.Idle ->
+                    Html.div [ Attr.class "mt-10 flex flex-col gap-4" ]
+                        [ Html.p [ Attr.class "text-body" ] [ Html.text "You're signed out." ]
+                        , Html.a [ Attr.href "/signin", Attr.id "goto-signin" ] [ Html.text "Sign in to continue" ]
+                        ]
 
-            else
-                Html.div [ Attr.class "mt-10 flex flex-col gap-4" ]
-                    [ Html.p [ Attr.class "text-body" ] [ Html.text "You're signed out." ]
-                    , Html.a [ Attr.href "/signin", Attr.id "goto-signin" ] [ Html.text "Sign in to continue" ]
-                    ]
+                Auth.Common.Errored err ->
+                    Html.div [ Attr.class "mt-10 flex flex-col gap-4", Ui.testId "auth-error" ]
+                        [ Html.p [ Attr.class "text-warn" ] [ Html.text "That sign-in didn't work. Please try again." ]
+                        , Html.p [ Attr.class "text-faint text-sm" ] [ Html.text (Auth.Flow.errorToString err) ]
+                        , Html.a [ Attr.href "/signin", Attr.id "goto-signin" ] [ Html.text "Back to sign-in" ]
+                        ]
+
+                _ ->
+                    Html.p [ Attr.class "mt-10 text-muted" ] [ Html.text "Signing you in…" ]
 
         Just me ->
             case me.claim of
@@ -191,14 +194,11 @@ viewClaim model me =
         , Html.div [ Attr.class "flex items-center gap-2.5 rounded-xl bg-card border border-edge px-3.5 py-2.5 mb-4 text-soft text-sm", Ui.testId "signed-in-with" ]
             [ providerLetter me.provider
             , Html.text
-                ("Signed in with "
-                    ++ providerName me.provider
-                    ++ (if me.isPreviewLogin then
-                            " (preview account)"
+                (if me.isPreviewLogin then
+                    "Signed in with a preview account"
 
-                        else
-                            ""
-                       )
+                 else
+                    "Signed in with " ++ providerName me.provider
                 )
             ]
         , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] leading-tight mb-4" ] [ Html.text "Which WalkScape account is yours?" ]
@@ -296,7 +296,7 @@ viewDone me claim =
                 ]
             , Html.p [ Attr.class "text-sm text-body" ]
                 [ Html.text
-                    (if me.provider == Discord && not me.isPreviewLogin then
+                    (if not me.isPreviewLogin then
                         "You signed in with Discord, so your handle shows on your profile and traders can message you there."
 
                      else

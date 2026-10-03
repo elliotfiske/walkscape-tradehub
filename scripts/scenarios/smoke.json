@@ -45,14 +45,11 @@
   "goto": "/signin"
  },
  {
-  "click": "#signin-apple"
+  "click": "#signin-preview",
+  "delay": 1500
  },
  {
-  "shot": "signin-preview"
- },
- {
-  "click": "#preview-signin-continue",
-  "delay": 2500
+  "shot": "signin"
  },
  {
   "type": [

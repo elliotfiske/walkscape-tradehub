@@ -45,9 +45,7 @@ import Url exposing (Url)
 
 
 type Provider
-    = Apple
-    | Google
-    | Discord
+    = Discord
 
 
 type ClaimStatus
@@ -93,14 +91,13 @@ type Side
 
 type Payment
     = Coins Int
-    | Swap String Int
 
 
 type alias Listing =
     { id : Int
     , trader : String
     , itemId : String
-    , quality : Maybe Item.Quality
+    , variant : Item.Variant
     , side : Side
     , payment : Payment
     , quantity : Int
@@ -133,7 +130,7 @@ type alias Offer =
 
 type alias ListingDraft =
     { itemId : String
-    , quality : Maybe Item.Quality
+    , variant : Item.Variant
     , side : Side
     , payment : Payment
     , quantity : Int
@@ -165,7 +162,6 @@ type MarketTab
     = AllListings
     | SellingTab
     | BuyingTab
-    | SwapsTab
 
 
 type MarketSort
@@ -178,6 +174,7 @@ type alias MarketFilters =
     { tab : MarketTab
     , rarities : List Item.Rarity
     , qualities : List Item.Quality
+    , fineOnly : Bool
     , sort : MarketSort
     , hideOutliers : Bool
     , search : String
@@ -194,10 +191,8 @@ type alias ListingForm =
     { itemQuery : String
     , itemId : Maybe String
     , quality : Item.Quality
+    , fine : Bool
     , side : Side
-    , swap : Bool
-    , swapItemId : Maybe String
-    , swapQuery : String
     , quantity : String
     , price : String
     , note : String
@@ -265,6 +260,7 @@ type FrontendMsg
     | SortSelected MarketSort
     | RarityToggled Item.Rarity
     | QualityToggled Item.Quality
+    | FineOnlyToggled
     | HideOutliersToggled
     | FiltersToggled
     | NoticeDismissed
@@ -272,10 +268,8 @@ type FrontendMsg
     | ListingItemPicked String
     | ListingItemCleared
     | ListingQualityPicked Item.Quality
+    | ListingFineToggled Bool
     | ListingSidePicked Side
-    | ListingSwapToggled Bool
-    | ListingSwapQueryChanged String
-    | ListingSwapItemPicked String
     | ListingQuantityChanged String
     | ListingPriceChanged String
     | ListingNoteChanged String

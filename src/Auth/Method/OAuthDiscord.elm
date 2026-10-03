@@ -38,6 +38,10 @@ configuration clientId clientSecret =
         }
 
 
+{-| `UserInfo` has no id field, so the Discord user id (a stable snowflake)
+goes in `email`; with only the `identify` scope Discord sends no email anyway.
+Accounts are keyed by it, because Discord usernames can change and be reused.
+-}
 getUserInfo : OAuth.AuthenticationSuccess -> Task Auth.Common.Error UserInfo
 getUserInfo authenticationSuccess =
     Http.task
@@ -47,7 +51,8 @@ getUserInfo authenticationSuccess =
         , body = Http.emptyBody
         , resolver =
             HttpHelpers.jsonResolver
-                (Json.map2 (\username globalName -> { email = "", name = globalName, username = Just username })
+                (Json.map3 (\id username globalName -> { email = id, name = globalName, username = Just username })
+                    (Json.field "id" Json.string)
                     (Json.field "username" Json.string)
                     (Json.maybe (Json.field "global_name" Json.string))
                 )

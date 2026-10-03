@@ -19,7 +19,7 @@ import Item
 import Market
 import Pricing
 import Time
-import Types exposing (ClaimStatus(..), FrontendModel, Listing, MarketSort(..), MarketTab(..), Offer, OfferStatus(..), Payment(..), Side(..))
+import Types exposing (ClaimStatus(..), FrontendModel, Listing, MarketSort(..), MarketTab(..), Offer, OfferStatus(..), Side(..))
 
 
 myName : FrontendModel -> Maybe String
@@ -42,24 +42,24 @@ estimateFor model key =
     Market.pricePoints model.now model.listings model.offers key |> Pricing.estimate
 
 
-{-| Price series (item + quality) that have at least one live listing.
+{-| Price series (item + fine + quality) that have at least one live listing.
 -}
-activeSeries : FrontendModel -> List ( Item.Item, Maybe Item.Quality )
+activeSeries : FrontendModel -> List ( Item.Item, Item.Variant )
 activeSeries model =
     model.listings
         |> Dict.values
         |> List.filter (Market.isLive model.now)
-        |> List.map (\l -> ( Item.priceKey l.itemId l.quality, ( l.itemId, l.quality ) ))
+        |> List.map (\l -> ( Item.priceKey l.itemId l.variant, ( l.itemId, l.variant ) ))
         |> Dict.fromList
         |> Dict.values
-        |> List.filterMap (\( itemId, quality ) -> Item.byId itemId |> Maybe.map (\item -> ( item, quality )))
+        |> List.filterMap (\( itemId, variant ) -> Item.byId itemId |> Maybe.map (\item -> ( item, variant )))
 
 
 {-| The estimate a listing's price is compared against, and how far off it is.
 -}
 listingEstimate : FrontendModel -> Listing -> Maybe ( Pricing.Estimate, Int )
 listingEstimate model listing =
-    case ( estimateFor model (Item.priceKey listing.itemId listing.quality), Market.unitPrice listing ) of
+    case ( estimateFor model (Item.priceKey listing.itemId listing.variant), Market.unitPrice listing ) of
         ( Just est, Just price ) ->
             Just ( est, Pricing.deviationPercent est.median price )
 
@@ -158,24 +158,15 @@ marketListings model =
             String.toLower (String.trim f.search)
 
         tabOk l =
-            case ( f.tab, l.payment ) of
-                ( AllListings, _ ) ->
+            case f.tab of
+                AllListings ->
                     True
 
-                ( SwapsTab, Swap _ _ ) ->
-                    True
-
-                ( SwapsTab, Coins _ ) ->
-                    False
-
-                ( SellingTab, Coins _ ) ->
+                SellingTab ->
                     l.side == Selling
 
-                ( BuyingTab, Coins _ ) ->
+                BuyingTab ->
                     l.side == Buying
-
-                _ ->
-                    False
 
         gradeOk l =
             case Market.item l of
@@ -190,14 +181,14 @@ marketListings model =
                                     List.isEmpty f.rarities
 
                         qualityOk =
-                            case l.quality of
+                            case l.variant.quality of
                                 Just q ->
                                     List.isEmpty f.qualities || List.member q f.qualities
 
                                 Nothing ->
                                     List.isEmpty f.qualities
                     in
-                    rarityOk && qualityOk
+                    rarityOk && qualityOk && (l.variant.fine || not f.fineOnly)
 
                 Nothing ->
                     False
@@ -206,7 +197,7 @@ marketListings model =
             query
                 == ""
                 || String.contains query (String.toLower l.trader)
-                || (Market.item l |> Maybe.map (\i -> String.contains query (String.toLower i.name)) |> Maybe.withDefault False)
+                || (Market.item l |> Maybe.map (\i -> String.contains query (String.toLower (Item.displayName i l.variant))) |> Maybe.withDefault False)
 
         outlierOk l =
             not f.hideOutliers

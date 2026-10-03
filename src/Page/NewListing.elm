@@ -12,6 +12,22 @@ import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm
 import Ui
 
 
+{-| The fine flag and quality the form describes for this item. A fine
+choice left over from another item is dropped if this one can't be fine.
+-}
+variantFor : Item.Item -> ListingForm -> Item.Variant
+variantFor item form =
+    { fine = form.fine && item.canBeFine
+    , quality =
+        case item.kind of
+            Item.Crafted ->
+                Just form.quality
+
+            _ ->
+                Nothing
+    }
+
+
 {-| Check the form and turn it into what the backend expects.
 -}
 toDraft : ListingForm -> Result String ListingDraft
@@ -22,41 +38,17 @@ toDraft form =
 
         Just item ->
             let
-                quality =
-                    case item.kind of
-                        Item.Crafted ->
-                            Just form.quality
-
-                        _ ->
-                            Nothing
-
                 payment =
-                    if form.swap then
-                        case ( form.swapItemId, Ui.parseAmount form.price ) of
-                            ( Nothing, _ ) ->
-                                Err "Pick the item you want in exchange."
+                    case Ui.parseAmount form.price of
+                        Just price ->
+                            if price > 0 then
+                                Ok (Coins price)
 
-                            ( Just swapId, Just qty ) ->
-                                if qty > 0 then
-                                    Ok (Swap swapId qty)
+                            else
+                                Err "Enter a price above zero."
 
-                                else
-                                    Err "Enter how many you want in exchange."
-
-                            ( Just _, Nothing ) ->
-                                Err "Enter how many you want in exchange."
-
-                    else
-                        case Ui.parseAmount form.price of
-                            Just price ->
-                                if price > 0 then
-                                    Ok (Coins price)
-
-                                else
-                                    Err "Enter a price above zero."
-
-                            Nothing ->
-                                Err "Enter a price in coins, like 1200 or 1.2k."
+                        Nothing ->
+                            Err "Enter a price in coins, like 1200 or 1.2k."
             in
             case String.toInt (String.trim form.quantity) of
                 Just quantity ->
@@ -68,7 +60,7 @@ toDraft form =
                             |> Result.map
                                 (\p ->
                                     { itemId = item.id
-                                    , quality = quality
+                                    , variant = variantFor item form
                                     , side = form.side
                                     , payment = p
                                     , quantity = quantity
@@ -127,17 +119,6 @@ viewForm model =
         selected =
             form.itemId |> Maybe.andThen Item.byId
 
-        quality =
-            selected
-                |> Maybe.andThen
-                    (\item ->
-                        case item.kind of
-                            Item.Crafted ->
-                                Just form.quality
-
-                            _ ->
-                                Nothing
-                    )
     in
     Html.div [ Attr.class "flex flex-col gap-4" ]
         [ Html.div []
@@ -145,22 +126,11 @@ viewForm model =
             , case selected of
                 Just item ->
                     Ui.card [ Attr.class "flex items-center gap-3 p-3", Ui.testId "picked-item" ]
-                        [ Ui.itemIcon "w-11 h-11" item quality
+                        [ Ui.itemIcon "w-11 h-11" item (variantFor item form)
                         , Html.div [ Attr.class "flex-1" ]
-                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
+                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text (Item.displayName item (variantFor item form)) ]
                             , Html.div [ Attr.class "font-bold text-[10px] tracking-widest text-muted uppercase" ]
-                                [ Html.text
-                                    (case item.kind of
-                                        Item.Crafted ->
-                                            "Crafted item"
-
-                                        Item.Loot r ->
-                                            Item.rarityLabel r
-
-                                        Item.Plain category ->
-                                            category
-                                    )
-                                ]
+                                [ Html.text (Item.gradeLabel item { fine = (variantFor item form).fine, quality = Nothing }) ]
                             ]
                         , Ui.button "change-item" "text-soft text-sm" ListingItemCleared "Change"
                         ]
@@ -168,6 +138,22 @@ viewForm model =
                 Nothing ->
                     itemPicker "item" form.itemQuery ListingItemQueryChanged ListingItemPicked
             ]
+        , case selected of
+            Just item ->
+                if item.canBeFine then
+                    Html.div []
+                        [ Ui.segmented
+                            [ { id = "variant-regular", label = "Regular", active = not form.fine, msg = ListingFineToggled False }
+                            , { id = "variant-fine", label = "✦ Fine", active = form.fine, msg = ListingFineToggled True }
+                            ]
+                        , Html.p [ Attr.class "text-xs text-faint mt-1.5" ] [ Html.text "Fine items are priced separately from regular ones." ]
+                        ]
+
+                else
+                    Ui.empty
+
+            Nothing ->
+                Ui.empty
         , case selected |> Maybe.map .kind of
             Just Item.Crafted ->
                 Html.div []
@@ -215,65 +201,17 @@ viewForm model =
             [ { id = "side-sell", label = "Sell", active = form.side == Selling, msg = ListingSidePicked Selling }
             , { id = "side-buy", label = "Buy", active = form.side == Buying, msg = ListingSidePicked Buying }
             ]
-        , Html.div []
-            [ Ui.label
-                (if form.side == Selling then
-                    "Paid with"
-
-                 else
-                    "Paying with"
-                )
-            , Ui.segmented
-                [ { id = "pay-coins", label = "Coin price", active = not form.swap, msg = ListingSwapToggled False }
-                , { id = "pay-swap", label = "Item swap", active = form.swap, msg = ListingSwapToggled True }
-                ]
-            ]
-        , if form.swap then
-            Html.div []
-                [ Ui.label
-                    (if form.side == Selling then
-                        "In exchange for"
-
-                     else
-                        "Offering"
-                    )
-                , case form.swapItemId |> Maybe.andThen Item.byId of
-                    Just swapItem ->
-                        Ui.card [ Attr.class "flex items-center gap-3 p-3" ]
-                            [ Ui.itemIcon "w-9 h-9" swapItem Nothing
-                            , Html.div [ Attr.class "flex-1 font-semibold" ] [ Html.text swapItem.name ]
-                            , Ui.button "change-swap-item" "text-soft text-sm" (ListingSwapItemPicked "") "Change"
-                            ]
-
-                    Nothing ->
-                        itemPicker "swap" form.swapQuery ListingSwapQueryChanged ListingSwapItemPicked
-                ]
-
-          else
-            Ui.empty
         , Html.div [ Attr.class "grid grid-cols-[110px_1fr] gap-3" ]
             [ Html.div []
                 [ Ui.label "Quantity"
                 , Ui.textInput [ Attr.id "quantity", Attr.attribute "inputmode" "numeric", Attr.class "text-leaf font-bold" ] form.quantity ListingQuantityChanged
                 ]
             , Html.div []
-                [ Ui.label
-                    (if form.swap then
-                        "How many"
-
-                     else
-                        "Price each"
-                    )
+                [ Ui.label "Price each"
                 , Ui.textInput
                     [ Attr.id "price"
                     , Attr.attribute "inputmode" "numeric"
-                    , Attr.placeholder
-                        (if form.swap then
-                            "4"
-
-                         else
-                            "48,000"
-                        )
+                    , Attr.placeholder "48,000"
                     ]
                     form.price
                     ListingPriceChanged
@@ -336,7 +274,7 @@ itemPicker prefix query onQuery onPick =
                         , Events.onClick (onPick item.id)
                         , Attr.class "flex items-center gap-2.5 rounded-lg bg-card border border-edge hover:bg-raised px-2.5 py-2 text-left"
                         ]
-                        [ Ui.itemIcon "w-8 h-8 rounded-md" item Nothing
+                        [ Ui.itemIcon "w-8 h-8 rounded-md" item Item.plain
                         , Html.span [ Attr.class "text-sm font-semibold" ] [ Html.text item.name ]
                         ]
                 )
@@ -347,21 +285,27 @@ itemPicker prefix query onQuery onPick =
 
 medianCheck : FrontendModel -> ListingForm -> Html msg
 medianCheck model form =
-    case ( form.itemId |> Maybe.andThen Item.byId, Ui.parseAmount form.price, form.swap ) of
-        ( Just item, Just price, False ) ->
+    case ( form.itemId |> Maybe.andThen Item.byId, Ui.parseAmount form.price ) of
+        ( Just item, Just price ) ->
             let
-                quality =
-                    case item.kind of
-                        Item.Crafted ->
-                            Just form.quality
-
-                        _ ->
-                            Nothing
+                variant =
+                    variantFor item form
 
                 gradeName =
-                    quality |> Maybe.map Item.qualityLabel |> Maybe.withDefault item.name
+                    case variant.quality of
+                        Just q ->
+                            (if variant.fine then
+                                "fine "
+
+                             else
+                                ""
+                            )
+                                ++ Item.qualityLabel q
+
+                        Nothing ->
+                            Item.displayName item variant
             in
-            case Derived.estimateFor model (Item.priceKey item.id quality) of
+            case Derived.estimateFor model (Item.priceKey item.id variant) of
                 Just est ->
                     let
                         pct =

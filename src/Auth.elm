@@ -3,7 +3,6 @@ module Auth exposing (backendConfig)
 import Auth.Common
 import Auth.Flow
 import Auth.Method.OAuthDiscord
-import Auth.Method.OAuthGoogle
 import AuthProviders
 import Env
 import Lamdera
@@ -28,8 +27,7 @@ config =
     , sendToFrontend = Lamdera.sendToFrontend
     , sendToBackend = Lamdera.sendToBackend
     , methods =
-        [ Auth.Method.OAuthGoogle.configuration Env.googleClientId Env.googleClientSecret
-        , Auth.Method.OAuthDiscord.configuration Env.discordClientId Env.discordClientSecret
+        [ Auth.Method.OAuthDiscord.configuration Env.discordClientId Env.discordClientSecret
         ]
     , renewSession = \_ _ model -> ( model, Cmd.none )
     }
@@ -66,13 +64,9 @@ handleAuthSuccess model sessionId clientId userInfo methodId_ _ now =
     case AuthProviders.providerFromMethodId methodId_ of
         Just provider ->
             let
+                -- The Discord user id (see OAuthDiscord).
                 subject =
-                    case userInfo.username of
-                        Just username ->
-                            username
-
-                        Nothing ->
-                            userInfo.email
+                    userInfo.email
 
                 ( newModel, user ) =
                     Users.signIn

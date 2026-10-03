@@ -20,7 +20,8 @@ signIn info sessionId now model =
         user =
             case Dict.get info.userId model.users of
                 Just existing ->
-                    existing
+                    -- Discord handles can change, so refresh it on each sign-in.
+                    { existing | oauthUsername = info.oauthUsername }
 
                 Nothing ->
                     { id = info.userId

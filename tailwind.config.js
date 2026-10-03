@@ -32,8 +32,6 @@ module.exports = {
         discord: '#5865f2',
         sell: '#2d7064',
         buy: '#2e4b75',
-        swap: '#77386f',
-        swapink: '#e7a6dc',
         r: {
           common: '#9aa3a7',
           uncommon: '#6fc36a',

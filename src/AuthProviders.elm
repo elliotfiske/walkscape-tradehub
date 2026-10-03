@@ -8,18 +8,9 @@ import Env
 import Types exposing (Provider(..))
 
 
-{-| Apple sign-in needs a POST callback (an RPC endpoint) and a signed client
-secret; until that's built it always uses the placeholder preview sign-in.
--}
 methodIdFor : Provider -> Maybe String
 methodIdFor provider =
     case provider of
-        Apple ->
-            Nothing
-
-        Google ->
-            Just "OAuthGoogle"
-
         Discord ->
             Just "OAuthDiscord"
 
@@ -27,9 +18,6 @@ methodIdFor provider =
 providerFromMethodId : String -> Maybe Provider
 providerFromMethodId id =
     case id of
-        "OAuthGoogle" ->
-            Just Google
-
         "OAuthDiscord" ->
             Just Discord
 
@@ -43,11 +31,5 @@ here, because this runs on the frontend too.
 isConfigured : Provider -> Bool
 isConfigured provider =
     case provider of
-        Apple ->
-            False
-
-        Google ->
-            Env.googleClientId /= ""
-
         Discord ->
             Env.discordClientId /= ""

@@ -8,14 +8,15 @@ import Html.Attributes as Attr
 import Item
 import Market
 import Pricing
+import Route
 import Time
 import Types exposing (FrontendModel, FrontendMsg)
 import Ui
 
 
-itemUrl : String -> Maybe Item.Quality -> String
-itemUrl id quality =
-    "/prices/" ++ id ++ (quality |> Maybe.map (\q -> "?quality=" ++ Item.qualityToString q) |> Maybe.withDefault "")
+itemUrl : String -> Item.Variant -> String
+itemUrl id variant =
+    Route.toString (Route.ItemPrice id variant)
 
 
 viewIndex : FrontendModel -> Html FrontendMsg
@@ -42,7 +43,7 @@ viewIndex model =
                         ]
                         [ Html.div [ Attr.class "flex items-center gap-3 min-w-0" ]
                             [ Ui.itemIcon "w-10 h-10" item q
-                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text item.name ], Ui.gradeTag item q ]
+                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text (Item.displayName item q) ], Ui.gradeTag item q ]
                             ]
                         , Ui.coinAmount est.median
                         , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high) ]
@@ -59,24 +60,27 @@ viewIndex model =
         ]
 
 
-viewItem : FrontendModel -> String -> Maybe Item.Quality -> Html FrontendMsg
-viewItem model itemId requestedQuality =
+viewItem : FrontendModel -> String -> Item.Variant -> Html FrontendMsg
+viewItem model itemId requested =
     case Item.byId itemId of
         Nothing ->
             Html.div [ Attr.class "p-10 text-center text-muted" ] [ Html.text "We don't know that item." ]
 
         Just item ->
             let
-                quality =
-                    case item.kind of
-                        Item.Crafted ->
-                            Just (Maybe.withDefault Item.Normal requestedQuality)
+                variant =
+                    { fine = requested.fine && item.canBeFine
+                    , quality =
+                        case item.kind of
+                            Item.Crafted ->
+                                Just (Maybe.withDefault Item.Normal requested.quality)
 
-                        _ ->
-                            Nothing
+                            _ ->
+                                Nothing
+                    }
 
                 key =
-                    Item.priceKey item.id quality
+                    Item.priceKey item.id variant
 
                 points =
                     Market.pricePoints model.now model.listings model.offers key
@@ -90,7 +94,7 @@ viewItem model itemId requestedQuality =
                 listingCount =
                     model.listings
                         |> Dict.values
-                        |> List.filter (\l -> not l.closed && Market.isLive model.now l && Item.priceKey l.itemId l.quality == key)
+                        |> List.filter (\l -> not l.closed && Market.isLive model.now l && Item.priceKey l.itemId l.variant == key)
                         |> List.length
 
                 tile label value sub color =
@@ -104,10 +108,10 @@ viewItem model itemId requestedQuality =
                 [ Html.div [ Attr.class "flex flex-col gap-4 min-w-0" ]
                     [ Html.div [ Attr.class "flex flex-col sm:flex-row sm:items-center gap-4" ]
                         [ Html.div [ Attr.class "flex items-center gap-4 flex-1" ]
-                            [ Ui.itemIcon "w-[68px] h-[68px] rounded-xl" item quality
+                            [ Ui.itemIcon "w-[68px] h-[68px] rounded-xl" item variant
                             , Html.div []
-                                [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px] leading-tight", Ui.testId "item-name" ] [ Html.text item.name ]
-                                , Ui.gradeTag item quality
+                                [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px] leading-tight", Ui.testId "item-name" ] [ Html.text (Item.displayName item variant) ]
+                                , Ui.gradeTag item variant
                                 ]
                             ]
                         , Html.div [ Attr.class "flex gap-2.5" ]
@@ -116,6 +120,14 @@ viewItem model itemId requestedQuality =
                             , Html.a [ Attr.href "/new", Attr.class "rounded-[10px] bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-4 py-2.5 text-sm" ] [ Html.text "POST A LISTING" ]
                             ]
                         ]
+                    , if item.canBeFine then
+                        Html.div [ Attr.class "flex gap-1.5", Ui.testId "fine-switch" ]
+                            [ variantLink "price-regular" (itemUrl item.id { variant | fine = False }) (not variant.fine) "Regular"
+                            , variantLink "price-fine" (itemUrl item.id { variant | fine = True }) variant.fine "✦ Fine"
+                            ]
+
+                      else
+                        Ui.empty
                     , case item.kind of
                         Item.Crafted ->
                             Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
@@ -124,10 +136,10 @@ viewItem model itemId requestedQuality =
                                         (\q ->
                                             let
                                                 active =
-                                                    Just q == quality
+                                                    Just q == variant.quality
                                             in
                                             Html.a
-                                                [ Attr.href (itemUrl item.id (Just q))
+                                                [ Attr.href (itemUrl item.id { variant | quality = Just q })
                                                 , Attr.class "px-2.5 py-1 rounded-md text-[13px] no-underline"
                                                 , Attr.style "border" ("1px solid " ++ Item.qualityColor q)
                                                 , Attr.style "color"
@@ -190,7 +202,6 @@ viewItem model itemId requestedQuality =
                         , method "Median, not average." "One huge price can't drag the number around."
                         , method "One vote per trader per day." "Re-posting the same item counts once. Your latest price that day is the one used."
                         , method "Outliers cut." "Prices more than 2.5× the typical spread from the median are shown but left out."
-                        , method "Swaps don't count." "Item-for-item swaps have no coin price, so they're left out of the estimate."
                         ]
                     , Ui.card [ Attr.class "p-5 flex flex-col gap-2" ]
                         [ Html.div [ Attr.class "font-bold text-[11px] tracking-[0.14em] text-muted" ] [ Html.text "DATA HEALTH" ]
@@ -301,3 +312,21 @@ pointTable model classified est =
                         )
                )
         )
+
+
+variantLink : String -> String -> Bool -> String -> Html msg
+variantLink id href active label =
+    Html.a
+        [ Attr.id id
+        , Attr.href href
+        , Attr.class
+            ("px-3 py-1 rounded-md text-[13px] font-semibold no-underline border "
+                ++ (if active then
+                        "bg-gold border-gold text-[#0a1014] hover:text-[#0a1014]"
+
+                    else
+                        "border-rule text-soft hover:text-ink"
+                   )
+            )
+        ]
+        [ Html.text label ]

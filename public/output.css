@@ -654,8 +654,16 @@ a:hover {
   bottom: -0.5rem;
 }
 
+.-right-1\.5 {
+  right: -0.375rem;
+}
+
 .-right-2 {
   right: -0.5rem;
+}
+
+.-top-1\.5 {
+  top: -0.375rem;
 }
 
 .bottom-0 {
@@ -1360,6 +1368,11 @@ a:hover {
   border-color: rgb(36 52 60 / var(--tw-border-opacity, 1));
 }
 
+.border-gold {
+  --tw-border-opacity: 1;
+  border-color: rgb(227 181 76 / var(--tw-border-opacity, 1));
+}
+
 .border-gold\/40 {
   border-color: rgb(227 181 76 / 0.4);
 }
@@ -1438,19 +1451,9 @@ a:hover {
   background-color: rgb(168 64 58 / var(--tw-bg-opacity, 1));
 }
 
-.bg-\[\#f2efe7\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(242 239 231 / var(--tw-bg-opacity, 1));
-}
-
 .bg-bar {
   --tw-bg-opacity: 1;
   background-color: rgb(13 22 27 / var(--tw-bg-opacity, 1));
-}
-
-.bg-black {
-  --tw-bg-opacity: 1;
-  background-color: rgb(0 0 0 / var(--tw-bg-opacity, 1));
 }
 
 .bg-buy {
@@ -1516,11 +1519,6 @@ a:hover {
 .bg-shell {
   --tw-bg-opacity: 1;
   background-color: rgb(10 16 20 / var(--tw-bg-opacity, 1));
-}
-
-.bg-swap {
-  --tw-bg-opacity: 1;
-  background-color: rgb(119 56 111 / var(--tw-bg-opacity, 1));
 }
 
 .bg-tab {
@@ -1935,6 +1933,11 @@ a:hover {
   letter-spacing: 0.1em;
 }
 
+.text-\[\#0a1014\] {
+  --tw-text-opacity: 1;
+  color: rgb(10 16 20 / var(--tw-text-opacity, 1));
+}
+
 .text-\[\#9be07f\] {
   --tw-text-opacity: 1;
   color: rgb(155 224 127 / var(--tw-text-opacity, 1));
@@ -2010,11 +2013,6 @@ a:hover {
   color: rgb(207 214 217 / var(--tw-text-opacity, 1));
 }
 
-.text-swapink {
-  --tw-text-opacity: 1;
-  color: rgb(231 166 220 / var(--tw-text-opacity, 1));
-}
-
 .text-warn {
   --tw-text-opacity: 1;
   color: rgb(240 138 127 / var(--tw-text-opacity, 1));
@@ -2084,6 +2082,11 @@ a:hover {
   box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
 }
 
+.drop-shadow {
+  --tw-drop-shadow: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+
 .filter {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
@@ -2127,9 +2130,9 @@ a:hover {
   background-color: rgb(29 42 49 / var(--tw-bg-opacity, 1));
 }
 
-.hover\:bg-white:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+.hover\:text-\[\#0a1014\]:hover {
+  --tw-text-opacity: 1;
+  color: rgb(10 16 20 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-gold:hover {

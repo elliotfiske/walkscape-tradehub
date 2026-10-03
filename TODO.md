@@ -5,14 +5,9 @@ Things the preview leaves for later. The original starter checklist is done
 
 ## Needs input from Elliot
 
-- **OAuth credentials.** Google and Discord are wired through `Auth.elm`; set
-  the client id/secret pairs in Lamdera's env vars (and locally in `src/Env.elm`,
-  never committed). Until then those buttons use preview accounts.
-- **Apple sign-in.** Needs an RPC endpoint for Apple's POST callback and a
-  signed JWT client secret. `Auth.methodIdFor Apple` returns `Nothing` today.
-- **Item catalog.** Scraped from walkscapedb.com (`scripts/import-items.py` →
-  `src/ItemData.elm`). Switch the script to the official API once the key
-  arrives; keep the same output shape. Item icons are still placeholders.
+- **Discord credentials in production.** Set `discordClientId` /
+  `discordClientSecret` in Lamdera's env vars and add the production callback
+  URL in the Discord Developer Portal.
 
 ## When trading goes live
 

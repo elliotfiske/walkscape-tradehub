@@ -347,7 +347,7 @@ handleRequest sessionId clientId now msg model =
                                         { id = model.nextId
                                         , trader = name
                                         , itemId = valid.itemId
-                                        , quality = valid.quality
+                                        , variant = valid.variant
                                         , side = valid.side
                                         , payment = valid.payment
                                         , quantity = valid.quantity
@@ -556,7 +556,7 @@ validateDraft draft =
         Just item ->
             let
                 qualityOk =
-                    case ( item.kind, draft.quality ) of
+                    case ( item.kind, draft.variant.quality ) of
                         ( Item.Crafted, Just _ ) ->
                             True
 
@@ -577,19 +577,12 @@ validateDraft draft =
 
                             else
                                 Err "Enter a price above zero."
-
-                        Swap swapId qty ->
-                            if Item.byId swapId == Nothing then
-                                Err "Pick the item you want in exchange."
-
-                            else if qty <= 0 || qty > 1000000 then
-                                Err "Enter how many you want in exchange."
-
-                            else
-                                Ok ()
             in
             if not qualityOk then
                 Err "Pick a quality for crafted items."
+
+            else if draft.variant.fine && not item.canBeFine then
+                Err "This item doesn't come in a fine version."
 
             else if draft.quantity <= 0 || draft.quantity > 1000000 then
                 Err "Enter a quantity above zero."

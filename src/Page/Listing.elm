@@ -8,7 +8,8 @@ import Html.Events as Events
 import Item exposing (Item)
 import Market
 import Pricing
-import Types exposing (FrontendModel, FrontendMsg(..), Listing, Offer, OfferStatus(..), Payment(..), Side(..))
+import Route
+import Types exposing (FrontendModel, FrontendMsg(..), Listing, Offer, OfferStatus(..), Side(..))
 import Ui
 
 
@@ -40,14 +41,11 @@ viewListing model listing item =
             Derived.myName model == Just listing.trader
 
         verb =
-            case ( listing.side, listing.payment ) of
-                ( _, Swap _ _ ) ->
-                    "Swapping"
-
-                ( Selling, _ ) ->
+            case listing.side of
+                Selling ->
                     "Selling"
 
-                ( Buying, _ ) ->
+                Buying ->
                     "Buying"
     in
     Html.div [ Attr.class "flex-1 grid lg:grid-cols-[minmax(0,1fr)_320px]" ]
@@ -55,7 +53,7 @@ viewListing model listing item =
             [ Html.div [ Attr.class "flex items-center gap-3 flex-wrap" ]
                 [ Html.a [ Attr.href "/market", Attr.class "w-9 h-9 rounded-lg bg-raised border border-rule grid place-items-center text-gold no-underline" ] [ Html.text "‹" ]
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] md:text-[28px]", Ui.testId "listing-title" ]
-                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name) ]
+                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ Item.displayName item listing.variant) ]
                 , statusTag model listing
                 ]
             , Html.div [ Attr.class "grid md:grid-cols-2 gap-4" ]
@@ -104,24 +102,21 @@ termsCard : FrontendModel -> Listing -> Item -> Html msg
 termsCard model listing item =
     Ui.card [ Attr.class "p-4 flex flex-col gap-3" ]
         [ Html.div [ Attr.class "flex items-center gap-3" ]
-            [ Ui.itemIcon "w-12 h-12" item listing.quality
+            [ Ui.itemIcon "w-12 h-12" item listing.variant
             , Html.div [ Attr.class "flex-1" ]
-                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text item.name ]
-                , Ui.gradeTag item listing.quality
+                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text (Item.displayName item listing.variant) ]
+                , Ui.gradeTag item listing.variant
                 ]
             , Ui.sideBadge listing
             ]
         , Html.div [ Attr.class "rounded-lg bg-[#16232a] px-3.5 py-3 flex items-center justify-between" ]
             [ Html.span [ Attr.class "text-muted text-sm" ]
                 [ Html.text
-                    (case ( listing.side, listing.payment ) of
-                        ( _, Swap _ _ ) ->
-                            "Wants"
-
-                        ( Selling, _ ) ->
+                    (case listing.side of
+                        Selling ->
                             "Asking"
 
-                        ( Buying, _ ) ->
+                        Buying ->
                             "Paying"
                     )
                 ]
@@ -175,7 +170,7 @@ valueCard model listing =
                     [ Html.span [] [ Html.text "−50%" ], Html.span [] [ Html.text ("estimate " ++ Ui.formatInt est.median) ], Html.span [] [ Html.text "+50%" ] ]
                 , Html.p [ Attr.class "text-xs text-faint" ]
                     [ Html.text ("Preview estimate from " ++ String.fromInt est.counted ++ " prices by " ++ String.fromInt est.traders ++ " traders. Typical range " ++ Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high ++ ".") ]
-                , Html.a [ Attr.href ("/prices/" ++ listing.itemId ++ (listing.quality |> Maybe.map (\q -> "?quality=" ++ Item.qualityToString q) |> Maybe.withDefault "")), Attr.class "text-sm" ]
+                , Html.a [ Attr.href (Route.toString (Route.ItemPrice listing.itemId listing.variant)), Attr.class "text-sm" ]
                     [ Html.text "See price history" ]
                 ]
 
@@ -183,13 +178,7 @@ valueCard model listing =
                 [ Html.span [ Attr.class "font-semibold text-sm" ] [ Html.text "Fair-value check" ]
                 , Html.p [ Attr.class "text-sm text-muted" ]
                     [ Html.text
-                        (case listing.payment of
-                            Swap _ _ ->
-                                "Swaps don't have a coin price, so there's nothing to compare yet."
-
-                            Coins _ ->
-                                "Not enough prices for this item yet. Each listing and offer helps build the estimate."
-                        )
+                        "Not enough prices for this item yet. Each listing and offer helps build the estimate."
                     ]
                 ]
         )
@@ -251,15 +240,12 @@ offerRow : FrontendModel -> Listing -> Bool -> Offer -> Html FrontendMsg
 offerRow model listing isMine offer =
     let
         priceLabel =
-            case ( offer.price, listing.payment ) of
-                ( Just p, _ ) ->
+            case offer.price of
+                Just p ->
                     Html.span [ Attr.class "inline-flex items-center gap-1" ] [ Ui.coinAmount p, Html.span [ Attr.class "text-xs text-faint" ] [ Html.text "ea" ] ]
 
-                ( Nothing, Coins _ ) ->
+                Nothing ->
                     Html.span [ Attr.class "text-sm text-leaf font-semibold" ] [ Html.text "At your price" ]
-
-                ( Nothing, Swap _ _ ) ->
-                    Html.span [ Attr.class "text-sm text-leaf font-semibold" ] [ Html.text "Takes the swap" ]
 
         statusText =
             case offer.status of
@@ -320,16 +306,8 @@ offerForm model listing myOffer =
             form =
                 model.offerForm
 
-            isCoin =
-                case listing.payment of
-                    Coins _ ->
-                        True
-
-                    Swap _ _ ->
-                        False
-
             preview =
-                case ( Derived.estimateFor model (Item.priceKey listing.itemId listing.quality), Ui.parseAmount form.price ) of
+                case ( Derived.estimateFor model (Item.priceKey listing.itemId listing.variant), Ui.parseAmount form.price ) of
                     ( Just est, Just p ) ->
                         if form.counter then
                             let
@@ -385,15 +363,11 @@ offerForm model listing myOffer =
                         "Update your offer"
                     )
                 ]
-            , if isCoin then
-                Ui.segmented
-                    [ { id = "offer-at-price", label = "At their price", active = not form.counter, msg = OfferCounterToggled False }
-                    , { id = "offer-counter", label = "Counter-offer", active = form.counter, msg = OfferCounterToggled True }
-                    ]
-
-              else
-                Ui.empty
-            , if form.counter && isCoin then
+            , Ui.segmented
+                [ { id = "offer-at-price", label = "At their price", active = not form.counter, msg = OfferCounterToggled False }
+                , { id = "offer-counter", label = "Counter-offer", active = form.counter, msg = OfferCounterToggled True }
+                ]
+            , if form.counter then
                 Html.div []
                     [ Ui.label "Your price each (coins)"
                     , Ui.textInput [ Attr.id "offer-price", Attr.attribute "inputmode" "numeric", Attr.placeholder "e.g. 9400" ] form.price OfferPriceChanged

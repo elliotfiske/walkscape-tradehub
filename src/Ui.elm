@@ -144,53 +144,43 @@ priceText listing =
                     empty
                 ]
 
-        Swap itemId qty ->
-            Html.span [ Attr.class "font-semibold text-swapink" ]
-                [ Html.text
-                    ("for "
-                        ++ String.fromInt qty
-                        ++ "x "
-                        ++ (Item.byId itemId |> Maybe.map .name |> Maybe.withDefault itemId)
-                    )
-                ]
 
-
-itemIcon : String -> Item -> Maybe Item.Quality -> Html msg
-itemIcon size item quality =
+{-| An item's icon, framed in its rarity/quality colour. Fine items get a
+gold sparkle in the corner.
+-}
+itemIcon : String -> Item -> Item.Variant -> Html msg
+itemIcon size item variant =
     Html.div
-        [ Attr.class ("hatch flex-none grid place-items-center rounded-lg font-mono text-[10px] font-semibold text-muted " ++ size)
-        , Attr.style "border" ("1.5px solid " ++ Item.gradeColor item quality)
+        [ Attr.class ("relative hatch flex-none grid place-items-center rounded-lg font-mono text-[10px] font-semibold text-muted " ++ size)
+        , Attr.style "border" ("1.5px solid " ++ Item.gradeColor item variant)
         ]
-        [ case item.icon of
-            Just src ->
-                Html.img [ Attr.src src, Attr.alt "", Attr.class "pixel w-4/5 h-4/5" ] []
+        [ Html.img [ Attr.src item.icon, Attr.alt "", Attr.class "pixel w-4/5 h-4/5" ] []
+        , if variant.fine then
+            Html.span [ Attr.class "absolute -top-1.5 -right-1.5 text-gold text-[13px] leading-none drop-shadow", Attr.title "Fine" ] [ Html.text "✦" ]
 
-            Nothing ->
-                Html.text (Item.abbreviation item)
+          else
+            empty
         ]
 
 
-gradeTag : Item -> Maybe Item.Quality -> Html msg
-gradeTag item quality =
+gradeTag : Item -> Item.Variant -> Html msg
+gradeTag item variant =
     Html.span
         [ Attr.class "font-bold text-[10px] tracking-widest uppercase"
-        , Attr.style "color" (Item.gradeColor item quality)
+        , Attr.style "color" (Item.gradeColor item variant)
         ]
-        [ Html.text (Item.gradeLabel item quality) ]
+        [ Html.text (Item.gradeLabel item variant) ]
 
 
 sideBadge : Listing -> Html msg
 sideBadge listing =
     let
         ( text, cls ) =
-            case ( listing.side, listing.payment ) of
-                ( _, Swap _ _ ) ->
-                    ( "Swap", "bg-swap" )
-
-                ( Selling, _ ) ->
+            case listing.side of
+                Selling ->
                     ( "Selling", "bg-sell" )
 
-                ( Buying, _ ) ->
+                Buying ->
                     ( "Buying", "bg-buy" )
     in
     Html.span [ Attr.class ("flex-none font-bold text-[10px] tracking-wider px-1.5 py-0.5 rounded text-white " ++ cls) ]
@@ -260,7 +250,7 @@ textInput attrs value onInput =
         []
 
 
-{-| A row of mutually exclusive options, like ALL / SELLING / BUYING / SWAPS.
+{-| A row of mutually exclusive options, like ALL / SELLING / BUYING.
 -}
 segmented : List { id : String, label : String, active : Bool, msg : msg } -> Html msg
 segmented options =

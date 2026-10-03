@@ -11,7 +11,7 @@ type Route
     = Home
     | Market
     | Prices
-    | ItemPrice String (Maybe Item.Quality)
+    | ItemPrice String Item.Variant
     | ListingPage Int
     | NewListing
     | MyTrades
@@ -28,8 +28,8 @@ parser =
         [ Parser.map Home Parser.top
         , Parser.map Market (s "market")
         , Parser.map Prices (s "prices")
-        , Parser.map (\id q -> ItemPrice id (Maybe.andThen Item.qualityFromString q))
-            (s "prices" </> Parser.string <?> Query.string "quality")
+        , Parser.map (\id q fine -> ItemPrice id { fine = fine == Just "1", quality = Maybe.andThen Item.qualityFromString q })
+            (s "prices" </> Parser.string <?> Query.string "quality" <?> Query.string "fine")
         , Parser.map ListingPage (s "listing" </> Parser.int)
         , Parser.map NewListing (s "new")
         , Parser.map MyTrades (s "trades")
@@ -57,14 +57,21 @@ toString route =
         Prices ->
             "/prices"
 
-        ItemPrice id quality ->
+        ItemPrice id variant ->
             Url.Builder.absolute [ "prices", id ]
-                (case quality of
-                    Just q ->
-                        [ Url.Builder.string "quality" (Item.qualityToString q) ]
+                ((if variant.fine then
+                    [ Url.Builder.string "fine" "1" ]
 
-                    Nothing ->
-                        []
+                  else
+                    []
+                 )
+                    ++ (case variant.quality of
+                            Just q ->
+                                [ Url.Builder.string "quality" (Item.qualityToString q) ]
+
+                            Nothing ->
+                                []
+                       )
                 )
 
         ListingPage id ->

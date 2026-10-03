@@ -8,6 +8,7 @@ import Html.Events as Events
 import Item
 import Market
 import Pricing
+import Route
 import Time
 import Types exposing (FrontendModel, FrontendMsg(..), Listing, MarketSort(..), MarketTab(..))
 import Ui
@@ -36,7 +37,6 @@ view model =
                         [ { id = "tab-all", label = "All", active = model.filters.tab == AllListings, msg = TabSelected AllListings }
                         , { id = "tab-selling", label = "Selling", active = model.filters.tab == SellingTab, msg = TabSelected SellingTab }
                         , { id = "tab-buying", label = "Buying", active = model.filters.tab == BuyingTab, msg = TabSelected BuyingTab }
-                        , { id = "tab-swaps", label = "Swaps", active = model.filters.tab == SwapsTab, msg = TabSelected SwapsTab }
                         ]
                     ]
                 , Html.div [ Attr.class "flex items-center gap-4 justify-between" ]
@@ -65,7 +65,7 @@ view model =
             , Html.div [ Attr.class "hidden md:grid grid-cols-[minmax(0,2.2fr)_0.8fr_1.6fr_1fr_1.7fr_0.7fr] gap-3 px-3.5 font-bold text-[11px] tracking-[0.12em] text-faint" ]
                 [ Html.div [] [ Html.text "ITEM" ]
                 , Html.div [] [ Html.text "TYPE" ]
-                , Html.div [] [ Html.text "PRICE / WANTS" ]
+                , Html.div [] [ Html.text "PRICE" ]
                 , Html.div [] [ Html.text "VS ESTIMATE" ]
                 , Html.div [] [ Html.text "TRADER" ]
                 , Html.div [ Attr.class "text-right" ] [ Html.text "LISTED" ]
@@ -193,6 +193,12 @@ filterPanel model =
             [ sortOption Newest "Newest", sortOption PriceLow "Lowest price", sortOption PriceHigh "Highest price" ]
         ]
     , Html.div [ Attr.class "flex flex-col gap-2" ]
+        [ heading "FINE ITEMS"
+        , Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
+            [ chip "fine-only" "✦ Fine only" "#e3b54c" model.filters.fineOnly FineOnlyToggled ]
+        , Html.div [ Attr.class "text-xs leading-snug text-faint" ] [ Html.text "Fine items are priced separately from regular ones." ]
+        ]
+    , Html.div [ Attr.class "flex flex-col gap-2" ]
         [ heading "RARITY · LOOT ITEMS"
         , Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
             (Item.allRarities
@@ -307,7 +313,7 @@ listingRow model listing =
                 title =
                     Html.div [ Attr.class "font-semibold whitespace-nowrap overflow-hidden text-ellipsis" ]
                         [ Html.span [ Attr.class "text-leaf" ] [ Html.text (String.fromInt listing.quantity ++ "x") ]
-                        , Html.text (" " ++ item.name)
+                        , Html.text (" " ++ Item.displayName item listing.variant)
                         ]
             in
             Html.a
@@ -326,8 +332,8 @@ listingRow model listing =
                 [ -- Desktop: table row
                   Html.div [ Attr.class "hidden md:grid grid-cols-[minmax(0,2.2fr)_0.8fr_1.6fr_1fr_1.7fr_0.7fr] gap-3 items-center px-3.5 py-2.5 text-sm" ]
                     [ Html.div [ Attr.class "flex items-center gap-3 min-w-0" ]
-                        [ Ui.itemIcon "w-10 h-10" item listing.quality
-                        , Html.div [ Attr.class "min-w-0" ] [ title, Ui.gradeTag item listing.quality ]
+                        [ Ui.itemIcon "w-10 h-10" item listing.variant
+                        , Html.div [ Attr.class "min-w-0" ] [ title, Ui.gradeTag item listing.variant ]
                         ]
                     , Html.div [] [ Ui.sideBadge listing ]
                     , Html.div [] [ Ui.priceText listing ]
@@ -341,10 +347,10 @@ listingRow model listing =
 
                 -- Mobile: card
                 , Html.div [ Attr.class "md:hidden flex gap-3 p-3" ]
-                    [ Ui.itemIcon "w-[52px] h-[52px]" item listing.quality
+                    [ Ui.itemIcon "w-[52px] h-[52px]" item listing.variant
                     , Html.div [ Attr.class "flex-1 min-w-0 flex flex-col gap-1" ]
                         [ Html.div [ Attr.class "flex items-center gap-2" ]
-                            [ Html.div [ Attr.class "flex-1 min-w-0 flex items-baseline gap-2" ] [ title, Ui.gradeTag item listing.quality ]
+                            [ Html.div [ Attr.class "flex-1 min-w-0 flex items-baseline gap-2" ] [ title, Ui.gradeTag item listing.variant ]
                             , Ui.sideBadge listing
                             ]
                         , Html.div [ Attr.class "flex items-center justify-between gap-2" ]
@@ -397,7 +403,7 @@ mostActive model =
             model.listings
                 |> Dict.values
                 |> List.filter (Market.isLive model.now)
-                |> List.map (\l -> ( Item.priceKey l.itemId l.quality, ( l.itemId, l.quality ) ))
+                |> List.map (\l -> ( Item.priceKey l.itemId l.variant, ( l.itemId, l.variant ) ))
                 |> Dict.fromList
                 |> Dict.toList
                 |> List.filterMap
@@ -417,12 +423,12 @@ mostActive model =
                 List.map
                     (\( item, quality, est ) ->
                         Html.a
-                            [ Attr.href ("/prices/" ++ item.id ++ (quality |> Maybe.map (\q -> "?quality=" ++ Item.qualityToString q) |> Maybe.withDefault ""))
+                            [ Attr.href (Route.toString (Route.ItemPrice item.id quality))
                             , Attr.class "flex items-center gap-2.5 no-underline text-ink hover:text-ink"
                             ]
                             [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item quality
                             , Html.div [ Attr.class "flex-1 min-w-0 leading-tight" ]
-                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (item.name ++ (quality |> Maybe.map (\q -> " · " ++ Item.qualityLabel q) |> Maybe.withDefault "")) ]
+                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item quality) ]
                                 , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural est.counted "price" "prices" ++ " · " ++ Ui.plural est.traders "trader" "traders") ]
                                 ]
                             , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt est.median) ]

@@ -6,3 +6,7 @@ review/elm-stuff
 .DS_Store
 .idea/
 .claude/worktrees/
+
+# Local secrets (WalkScape data API key)
+.env
+__pycache__/
