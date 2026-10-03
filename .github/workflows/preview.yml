@@ -73,11 +73,16 @@ jobs:
 
       # Screenshot a local `lamdera live` rather than the preview: it's ready
       # immediately and doesn't depend on the Lamdera build queue.
+      #
+      # The log and the PNGs go to $RUNNER_TEMP, outside the checkout: files
+      # appearing in the project dir can make `lamdera live` reload its tabs.
       - name: Take screenshots
         id: shoot
         run: |
+          log="$RUNNER_TEMP/lamdera-live.log"
+          shots="$RUNNER_TEMP/shots"
           npm run build:css
-          lamdera live --port=8000 > lamdera-live.log 2>&1 &
+          lamdera live --port=8000 > "$log" 2>&1 &
           up=false
           for _ in $(seq 1 120); do
             if curl -fsS -o /dev/null http://localhost:8000/; then up=true; break; fi
@@ -85,7 +90,7 @@ jobs:
           done
           if [ "$up" != "true" ]; then
             echo "::error::lamdera live never answered on :8000"
-            tail -50 lamdera-live.log
+            tail -50 "$log"
             exit 1
           fi
           # Warm every route so lamdera live has compiled before Chromium
@@ -94,28 +99,30 @@ jobs:
             curl -fsS -o /dev/null "http://localhost:8000${route}"
           done
           status=0
-          SCREENSHOT_DEBUG=1 node scripts/screenshots.js --base http://localhost:8000 --out shots || status=$?
+          SCREENSHOT_DEBUG=1 node scripts/screenshots.js --base http://localhost:8000 --out "$shots" || status=$?
           if [ "$status" != "0" ]; then
             echo "--- lamdera-live.log (tail) ---"
-            tail -50 lamdera-live.log
+            tail -50 "$log"
             echo "--- load ---"
             uptime
             free -m
             exit "$status"
           fi
-          echo "files=$(cd shots && ls *.png | paste -sd, -)" >> "$GITHUB_OUTPUT"
+          echo "files=$(cd "$shots" && ls *.png | paste -sd, -)" >> "$GITHUB_OUTPUT"
+          echo "dir=$shots" >> "$GITHUB_OUTPUT"
 
       - name: Upload screenshots
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: screenshots-pr-${{ github.event.pull_request.number }}
-          path: shots/
+          path: ${{ steps.shoot.outputs.dir }}/
 
       - name: Publish to ci/screenshots branch
         id: publish
         env:
           PREFIX: pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}
-        run: echo "commit=$(bash scripts/ci-publish-screenshots.sh shots "$PREFIX")" >> "$GITHUB_OUTPUT"
+          SHOTS_DIR: ${{ steps.shoot.outputs.dir }}
+        run: echo "commit=$(bash scripts/ci-publish-screenshots.sh "$SHOTS_DIR" "$PREFIX")" >> "$GITHUB_OUTPUT"
 
   # The comment goes up as soon as the preview is deployed (screenshots are
   # optional), then `comment-screenshots` fills them in when they're ready.
