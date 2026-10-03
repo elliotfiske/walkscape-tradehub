@@ -835,10 +835,6 @@ a:hover {
   display: grid;
 }
 
-.inline-grid {
-  display: inline-grid;
-}
-
 .hidden {
   display: none;
 }
@@ -1097,6 +1093,10 @@ a:hover {
 
 .flex-none {
   flex: none;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
 }
 
 .-translate-x-1\/2 {
@@ -1571,6 +1571,10 @@ a:hover {
   --tw-gradient-to: #0a1014 var(--tw-gradient-to-position);
 }
 
+.fill-current {
+  fill: currentColor;
+}
+
 .object-cover {
   -o-object-fit: cover;
      object-fit: cover;
@@ -1985,14 +1989,14 @@ a:hover {
   color: rgb(246 201 194 / var(--tw-text-opacity, 1));
 }
 
-.text-black {
-  --tw-text-opacity: 1;
-  color: rgb(0 0 0 / var(--tw-text-opacity, 1));
-}
-
 .text-body {
   --tw-text-opacity: 1;
   color: rgb(185 195 199 / var(--tw-text-opacity, 1));
+}
+
+.text-discord {
+  --tw-text-opacity: 1;
+  color: rgb(88 101 242 / var(--tw-text-opacity, 1));
 }
 
 .text-faint {

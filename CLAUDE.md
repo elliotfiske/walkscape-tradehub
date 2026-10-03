@@ -62,7 +62,7 @@ journey and read the PNGs back:
 
 ```bash
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/smoke.json
-# → /tmp/trailpost-shots/{home-desktop,market-desktop,home-mobile,signin-preview,claim,verify,done}.png
+# → ./.context/shots/{home-desktop,market-desktop,home-mobile,signin-preview,claim,verify,done}.png
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/seed-market.json
 # 8 accounts, 10 listings, waits 16 min for go-live, then offers + screenshots
 ```

@@ -1,4 +1,5 @@
 {
+  "readyText": "Trailpost",
   "routes": [
     {
       "name": "home",

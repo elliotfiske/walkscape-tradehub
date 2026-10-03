@@ -57,7 +57,7 @@ view model name =
                         , case trader.discord of
                             Just handle ->
                                 Html.span [ Attr.class "flex items-center gap-1.5 text-sm text-[#b7bdf7]" ]
-                                    [ Html.span [ Attr.class "w-3.5 h-3.5 rounded bg-discord" ] [], Html.text ("@" ++ handle) ]
+                                    [ Ui.discordIcon "w-4 h-4 text-discord", Html.text ("@" ++ handle) ]
 
                             Nothing ->
                                 Ui.empty

@@ -28,42 +28,66 @@ function arg(name, fallback) {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'screenshot-routes.json'), 'utf8'));
   fs.mkdirSync(outDir, { recursive: true });
 
-  // CI runners have no GPU and a small /dev/shm; without these flags Chromium
-  // can stall producing a frame, so page.screenshot() hangs until it times out.
+  // Lesson from PR #3/#5 (2026-10-03): in CI most screenshots were blank white
+  // pages and page.screenshot() "stalled", which looked like a Chromium frame
+  // problem (it wasn't: not the network, not fullPage, not GPU flags). The real
+  // cause was `lamdera live` reloading its tabs in a loop every ~450ms because
+  // files were appearing inside the project dir (its request log and the PNG
+  // output dir). Write logs/PNGs outside the checkout (see preview.yml), and
+  // keep a leader tab open (below). Navigation logging here is for diagnosing
+  // a recurrence: run with SCREENSHOT_DEBUG=1.
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_BIN || undefined,
     args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
   });
   let failed = 0;
 
-  // Load a route and capture the viewport. Viewport-only on purpose
-  // (investigated 2026-10-03, PR #3): on GitHub runners
-  // page.screenshot({ fullPage: true }) stalled ~50% of the time (10-30s
-  // timeout, even on pages as tall as the viewport); viewport captures never
-  // did. Not the network (only Google Fonts) and not reproducible locally, even
-  // with 20x CPU throttling. --disable-gpu/--disable-dev-shm-usage didn't fix
-  // it. Retrying helps but costs ~16s per stall. Don't re-add fullPage without
-  // testing in CI. If a frame still never arrives, retry once on a fresh page.
+  // Load a route and capture it full-page.
+  // A screenshot taken before the Elm app has rendered is a blank white page,
+  // so wait until the app's text is on screen and the stylesheet has applied,
+  // and retry once on a fresh page if that never happens.
   async function capture(context, route, file) {
     let lastError;
     for (let i = 0; i < 2; i++) {
       const page = await context.newPage();
       const t0 = Date.now();
+      const problems = [];
+      const events = [];
+      let navs = 0;
+      page.on('console', (m) => {
+        events.push(`+${Date.now() - t0}ms console.${m.type()}: ${m.text().slice(0, 140)}`);
+        if (m.type() === 'error') problems.push(`console.error: ${m.text().slice(0, 200)}`);
+      });
+      page.on('framenavigated', (f) => {
+        if (f === page.mainFrame()) { navs++; events.push(`+${Date.now() - t0}ms navigated #${navs}: ${f.url().slice(0, 100)}`); }
+      });
+      page.on('pageerror', (e) => problems.push(`pageerror: ${String(e.message).slice(0, 200)}`));
+      page.on('requestfailed', (r) => problems.push(`requestfailed: ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
       try {
         await page.goto(base + route.path, { waitUntil: 'load', timeout: 30000 });
-        // `lamdera live` keeps long-lived connections (websocket, dev-tool
-        // polling) open, so networkidle may never fire — treat it as a
-        // best-effort wait rather than a requirement.
-        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+        await page.waitForFunction(
+          (text) =>
+            document.body.innerText.includes(text) &&
+            getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)',
+          config.readyText || 'Trailpost',
+          { timeout: Number(route.readyTimeoutMs ?? 15000) },
+        );
         // Lamdera opens a websocket and renders the first ToFrontend after
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
-        await page.screenshot({ path: file, timeout: 10000 });
+        const navsBefore = navs;
+        await page.screenshot({ path: file, fullPage: true, timeout: 15000 });
+        if (navs !== navsBefore) throw new Error('page reloaded during capture');
+        if (process.env.SCREENSHOT_DEBUG || navs > 1) for (const ev of events.slice(0, 25)) console.error(`[screenshots]   ${ev}`);
         console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1})`);
         return;
       } catch (e) {
         lastError = e;
         console.error(`[screenshots] ${path.basename(file)} attempt ${i + 1} failed after ${Date.now() - t0}ms: ${e.message.split('\n')[0]}`);
+        for (const p of problems.slice(0, 10)) console.error(`[screenshots]   ${p}`);
+        for (const ev of events.slice(0, 25)) console.error(`[screenshots]   ${ev}`);
+        const body = await page.evaluate(() => document.body.innerText.slice(0, 120)).catch(() => '(page gone)');
+        console.error(`[screenshots]   body text: ${JSON.stringify(body)}`);
       } finally {
         await page.close().catch(() => {});
       }
@@ -78,6 +102,11 @@ function arg(name, fallback) {
         deviceScaleFactor: 1,
         isMobile: vp.width < 600,
       });
+      // The `lamdera live` dev backend runs inside a browser tab, so closing or
+      // reloading the only tab drops it mid-capture (aborted requests, blank
+      // frames). Keep one leader tab open on the app for this whole context.
+      const leader = await context.newPage();
+      await leader.goto(base + '/', { waitUntil: 'load', timeout: 30000 }).catch(() => {});
       for (const route of config.routes) {
         const file = path.join(outDir, `${route.name}-${vp.name}.png`);
         try {
@@ -88,6 +117,7 @@ function arg(name, fallback) {
           console.error(`[screenshots] ${route.name}@${vp.name}: ${e.message}`);
         }
       }
+      await leader.close().catch(() => {});
       await context.close();
     }
   } finally {

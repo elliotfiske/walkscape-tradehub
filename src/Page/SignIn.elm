@@ -75,13 +75,11 @@ providerName provider =
             "Discord"
 
 
-providerLetter : Provider -> Html msg
-providerLetter provider =
-    Html.span
-        [ Attr.class
-            "inline-grid place-items-center w-5 h-5 rounded text-[11px] font-bold bg-white text-black"
-        ]
-        [ Html.text (String.left 1 (providerName provider)) ]
+providerIcon : String -> Provider -> Html msg
+providerIcon cls provider =
+    case provider of
+        Discord ->
+            Ui.discordIcon cls
 
 
 viewSignIn : FrontendModel -> Html FrontendMsg
@@ -93,7 +91,7 @@ viewSignIn model =
                 , Events.onClick (ProviderClicked provider)
                 , Attr.class ("w-full flex items-center justify-center gap-3 rounded-xl py-3.5 font-semibold text-[17px] " ++ cls)
                 ]
-                [ providerLetter provider, Html.text ("Continue with " ++ providerName provider) ]
+                [ providerIcon "w-6 h-6" provider, Html.text ("Continue with " ++ providerName provider) ]
     in
     Html.div [ Attr.class "flex-1 flex flex-col" ]
         [ stepper StepSignIn
@@ -193,7 +191,7 @@ viewClaim model me =
     Html.div [ Attr.class "flex-1 flex flex-col" ]
         [ stepper StepClaim
         , Html.div [ Attr.class "flex items-center gap-2.5 rounded-xl bg-card border border-edge px-3.5 py-2.5 mb-4 text-soft text-sm", Ui.testId "signed-in-with" ]
-            [ providerLetter me.provider
+            [ providerIcon "w-5 h-5 text-discord" me.provider
             , Html.text
                 (if me.isPreviewLogin then
                     "Signed in with a preview account"
@@ -275,7 +273,6 @@ viewVerify claim =
             ]
         , Html.div [ Attr.class "flex-1" ] []
         , Ui.primaryButton "skip-verify" SkipVerificationClicked "Continue unverified"
-        , Ui.secondaryButton "new-amount" NewCoinAmountClicked "Get a new amount"
         ]
 
 
@@ -292,7 +289,7 @@ viewDone me claim =
         , Ui.card [ Attr.class "w-full text-left p-4 mt-3 flex flex-col gap-3" ]
             [ Html.div [ Attr.class "flex items-center justify-between" ]
                 [ Html.span [ Attr.class "flex items-center gap-2.5 font-semibold" ]
-                    [ Html.span [ Attr.class "w-6 h-6 rounded bg-discord" ] [], Html.text "Discord" ]
+                    [ Ui.discordIcon "w-6 h-6 text-discord", Html.text "Discord" ]
                 , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text "optional" ]
                 ]
             , Html.p [ Attr.class "text-sm text-body" ]

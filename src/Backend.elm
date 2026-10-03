@@ -280,31 +280,6 @@ handleRequest sessionId clientId now msg model =
                             claimName user raw now model clientId sessionId
                 )
 
-        NewCoinAmount ->
-            withUser
-                (\user ->
-                    case user.claim of
-                        Just claim ->
-                            let
-                                next =
-                                    coinAmount now (claim.coins + 1)
-
-                                coins =
-                                    if next == claim.coins then
-                                        5 + modBy 96 (next - 4)
-
-                                    else
-                                        next
-
-                                newUser =
-                                    { user | claim = Just { claim | coins = coins } }
-                            in
-                            ( saveUser newUser model, replyMe newUser )
-
-                        Nothing ->
-                            fail "Claim a WalkScape name first."
-                )
-
         SkipVerification ->
             withUser
                 (\user ->
