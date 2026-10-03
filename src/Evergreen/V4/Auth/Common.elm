@@ -1,7 +1,7 @@
-module Evergreen.V3.Auth.Common exposing (..)
+module Evergreen.V4.Auth.Common exposing (..)
 
-import Evergreen.V3.OAuth
-import Evergreen.V3.OAuth.AuthorizationCode
+import Evergreen.V4.OAuth
+import Evergreen.V4.OAuth.AuthorizationCode
 import Time
 import Url
 
@@ -23,8 +23,8 @@ type alias UserInfo =
 
 type Error
     = ErrStateMismatch
-    | ErrAuthorization Evergreen.V3.OAuth.AuthorizationCode.AuthorizationError
-    | ErrAuthentication Evergreen.V3.OAuth.AuthorizationCode.AuthenticationError
+    | ErrAuthorization Evergreen.V4.OAuth.AuthorizationCode.AuthorizationError
+    | ErrAuthentication Evergreen.V4.OAuth.AuthorizationCode.AuthenticationError
     | ErrHTTPGetAccessToken
     | ErrHTTPGetUserInfo
     | ErrAuthString String
@@ -35,7 +35,7 @@ type Flow
     | Requested MethodId
     | Pending
     | Authorized AuthCode String
-    | Authenticated Evergreen.V3.OAuth.Token
+    | Authenticated Evergreen.V4.OAuth.Token
     | Done UserInfo
     | Errored Error
 
@@ -85,7 +85,7 @@ type ToFrontend
 
 type alias Token =
     { methodId : MethodId
-    , token : Evergreen.V3.OAuth.Token
+    , token : Evergreen.V4.OAuth.Token
     , created : Time.Posix
     , expires : Time.Posix
     }
