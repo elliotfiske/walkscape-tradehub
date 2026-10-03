@@ -2,9 +2,14 @@ name: Deploy
 
 # Every merge to main deploys to production (<app>.lamdera.app).
 #
-# Safe because migrations are gated at PR time (tests.yml runs `lamdera check
-# --force`), and scripts/deploy.sh still hard-stops if `lamdera check` would
-# generate an uncommitted migration here.
+# Safe because migrations are gated at PR time (tests.yml's Evergreen job), and
+# scripts/deploy.sh hard-stops if a migration is stale or `lamdera check` would
+# generate an uncommitted one here.
+#
+# Every deploy bumps production's version, even without type changes, which
+# makes any open PR's migration number stale. So after deploying, re-run the
+# Tests workflow on every open PR: its Evergreen job then fails on the PRs that
+# need scripts/regen-migration.sh.
 
 on:
   push:
@@ -19,6 +24,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # deploy.sh moves the `deployed` branch
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -34,3 +41,34 @@ jobs:
 
       - name: Deploy
         run: npm run deploy
+
+  revalidate-prs:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Re-run Tests on open PRs
+        run: |
+          gh pr list --state open --json number,headRefOid \
+            --jq '.[] | "\(.number) \(.headRefOid)"' |
+          while read -r pr sha; do
+            run=$(gh run list --workflow tests.yml --event pull_request --commit "$sha" \
+              --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -z "$run" ]; then
+              echo "#$pr: no Tests run for $sha"
+              continue
+            fi
+            # A run still in progress may have read the old version; let it
+            # finish, then re-run it.
+            gh run watch "$run" --interval 10 >/dev/null 2>&1 || true
+            if gh run rerun "$run"; then
+              echo "#$pr: re-running Tests (run $run)"
+            else
+              echo "::warning::#$pr: couldn't re-run Tests run $run"
+            fi
+          done

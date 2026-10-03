@@ -8,31 +8,22 @@
 # placeholders). We turn that exit code into a push gate so a missing migration
 # is caught at PR time instead of blowing up at deploy.
 #
-# Worktrees: lamdera does its own ".git must be a directory" check and bails
-# ("missing a git repository") in a linked worktree, where .git is a pointer
-# file. Conductor workspaces are linked worktrees, so to enforce there we
-# briefly symlink .git to this worktree's gitdir (git still resolves the lamdera
-# remote via commondir), run the check, and restore. (A Lamdera feature request
-# to support worktrees natively is open; if it lands, delete the shim below.)
+# It also runs scripts/evergreen-version-check.sh first: every deploy bumps
+# production's version, so a migration numbered against an older deploy is
+# stale, and lamdera check alone can't tell (see that script).
+#
+# scripts/lamdera-check.sh handles linked worktrees (Conductor workspaces) and
+# lamdera's "Shall I run git add?" prompt.
 #
 # Bypass (e.g. offline, not logged in, or a deliberate WIP push):
 #   git push --no-verify
 #
-# See .claude/skills/lamdera-deploy.md for the full workflow.
+# See .claude/skills/lamdera-deploy/SKILL.md for the full workflow.
 
 set -euo pipefail
 
 toplevel=$(git rev-parse --show-toplevel)
-gitptr="$toplevel/.git"
-
-# Self-heal: a hard-killed prior run (SIGKILL, no trap) can leave .git as the
-# symlink below. git still works through it, but restore the canonical pointer
-# file before doing anything else.
-if [ -L "$gitptr" ]; then
-    healed_target=$(readlink "$gitptr")
-    rm -f "$gitptr"
-    printf 'gitdir: %s\n' "$healed_target" > "$gitptr"
-fi
+cd "$toplevel"
 
 # Only spend the compile when the push actually changes Elm source — a type
 # change can come from any module reachable from the model, not just Types.elm.
@@ -89,6 +80,8 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 # against an out-of-date base (this is the squash-merge trap). Require the latest
 # origin/main to be an ancestor of what we're pushing, so the migration chains
 # off the current version. (Skipped on main itself — that's the deploy's job.)
+# A deploy that lands after this push makes the migration stale anyway; the
+# version check below and CI (re-run after every deploy) catch that.
 if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
     if git fetch --quiet origin main 2>/dev/null; then
         if ! git merge-base --is-ancestor origin/main HEAD; then
@@ -110,6 +103,19 @@ if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
     fi
 fi
 
+# Stale migration numbers. Needs no Lamdera login, so it runs everywhere.
+# Offline is a warning only: CI runs the same check on the PR.
+git fetch --quiet origin deployed 2>/dev/null || true
+version_status=0
+scripts/evergreen-version-check.sh || version_status=$?
+if [ "$version_status" -eq 1 ]; then
+    echo "pre-push: refusing to push a stale Evergreen migration (see above)." >&2
+    echo "  Deliberate?  git push --no-verify" >&2
+    exit 1
+elif [ "$version_status" -ne 0 ]; then
+    echo "pre-push: couldn't check Evergreen version numbers — skipping (CI enforces it)." >&2
+fi
+
 # Cloud sessions (claude.ai/code) without the LAMDERA_CLI_AUTH environment
 # secret can't run `lamdera check`. Don't force --no-verify there: CI
 # (tests.yml) runs the same check on the PR.
@@ -118,53 +124,29 @@ if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ ! -s "${ELM_HOME:-$HOME/.elm}/.la
     exit 0
 fi
 
-# Worktree shim: present .git as a directory so lamdera will run. Capture the
-# pointer's contents and the gitdir *before* touching anything, and restore on
-# any exit (success, failure, or interrupt).
-shimmed=0
-restore_gitptr() {
-    if [ "$shimmed" = 1 ] && [ -L "$gitptr" ]; then
-        rm -f "$gitptr"
-        printf '%s\n' "$gitptr_orig" > "$gitptr"
-    fi
-}
-if [ -f "$gitptr" ]; then
-    gitptr_orig=$(cat "$gitptr")
-    gitdir=$(git rev-parse --absolute-git-dir)
-    trap restore_gitptr EXIT INT TERM
-    rm -f "$gitptr"
-    ln -s "$gitdir" "$gitptr"
-    shimmed=1
-fi
-
-# Off main, --force makes check compare against production Evergreen (plain
-# check treats a non-main branch as a preview and skips the migration check).
-# Plain string (not an array) so it stays safe under macOS bash 3.2 + `set -u`,
-# where an empty array errors as an unbound variable.
-force_flag=""
-if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
-    force_flag="--force"
-fi
-
-[ "$shimmed" = 1 ] && note=" (worktree .git shim active)" || note=""
-echo "pre-push: running 'lamdera check ${force_flag}'${note} …" >&2
-# stdin is closed so a confused lamdera can't hang waiting on a prompt.
-# shellcheck disable=SC2086  # intentional split: force_flag is our own literal
-if ! lamdera check $force_flag </dev/null; then
+check_status=0
+scripts/lamdera-check.sh || check_status=$?
+if [ "$check_status" -eq 3 ]; then
+    # Passed, but against Evergreen files that aren't in the commit being pushed.
+    echo "pre-push: commit src/Evergreen, then push again." >&2
+    exit 1
+elif [ "$check_status" -ne 0 ]; then
     {
         echo ""
         echo "pre-push: 'lamdera check' failed — refusing to push."
         echo ""
-        echo "  If a persisted type changed since the last deploy, lamdera just"
-        echo "  generated a migration under src/Evergreen/. Finish"
-        echo "  src/Evergreen/Migrate/V<N>.elm (replace any Unimplemented), then:"
-        echo "    git add src/Evergreen && git commit -m 'Add V<N> Evergreen migration'"
-        echo "  and push again."
+        echo "  'types have changed since last deploy (vN)' and it generated"
+        echo "  src/Evergreen/Migrate/V<N+1>.elm? If this branch already has an older"
+        echo "  src/Evergreen/V<k> of its own, that one is stale: don't finish the new"
+        echo "  file, run scripts/regen-migration.sh instead."
+        echo ""
+        echo "  Otherwise finish src/Evergreen/Migrate/V<N+1>.elm (replace any"
+        echo "  Unimplemented), commit src/Evergreen, and push again."
         echo ""
         echo "  Compile error?  Fix it."
         echo "  Offline / not logged in / deliberate WIP?  git push --no-verify"
         echo ""
-        echo "  See .claude/skills/lamdera-deploy.md"
+        echo "  See .claude/skills/lamdera-deploy/SKILL.md"
     } >&2
     exit 1
 fi

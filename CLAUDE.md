@@ -268,6 +268,19 @@ PR comment with the preview URL and screenshots. The app name lives in
 reset their backend on every deploy. Discord sign-in doesn't work on previews
 yet; see [TODO.md](TODO.md).
 
+**Every deploy bumps production's Evergreen version, even with no type
+changes**, and a migration is numbered production+1 when `lamdera check` runs.
+So any merge can make an open PR's `src/Evergreen/V<N>` stale.
+`scripts/evergreen-version-check.sh` catches that. It runs in the pre-push
+hook, in the `Evergreen` job in `tests.yml` (re-run on every open PR after each
+deploy), and in `deploy.sh`. Fix a stale migration with
+`scripts/regen-migration.sh`, never by finishing the `V<N+1>` that `lamdera
+check` generates on top of it. Run checks with `scripts/lamdera-check.sh`
+(worktree-safe, never hangs on lamdera's `git add` prompt). After a
+deploy, `deploy.sh` moves the `deployed` branch to the deployed commit.
+Details are in the [`lamdera-deploy`](.claude/skills/lamdera-deploy/SKILL.md)
+skill.
+
 Both workflows push to `git@apps.lamdera.com` over SSH using the
 `LAMDERA_SSH_KEY` repo secret. `lamdera check` uses `LAMDERA_CLI_AUTH`, the
 contents of `~/.elm/.lamdera-cli`. Shared setup is in
@@ -278,8 +291,8 @@ contents of `~/.elm/.lamdera-cli`. Shared setup is in
 Manual deploys run from **`main`** on the primary checkout (not a worktree —
 lamdera can't run where `.git` is a pointer file). `scripts/deploy.sh` enforces
 the invariant that local `main` only ever mirrors `origin/main`, and hard-stops
-before pushing if the tree is dirty, `main` has un-pushed commits, or
-`lamdera check` would generate an uncommitted Evergreen migration. See the
+before pushing if the tree is dirty, `main` has un-pushed commits, a migration
+is stale, or `lamdera check` would generate an uncommitted Evergreen migration. See the
 [`lamdera-deploy`](.claude/skills/lamdera-deploy/SKILL.md) skill for the full
 PR-first migration workflow — the `.githooks/pre-push` gate runs `lamdera check`
 on every push so a missing migration is caught at PR time, not deploy time.
