@@ -167,7 +167,7 @@ viewOnboarding model =
                         ]
 
                 _ ->
-                    Html.p [ Attr.class "mt-10 text-muted" ] [ Html.text "Signing you in…" ]
+                    Html.p [ Attr.class "mt-10 text-muted" ] [ Html.text "Logging you in…" ]
 
         Just me ->
             case me.claim of
