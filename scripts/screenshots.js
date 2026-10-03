@@ -46,8 +46,15 @@ function arg(name, fallback) {
       const page = await context.newPage();
       const t0 = Date.now();
       const problems = [];
-      page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text().slice(0, 200)}`); });
-      page.on('framenavigated', (f) => { if (f === page.mainFrame()) problems.push(`navigated: ${f.url().slice(0, 100)}`); });
+      const events = [];
+      let navs = 0;
+      page.on('console', (m) => {
+        events.push(`+${Date.now() - t0}ms console.${m.type()}: ${m.text().slice(0, 140)}`);
+        if (m.type() === 'error') problems.push(`console.error: ${m.text().slice(0, 200)}`);
+      });
+      page.on('framenavigated', (f) => {
+        if (f === page.mainFrame()) { navs++; events.push(`+${Date.now() - t0}ms navigated #${navs}: ${f.url().slice(0, 100)}`); }
+      });
       page.on('pageerror', (e) => problems.push(`pageerror: ${String(e.message).slice(0, 200)}`));
       page.on('requestfailed', (r) => problems.push(`requestfailed: ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
       try {
@@ -57,18 +64,22 @@ function arg(name, fallback) {
             document.body.innerText.includes(text) &&
             getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)',
           config.readyText || 'Trailpost',
-          { timeout: Number(route.readyTimeoutMs ?? 45000) },
+          { timeout: Number(route.readyTimeoutMs ?? 15000) },
         );
         // Lamdera opens a websocket and renders the first ToFrontend after
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
+        const navsBefore = navs;
         await page.screenshot({ path: file, timeout: 15000 });
+        if (navs !== navsBefore) throw new Error('page reloaded during capture');
+        if (process.env.SCREENSHOT_DEBUG || navs > 1) for (const ev of events.slice(0, 25)) console.error(`[screenshots]   ${ev}`);
         console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1})`);
         return;
       } catch (e) {
         lastError = e;
         console.error(`[screenshots] ${path.basename(file)} attempt ${i + 1} failed after ${Date.now() - t0}ms: ${e.message.split('\n')[0]}`);
         for (const p of problems.slice(0, 10)) console.error(`[screenshots]   ${p}`);
+        for (const ev of events.slice(0, 25)) console.error(`[screenshots]   ${ev}`);
         const body = await page.evaluate(() => document.body.innerText.slice(0, 120)).catch(() => '(page gone)');
         console.error(`[screenshots]   body text: ${JSON.stringify(body)}`);
       } finally {
