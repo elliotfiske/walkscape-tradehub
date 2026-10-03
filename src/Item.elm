@@ -8,7 +8,6 @@ module Item exposing
     , allQualities
     , allRarities
     , byId
-    , displayName
     , fullName
     , gradeColor
     , gradeLabel
@@ -173,37 +172,11 @@ search query =
         starts ++ rest
 
 
-{-| "Fine iron bar" for a fine Iron bar. Names that start with a possessive
-("Flora's…") keep their capital.
--}
-displayName : Item -> Variant -> String
-displayName item variant =
-    if variant.fine then
-        let
-            name =
-                case String.words item.name of
-                    first :: _ ->
-                        if String.endsWith "'s" first then
-                            item.name
-
-                        else
-                            String.toLower (String.left 1 item.name) ++ String.dropLeft 1 item.name
-
-                    [] ->
-                        item.name
-        in
-        "Fine " ++ name
-
-    else
-        item.name
-
-
-{-| The display name plus a crafted item's quality, e.g. "Fine iron
-pickaxe · Perfect".
+{-| The name plus a crafted item's quality, e.g. "Iron pickaxe · Perfect".
 -}
 fullName : Item -> Variant -> String
 fullName item variant =
-    displayName item variant ++ (variant.quality |> Maybe.map (\q -> " · " ++ qualityLabel q) |> Maybe.withDefault "")
+    item.name ++ (variant.quality |> Maybe.map (\q -> " · " ++ qualityLabel q) |> Maybe.withDefault "")
 
 
 {-| Identifies a price series: one per item, with fine items and each crafted

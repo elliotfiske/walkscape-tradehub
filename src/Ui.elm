@@ -4,6 +4,7 @@ module Ui exposing
     , coin
     , coinAmount
     , empty
+    , fineTag
     , formatInt
     , gradeTag
     , itemIcon
@@ -156,20 +157,42 @@ itemIcon size item variant =
         ]
         [ Html.img [ Attr.src item.icon, Attr.alt "", Attr.class "pixel w-4/5 h-4/5" ] []
         , if variant.fine then
-            Html.span [ Attr.class "absolute -top-1.5 -right-1.5 text-gold text-[13px] leading-none drop-shadow", Attr.title "Fine" ] [ Html.text "✦" ]
+            Html.span [ Attr.class "absolute -top-1.5 -right-1.5 text-fine text-[13px] leading-none drop-shadow", Attr.title "Fine" ] [ Html.text "✦" ]
 
           else
             empty
         ]
 
 
+{-| A small teal "FINE" tag, or nothing for a regular item. Fine is a tag on
+the item, not part of its name.
+-}
+fineTag : Item.Variant -> Html msg
+fineTag variant =
+    if variant.fine then
+        Html.span
+            [ Attr.class "inline-block flex-none align-middle font-bold text-[10px] tracking-widest text-fine border border-fine/40 rounded px-1.5 py-0.5 leading-none"
+            , Attr.title "Fine"
+            ]
+            [ Html.text "FINE" ]
+
+    else
+        empty
+
+
+{-| "FINE MATERIAL", "LEGENDARY"… in the grade's colour, with FINE in teal.
+-}
 gradeTag : Item -> Item.Variant -> Html msg
 gradeTag item variant =
-    Html.span
-        [ Attr.class "font-bold text-[10px] tracking-widest uppercase"
-        , Attr.style "color" (Item.gradeColor item variant)
+    Html.span [ Attr.class "font-bold text-[10px] tracking-widest uppercase" ]
+        [ if variant.fine then
+            Html.span [ Attr.class "text-fine mr-1" ] [ Html.text "Fine" ]
+
+          else
+            empty
+        , Html.span [ Attr.style "color" (Item.gradeColor item variant) ]
+            [ Html.text (Item.gradeLabel item { variant | fine = False }) ]
         ]
-        [ Html.text (Item.gradeLabel item variant) ]
 
 
 sideBadge : Listing -> Html msg

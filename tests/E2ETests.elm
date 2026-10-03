@@ -286,7 +286,8 @@ tests =
                        -- Searching "fine …" picks the fine version.
                        , seller.input 100 (Dom.id "item-search") "fine iron bar"
                        , seller.click 100 (Dom.id "item-pick-iron_bar")
-                       , seller.checkView 100 (byTestId "picked-item" >> seesText "Fine iron bar")
+                       , seller.checkView 100 (byTestId "picked-item" >> seesText "Iron bar")
+                       , seller.checkView 100 (byTestId "picked-item" >> seesText "Fine")
                        , seller.input 100 (Dom.id "quantity") "2"
                        , seller.input 100 (Dom.id "price") "400"
                        , seller.click 100 (Dom.id "post-listing")
@@ -295,7 +296,8 @@ tests =
                             \buyer ->
                                 [ buyer.clickLink (minutes 16) "/market"
                                 , buyer.checkView 100 (byTestId "listing-1" >> seesText "Iron bar")
-                                , buyer.checkView 100 (byTestId "listing-2" >> seesText "Fine iron bar")
+                                , buyer.checkView 100 (byTestId "listing-2" >> seesText "Iron bar")
+                                , buyer.checkView 100 (byTestId "listing-2" >> seesText "Fine")
                                 , buyer.click 100 (Dom.id "fine-only")
                                 , buyer.checkView 100 (lacksTestId "listing-1")
                                 , buyer.checkView 100 (hasTestId "listing-2")
@@ -303,7 +305,7 @@ tests =
                                 , buyer.checkView 100 (byTestId "price-row-iron_bar" >> seesText "100")
                                 , buyer.checkView 100 (byTestId "price-row-iron_bar/fine" >> seesText "400")
                                 , buyer.clickLink 100 "/prices/iron_bar?fine=1"
-                                , buyer.checkView 100 (byTestId "item-name" >> seesText "Fine iron bar")
+                                , buyer.checkView 100 (byTestId "item-name" >> seesText "Iron bar")
                                 , buyer.checkView 100 (byTestId "price-stats" >> seesText "400")
                                 , buyer.clickLink 100 "/prices/iron_bar"
                                 , buyer.checkView 100 (byTestId "price-stats" >> seesText "100")

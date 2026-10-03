@@ -779,6 +779,10 @@ a:hover {
   margin-left: 0.375rem;
 }
 
+.mr-1 {
+  margin-right: 0.25rem;
+}
+
 .mt-1 {
   margin-top: 0.25rem;
 }
@@ -1368,6 +1372,10 @@ a:hover {
   border-color: rgb(36 52 60 / var(--tw-border-opacity, 1));
 }
 
+.border-fine\/40 {
+  border-color: rgb(192 243 243 / 0.4);
+}
+
 .border-gold {
   --tw-border-opacity: 1;
   border-color: rgb(227 181 76 / var(--tw-border-opacity, 1));
@@ -1762,6 +1770,10 @@ a:hover {
   text-align: right;
 }
 
+.align-middle {
+  vertical-align: middle;
+}
+
 .font-display {
   font-family: Alegreya, Georgia, serif;
 }
@@ -1986,6 +1998,11 @@ a:hover {
 .text-faint {
   --tw-text-opacity: 1;
   color: rgb(109 125 133 / var(--tw-text-opacity, 1));
+}
+
+.text-fine {
+  --tw-text-opacity: 1;
+  color: rgb(192 243 243 / var(--tw-text-opacity, 1));
 }
 
 .text-gold {

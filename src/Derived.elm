@@ -197,7 +197,7 @@ marketListings model =
             query
                 == ""
                 || String.contains query (String.toLower l.trader)
-                || (Market.item l |> Maybe.map (\i -> String.contains query (String.toLower (Item.displayName i l.variant))) |> Maybe.withDefault False)
+                || (Market.item l |> Maybe.map (\i -> String.contains query (String.toLower i.name)) |> Maybe.withDefault False)
 
         outlierOk l =
             not f.hideOutliers

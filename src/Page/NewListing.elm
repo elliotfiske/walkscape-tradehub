@@ -128,9 +128,8 @@ viewForm model =
                     Ui.card [ Attr.class "flex items-center gap-3 p-3", Ui.testId "picked-item" ]
                         [ Ui.itemIcon "w-11 h-11" item (variantFor item form)
                         , Html.div [ Attr.class "flex-1" ]
-                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text (Item.displayName item (variantFor item form)) ]
-                            , Html.div [ Attr.class "font-bold text-[10px] tracking-widest text-muted uppercase" ]
-                                [ Html.text (Item.gradeLabel item { fine = (variantFor item form).fine, quality = Nothing }) ]
+                            [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
+                            , Ui.gradeTag item { fine = (variantFor item form).fine, quality = Nothing }
                             ]
                         , Ui.button "change-item" "text-soft text-sm" ListingItemCleared "Change"
                         ]
@@ -292,18 +291,13 @@ medianCheck model form =
                     variantFor item form
 
                 gradeName =
-                    case variant.quality of
-                        Just q ->
-                            (if variant.fine then
-                                "fine "
+                    (variant.quality |> Maybe.map Item.qualityLabel |> Maybe.withDefault item.name)
+                        ++ (if variant.fine then
+                                " (fine)"
 
-                             else
+                            else
                                 ""
-                            )
-                                ++ Item.qualityLabel q
-
-                        Nothing ->
-                            Item.displayName item variant
+                           )
             in
             case Derived.estimateFor model (Item.priceKey item.id variant) of
                 Just est ->

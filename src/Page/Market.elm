@@ -195,7 +195,7 @@ filterPanel model =
     , Html.div [ Attr.class "flex flex-col gap-2" ]
         [ heading "FINE ITEMS"
         , Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
-            [ chip "fine-only" "✦ Fine only" "#e3b54c" model.filters.fineOnly FineOnlyToggled ]
+            [ chip "fine-only" "✦ Fine only" "#c0f3f3" model.filters.fineOnly FineOnlyToggled ]
         , Html.div [ Attr.class "text-xs leading-snug text-faint" ] [ Html.text "Fine items are priced separately from regular ones." ]
         ]
     , Html.div [ Attr.class "flex flex-col gap-2" ]
@@ -313,7 +313,7 @@ listingRow model listing =
                 title =
                     Html.div [ Attr.class "font-semibold whitespace-nowrap overflow-hidden text-ellipsis" ]
                         [ Html.span [ Attr.class "text-leaf" ] [ Html.text (String.fromInt listing.quantity ++ "x") ]
-                        , Html.text (" " ++ Item.displayName item listing.variant)
+                        , Html.text (" " ++ item.name)
                         ]
             in
             Html.a
@@ -428,7 +428,7 @@ mostActive model =
                             ]
                             [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item quality
                             , Html.div [ Attr.class "flex-1 min-w-0 leading-tight" ]
-                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item quality) ]
+                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item quality), Html.text " ", Ui.fineTag quality ]
                                 , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural est.counted "price" "prices" ++ " · " ++ Ui.plural est.traders "trader" "traders") ]
                                 ]
                             , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt est.median) ]
