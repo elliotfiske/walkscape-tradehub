@@ -43,7 +43,7 @@ viewIndex model =
                         ]
                         [ Html.div [ Attr.class "flex items-center gap-3 min-w-0" ]
                             [ Ui.itemIcon "w-10 h-10" item q
-                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text (item.name) ], Ui.gradeTag item q ]
+                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text item.name ], Ui.gradeTag item q ]
                             ]
                         , Ui.coinAmount est.median
                         , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high) ]
@@ -110,7 +110,7 @@ viewItem model itemId requested =
                         [ Html.div [ Attr.class "flex items-center gap-4 flex-1" ]
                             [ Ui.itemIcon "w-[68px] h-[68px] rounded-xl" item variant
                             , Html.div []
-                                [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px] leading-tight", Ui.testId "item-name" ] [ Html.text (item.name) ]
+                                [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px] leading-tight", Ui.testId "item-name" ] [ Html.text item.name ]
                                 , Ui.gradeTag item variant
                                 ]
                             ]

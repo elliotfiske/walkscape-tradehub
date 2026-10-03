@@ -104,7 +104,7 @@ termsCard model listing item =
         [ Html.div [ Attr.class "flex items-center gap-3" ]
             [ Ui.itemIcon "w-12 h-12" item listing.variant
             , Html.div [ Attr.class "flex-1" ]
-                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text (item.name) ]
+                [ Html.div [ Attr.class "font-semibold text-lg text-[#9fd3e8]" ] [ Html.text item.name ]
                 , Ui.gradeTag item listing.variant
                 ]
             , Ui.sideBadge listing

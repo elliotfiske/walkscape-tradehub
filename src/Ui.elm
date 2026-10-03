@@ -164,7 +164,7 @@ itemIcon size item variant =
         ]
 
 
-{-| A small gold "FINE" tag, or nothing for a regular item. Fine is a tag on
+{-| A small teal "FINE" tag, or nothing for a regular item. Fine is a tag on
 the item, not part of its name.
 -}
 fineTag : Item.Variant -> Html msg
@@ -180,7 +180,7 @@ fineTag variant =
         empty
 
 
-{-| "FINE MATERIAL", "LEGENDARY"… in the grade's colour, with FINE in gold.
+{-| "FINE MATERIAL", "LEGENDARY"… in the grade's colour, with FINE in teal.
 -}
 gradeTag : Item -> Item.Variant -> Html msg
 gradeTag item variant =
