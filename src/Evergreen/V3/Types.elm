@@ -1,47 +1,14 @@
-module Types exposing
-    ( BackendModel
-    , BackendMsg(..)
-    , Claim
-    , ClaimStatus(..)
-    , FrontendModel
-    , FrontendMsg(..)
-    , InitialData
-    , Listing
-    , ListingDraft
-    , ListingForm
-    , MarketFilters
-    , MarketSort(..)
-    , MarketTab(..)
-    , Me
-    , Offer
-    , OfferForm
-    , OfferStatus(..)
-    , Payment(..)
-    , Provider(..)
-    , Report
-    , ReportForm
-    , Side(..)
-    , ToBackend(..)
-    , ToFrontend(..)
-    , Trader
-    , TradesTab(..)
-    , User
-    , UserId
-    )
+module Evergreen.V3.Types exposing (..)
 
-import Auth.Common
-import Dict exposing (Dict)
-import Effect.Browser exposing (UrlRequest)
-import Effect.Browser.Navigation exposing (Key)
-import Effect.Lamdera exposing (ClientId, SessionId)
-import Item
-import Route exposing (Route)
+import Dict
+import Effect.Browser
+import Effect.Browser.Navigation
+import Effect.Lamdera
+import Evergreen.V3.Auth.Common
+import Evergreen.V3.Item
+import Evergreen.V3.Route
 import Time
-import Url exposing (Url)
-
-
-
--- SHARED DATA
+import Url
 
 
 type Provider
@@ -50,14 +17,9 @@ type Provider
 
 type ClaimStatus
     = AwaitingCoinOffer
-      -- Trading (and the TrailpostBot) isn't live yet, so nobody can actually
-      -- verify. Preview accounts skip the step and are shown as unverified.
     | PreviewUnverified
 
 
-{-| A WalkScape name someone says is theirs, and the coin amount they'd send
-the bot to prove it.
--}
 type alias Claim =
     { name : String
     , coins : Int
@@ -65,22 +27,10 @@ type alias Claim =
     }
 
 
-{-| What the signed-in person knows about their own account.
--}
 type alias Me =
     { provider : Provider
     , isPreviewLogin : Bool
     , claim : Maybe Claim
-    }
-
-
-{-| The public face of a trader, keyed by WalkScape name.
--}
-type alias Trader =
-    { name : String
-    , joinedAt : Time.Posix
-    , discord : Maybe String
-    , lookalikeOf : Maybe String
     }
 
 
@@ -97,7 +47,7 @@ type alias Listing =
     { id : Int
     , trader : String
     , itemId : String
-    , variant : Item.Variant
+    , variant : Evergreen.V3.Item.Variant
     , side : Side
     , payment : Payment
     , quantity : Int
@@ -115,8 +65,6 @@ type OfferStatus
     | OfferWithdrawn
 
 
-{-| Interest in a listing. `price` is coins each; `Nothing` means "at your price".
--}
 type alias Offer =
     { id : Int
     , listingId : Int
@@ -128,34 +76,12 @@ type alias Offer =
     }
 
 
-type alias ListingDraft =
-    { itemId : String
-    , variant : Item.Variant
-    , side : Side
-    , payment : Payment
-    , quantity : Int
-    , note : String
+type alias Trader =
+    { name : String
+    , joinedAt : Time.Posix
+    , discord : Maybe String
+    , lookalikeOf : Maybe String
     }
-
-
-type alias Report =
-    { reporter : String
-    , about : String
-    , reasons : List String
-    , details : String
-    , at : Time.Posix
-    }
-
-
-type alias InitialData =
-    { listings : List Listing
-    , offers : List Offer
-    , traders : List Trader
-    }
-
-
-
--- FRONTEND
 
 
 type MarketTab
@@ -172,8 +98,8 @@ type MarketSort
 
 type alias MarketFilters =
     { tab : MarketTab
-    , rarities : List Item.Rarity
-    , qualities : List Item.Quality
+    , rarities : List Evergreen.V3.Item.Rarity
+    , qualities : List Evergreen.V3.Item.Quality
     , fineOnly : Bool
     , sort : MarketSort
     , hideOutliers : Bool
@@ -181,16 +107,10 @@ type alias MarketFilters =
     }
 
 
-type TradesTab
-    = ReceivedTab
-    | SentTab
-    | MyListingsTab
-
-
 type alias ListingForm =
     { itemQuery : String
     , itemId : Maybe String
-    , quality : Item.Quality
+    , quality : Evergreen.V3.Item.Quality
     , fine : Bool
     , side : Side
     , quantity : String
@@ -217,17 +137,23 @@ type alias ReportForm =
     }
 
 
+type TradesTab
+    = ReceivedTab
+    | SentTab
+    | MyListingsTab
+
+
 type alias FrontendModel =
-    { key : Key
-    , route : Route
+    { key : Effect.Browser.Navigation.Key
+    , route : Evergreen.V3.Route.Route
     , now : Time.Posix
-    , authFlow : Auth.Common.Flow
-    , authRedirectBaseUrl : Url
+    , authFlow : Evergreen.V3.Auth.Common.Flow
+    , authRedirectBaseUrl : Url.Url
     , me : Maybe Me
     , loaded : Bool
-    , listings : Dict Int Listing
-    , offers : Dict Int Offer
-    , traders : Dict String Trader
+    , listings : Dict.Dict Int Listing
+    , offers : Dict.Dict Int Offer
+    , traders : Dict.Dict String Trader
     , filters : MarketFilters
     , noticeDismissed : Bool
     , filtersOpen : Bool
@@ -242,9 +168,44 @@ type alias FrontendModel =
     }
 
 
+type alias UserId =
+    String
+
+
+type alias User =
+    { id : UserId
+    , provider : Provider
+    , isPreviewLogin : Bool
+    , oauthUsername : Maybe String
+    , claim : Maybe Claim
+    , joinedAt : Time.Posix
+    }
+
+
+type alias Report =
+    { reporter : String
+    , about : String
+    , reasons : List String
+    , details : String
+    , at : Time.Posix
+    }
+
+
+type alias BackendModel =
+    { now : Time.Posix
+    , users : Dict.Dict UserId User
+    , sessions : Dict.Dict String UserId
+    , listings : Dict.Dict Int Listing
+    , offers : Dict.Dict Int Offer
+    , reports : List Report
+    , nextId : Int
+    , pendingAuths : Dict.Dict Evergreen.V3.Auth.Common.SessionId Evergreen.V3.Auth.Common.PendingAuth
+    }
+
+
 type FrontendMsg
-    = UrlClicked UrlRequest
-    | UrlChanged Url
+    = UrlClicked Effect.Browser.UrlRequest
+    | UrlChanged Url.Url
     | Tick Time.Posix
     | ProviderClicked Provider
     | PreviewSignInConfirmed Provider
@@ -257,8 +218,8 @@ type FrontendMsg
     | SearchChanged String
     | TabSelected MarketTab
     | SortSelected MarketSort
-    | RarityToggled Item.Rarity
-    | QualityToggled Item.Quality
+    | RarityToggled Evergreen.V3.Item.Rarity
+    | QualityToggled Evergreen.V3.Item.Quality
     | FineOnlyToggled
     | HideOutliersToggled
     | FiltersToggled
@@ -266,7 +227,7 @@ type FrontendMsg
     | ListingItemQueryChanged String
     | ListingItemPicked String
     | ListingItemCleared
-    | ListingQualityPicked Item.Quality
+    | ListingQualityPicked Evergreen.V3.Item.Quality
     | ListingFineToggled Bool
     | ListingSidePicked Side
     | ListingQuantityChanged String
@@ -288,51 +249,18 @@ type FrontendMsg
     | NoOpFrontendMsg
 
 
-type ToFrontend
-    = AuthToFrontend Auth.Common.ToFrontend
-    | InitialDataSent InitialData
-    | YouAre (Maybe Me)
-    | ListingUpserted Listing
-    | OfferUpserted Offer
-    | TraderUpserted Trader
-    | ClaimRejected String
-    | ListingCreated Int
-    | ReportReceived
-    | ActionFailed String
-
-
-
--- BACKEND
-
-
-type alias UserId =
-    String
-
-
-type alias User =
-    { id : UserId
-    , provider : Provider
-    , isPreviewLogin : Bool
-    , oauthUsername : Maybe String
-    , claim : Maybe Claim
-    , joinedAt : Time.Posix
-    }
-
-
-type alias BackendModel =
-    { now : Time.Posix
-    , users : Dict UserId User
-    , sessions : Dict String UserId
-    , listings : Dict Int Listing
-    , offers : Dict Int Offer
-    , reports : List Report
-    , nextId : Int
-    , pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth
+type alias ListingDraft =
+    { itemId : String
+    , variant : Evergreen.V3.Item.Variant
+    , side : Side
+    , payment : Payment
+    , quantity : Int
+    , note : String
     }
 
 
 type ToBackend
-    = AuthToBackend Auth.Common.ToBackend
+    = AuthToBackend Evergreen.V3.Auth.Common.ToBackend
     | PreviewSignIn Provider
     | SignOut
     | ClaimName String
@@ -346,9 +274,29 @@ type ToBackend
 
 
 type BackendMsg
-    = ClientConnected SessionId ClientId
-    | ClientDisconnected SessionId ClientId
-    | AuthBackendMsg Auth.Common.BackendMsg
+    = ClientConnected Effect.Lamdera.SessionId Effect.Lamdera.ClientId
+    | ClientDisconnected Effect.Lamdera.SessionId Effect.Lamdera.ClientId
+    | AuthBackendMsg Evergreen.V3.Auth.Common.BackendMsg
     | GotTime Time.Posix
     | BackendTick Time.Posix
-    | FromFrontendAt SessionId ClientId ToBackend Time.Posix
+    | FromFrontendAt Effect.Lamdera.SessionId Effect.Lamdera.ClientId ToBackend Time.Posix
+
+
+type alias InitialData =
+    { listings : List Listing
+    , offers : List Offer
+    , traders : List Trader
+    }
+
+
+type ToFrontend
+    = AuthToFrontend Evergreen.V3.Auth.Common.ToFrontend
+    | InitialDataSent InitialData
+    | YouAre (Maybe Me)
+    | ListingUpserted Listing
+    | OfferUpserted Offer
+    | TraderUpserted Trader
+    | ClaimRejected String
+    | ListingCreated Int
+    | ReportReceived
+    | ActionFailed String
