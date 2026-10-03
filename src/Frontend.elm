@@ -319,9 +319,6 @@ update msg model =
         ClaimNameSubmitted ->
             ( model, Effect.Lamdera.sendToBackend (ClaimName model.claimName) )
 
-        NewCoinAmountClicked ->
-            ( model, Effect.Lamdera.sendToBackend NewCoinAmount )
-
         ChangeClaimClicked ->
             ( { model | me = model.me |> Maybe.map (\me -> { me | claim = Nothing }) }, Command.none )
 

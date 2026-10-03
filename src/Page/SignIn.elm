@@ -274,7 +274,6 @@ viewVerify claim =
             ]
         , Html.div [ Attr.class "flex-1" ] []
         , Ui.primaryButton "skip-verify" SkipVerificationClicked "Continue unverified"
-        , Ui.secondaryButton "new-amount" NewCoinAmountClicked "Get a new amount"
         ]
 
 

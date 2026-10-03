@@ -50,11 +50,12 @@ lamderaMagicModules =
 
 
 {-| Third-party code we copy-vendor (e.g. lamdera/auth which isn't a published
-package) is exempted from all review rules — we don't own its style.
+package) and the generated Evergreen snapshots/migrations are exempted from all
+review rules — we don't own their style.
 -}
 vendoredDirectories : List String
 vendoredDirectories =
-    [ "vendor/" ]
+    [ "vendor/", "src/Evergreen/" ]
 
 
 config : List Rule
