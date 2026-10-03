@@ -39,7 +39,7 @@ function arg(name, fallback) {
   // Load a route and capture it. fullPage first; if the frame never arrives,
   // retry on a fresh page, then fall back to a viewport-only capture.
   async function capture(context, route, file) {
-    const attempts = [{ fullPage: true }, { fullPage: true }, { fullPage: false }];
+    const attempts = [{ fullPage: true }, { fullPage: false }, { fullPage: false }];
     let lastError;
     for (const [i, opts] of attempts.entries()) {
       const page = await context.newPage();
@@ -53,7 +53,7 @@ function arg(name, fallback) {
         // Lamdera opens a websocket and renders the first ToFrontend after
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
-        await page.screenshot({ path: file, fullPage: opts.fullPage, timeout: 20000 });
+        await page.screenshot({ path: file, fullPage: opts.fullPage, timeout: 10000 });
         console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1}, fullPage=${opts.fullPage})`);
         return;
       } catch (e) {
