@@ -429,7 +429,8 @@ traderCard model name =
                     [ Ui.unverifiedTag
                     , case trader |> Maybe.andThen .discord of
                         Just handle ->
-                            Html.span [ Attr.class "text-[13px] text-muted" ] [ Html.text ("Discord @" ++ handle) ]
+                            Html.span [ Attr.class "flex items-center gap-1 text-[13px] text-muted" ]
+                                [ Ui.discordIcon "w-3.5 h-3.5", Html.text ("@" ++ handle) ]
 
                         Nothing ->
                             Ui.empty

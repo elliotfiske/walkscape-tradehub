@@ -2,7 +2,7 @@ module Item exposing
     ( Item
     , Kind(..)
     , Quality(..)
-    , Rarity
+    , Rarity(..)
     , Variant
     , all
     , allQualities

@@ -9,7 +9,7 @@
 // users. Other steps act on the current ctx:
 //   {"size":[w,h]}  {"goto":"/path","delay":ms}  {"click":"#css"}  {"type":["#css","text"]}
 //   {"select":["#css","value"]}  {"eval":"js expr"}  {"wait":ms}  {"shot":"name","full":true}
-// Screenshots land in $OUT (default /tmp/trailpost-shots) and their paths are printed.
+// Screenshots land in $OUT (default <repo>/.context/shots, per worktree) and their paths are printed.
 // A step whose selector isn't found prints "missing <selector>" on stderr.
 //
 // Gotcha: under `lamdera live` the backend runs inside a browser tab (the
@@ -22,7 +22,7 @@ const WebSocket = require('ws');
 if (!process.argv[2]) { console.error('usage: node scripts/cdp-drive.js <steps.json>'); process.exit(1); }
 const steps = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const base = process.env.BASE || 'http://localhost:8011';
-const out = process.env.OUT || '/tmp/trailpost-shots';
+const out = process.env.OUT || require('path').join(__dirname, '..', '.context', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const procs = [];
