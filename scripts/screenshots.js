@@ -28,15 +28,21 @@ function arg(name, fallback) {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'screenshot-routes.json'), 'utf8'));
   fs.mkdirSync(outDir, { recursive: true });
 
-  // CI runners have no GPU and a small /dev/shm; without these flags Chromium
-  // can stall producing a frame, so page.screenshot() hangs until it times out.
+  // Lesson from PR #3/#5 (2026-10-03): in CI most screenshots were blank white
+  // pages and page.screenshot() "stalled", which looked like a Chromium frame
+  // problem (it wasn't: not the network, not fullPage, not GPU flags). The real
+  // cause was `lamdera live` reloading its tabs in a loop every ~450ms because
+  // files were appearing inside the project dir (its request log and the PNG
+  // output dir). Write logs/PNGs outside the checkout (see preview.yml), and
+  // keep a leader tab open (below). Navigation logging here is for diagnosing
+  // a recurrence: run with SCREENSHOT_DEBUG=1.
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_BIN || undefined,
     args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
   });
   let failed = 0;
 
-  // Load a route and capture the viewport (not fullPage; see the note below).
+  // Load a route and capture it full-page.
   // A screenshot taken before the Elm app has rendered is a blank white page,
   // so wait until the app's text is on screen and the stylesheet has applied,
   // and retry once on a fresh page if that never happens.
@@ -70,7 +76,7 @@ function arg(name, fallback) {
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
         const navsBefore = navs;
-        await page.screenshot({ path: file, timeout: 15000 });
+        await page.screenshot({ path: file, fullPage: true, timeout: 15000 });
         if (navs !== navsBefore) throw new Error('page reloaded during capture');
         if (process.env.SCREENSHOT_DEBUG || navs > 1) for (const ev of events.slice(0, 25)) console.error(`[screenshots]   ${ev}`);
         console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1})`);

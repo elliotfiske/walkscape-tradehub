@@ -99,7 +99,7 @@ jobs:
             curl -fsS -o /dev/null "http://localhost:8000${route}"
           done
           status=0
-          SCREENSHOT_DEBUG=1 node scripts/screenshots.js --base http://localhost:8000 --out "$shots" || status=$?
+          node scripts/screenshots.js --base http://localhost:8000 --out "$shots" || status=$?
           if [ "$status" != "0" ]; then
             echo "--- lamdera-live.log (tail) ---"
             tail -50 "$log"
