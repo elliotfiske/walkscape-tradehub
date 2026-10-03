@@ -1,12 +1,12 @@
-module Evergreen.V3.Types exposing (..)
+module Evergreen.V4.Types exposing (..)
 
 import Dict
 import Effect.Browser
 import Effect.Browser.Navigation
 import Effect.Lamdera
-import Evergreen.V3.Auth.Common
-import Evergreen.V3.Item
-import Evergreen.V3.Route
+import Evergreen.V4.Auth.Common
+import Evergreen.V4.Item
+import Evergreen.V4.Route
 import Time
 import Url
 
@@ -47,7 +47,7 @@ type alias Listing =
     { id : Int
     , trader : String
     , itemId : String
-    , variant : Evergreen.V3.Item.Variant
+    , variant : Evergreen.V4.Item.Variant
     , side : Side
     , payment : Payment
     , quantity : Int
@@ -98,8 +98,8 @@ type MarketSort
 
 type alias MarketFilters =
     { tab : MarketTab
-    , rarities : List Evergreen.V3.Item.Rarity
-    , qualities : List Evergreen.V3.Item.Quality
+    , rarities : List Evergreen.V4.Item.Rarity
+    , qualities : List Evergreen.V4.Item.Quality
     , fineOnly : Bool
     , sort : MarketSort
     , hideOutliers : Bool
@@ -110,7 +110,7 @@ type alias MarketFilters =
 type alias ListingForm =
     { itemQuery : String
     , itemId : Maybe String
-    , quality : Evergreen.V3.Item.Quality
+    , quality : Evergreen.V4.Item.Quality
     , fine : Bool
     , side : Side
     , quantity : String
@@ -145,9 +145,9 @@ type TradesTab
 
 type alias FrontendModel =
     { key : Effect.Browser.Navigation.Key
-    , route : Evergreen.V3.Route.Route
+    , route : Evergreen.V4.Route.Route
     , now : Time.Posix
-    , authFlow : Evergreen.V3.Auth.Common.Flow
+    , authFlow : Evergreen.V4.Auth.Common.Flow
     , authRedirectBaseUrl : Url.Url
     , me : Maybe Me
     , loaded : Bool
@@ -199,7 +199,7 @@ type alias BackendModel =
     , offers : Dict.Dict Int Offer
     , reports : List Report
     , nextId : Int
-    , pendingAuths : Dict.Dict Evergreen.V3.Auth.Common.SessionId Evergreen.V3.Auth.Common.PendingAuth
+    , pendingAuths : Dict.Dict Evergreen.V4.Auth.Common.SessionId Evergreen.V4.Auth.Common.PendingAuth
     }
 
 
@@ -218,8 +218,8 @@ type FrontendMsg
     | SearchChanged String
     | TabSelected MarketTab
     | SortSelected MarketSort
-    | RarityToggled Evergreen.V3.Item.Rarity
-    | QualityToggled Evergreen.V3.Item.Quality
+    | RarityToggled Evergreen.V4.Item.Rarity
+    | QualityToggled Evergreen.V4.Item.Quality
     | FineOnlyToggled
     | HideOutliersToggled
     | FiltersToggled
@@ -227,7 +227,7 @@ type FrontendMsg
     | ListingItemQueryChanged String
     | ListingItemPicked String
     | ListingItemCleared
-    | ListingQualityPicked Evergreen.V3.Item.Quality
+    | ListingQualityPicked Evergreen.V4.Item.Quality
     | ListingFineToggled Bool
     | ListingSidePicked Side
     | ListingQuantityChanged String
@@ -251,7 +251,7 @@ type FrontendMsg
 
 type alias ListingDraft =
     { itemId : String
-    , variant : Evergreen.V3.Item.Variant
+    , variant : Evergreen.V4.Item.Variant
     , side : Side
     , payment : Payment
     , quantity : Int
@@ -260,7 +260,7 @@ type alias ListingDraft =
 
 
 type ToBackend
-    = AuthToBackend Evergreen.V3.Auth.Common.ToBackend
+    = AuthToBackend Evergreen.V4.Auth.Common.ToBackend
     | PreviewSignIn Provider
     | SignOut
     | ClaimName String
@@ -276,7 +276,7 @@ type ToBackend
 type BackendMsg
     = ClientConnected Effect.Lamdera.SessionId Effect.Lamdera.ClientId
     | ClientDisconnected Effect.Lamdera.SessionId Effect.Lamdera.ClientId
-    | AuthBackendMsg Evergreen.V3.Auth.Common.BackendMsg
+    | AuthBackendMsg Evergreen.V4.Auth.Common.BackendMsg
     | GotTime Time.Posix
     | BackendTick Time.Posix
     | FromFrontendAt Effect.Lamdera.SessionId Effect.Lamdera.ClientId ToBackend Time.Posix
@@ -290,7 +290,7 @@ type alias InitialData =
 
 
 type ToFrontend
-    = AuthToFrontend Evergreen.V3.Auth.Common.ToFrontend
+    = AuthToFrontend Evergreen.V4.Auth.Common.ToFrontend
     | InitialDataSent InitialData
     | YouAre (Maybe Me)
     | ListingUpserted Listing
