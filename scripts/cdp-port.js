@@ -12,6 +12,7 @@
 // An explicit `--port` always wins — callers only consult this when none given.
 
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 // The worktree root is the parent of the scripts/ dir this module lives in.
@@ -19,8 +20,14 @@ const WORKTREE_ROOT = path.resolve(__dirname, '..');
 
 const DEFAULT_LAMDERA_PORT = '8000'; // `lamdera live` with no --port
 
-// Return the cwd of a pid via lsof, or null. macOS has no `ps`-based cwd.
+// Return the cwd of a pid, or null. Linux exposes it as /proc/<pid>/cwd; macOS
+// has no procfs (and no `ps`-based cwd), so fall back to lsof there.
 function pidCwd(pid) {
+  try {
+    return path.resolve(fs.readlinkSync(`/proc/${pid}/cwd`));
+  } catch {
+    // not Linux (or no permission) — try lsof
+  }
   try {
     const out = execSync(`lsof -a -p ${pid} -d cwd -Fn`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     const line = out.split('\n').find((l) => l.startsWith('n'));
@@ -36,7 +43,9 @@ function detectWorktreePort({ quiet = false } = {}) {
   const log = (m) => { if (!quiet) console.error(m); };
   let procs;
   try {
-    const out = execSync('pgrep -fl "lamdera live"', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    // Full command line: -a on Linux procps, -l (with -f) on macOS.
+    const flags = process.platform === 'linux' ? '-fa' : '-fl';
+    const out = execSync(`pgrep ${flags} "lamdera live"`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     procs = out.split('\n')
       .map((line) => {
         const pidMatch = line.match(/^(\d+)\s/);

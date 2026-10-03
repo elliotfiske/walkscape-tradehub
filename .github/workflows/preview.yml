@@ -1,0 +1,160 @@
+name: Preview
+
+# Every PR push → a Lamdera preview app at <app>-pr-<N>.lamdera.app, plus
+# screenshots of the PR's UI, summarized in one sticky PR comment.
+#
+# Preview apps don't keep backend state across deploys and skip Evergreen, so
+# this is safe to run on every push. The `pr-<N>` branch name keeps the
+# subdomain valid (feature branches like claude/foo contain slashes).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # push screenshots to the ci/screenshots branch
+  pull-requests: write # sticky comment
+
+jobs:
+  deploy:
+    # Forks don't get secrets.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.push.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+        with:
+          ssh-key: ${{ secrets.LAMDERA_SSH_KEY }}
+
+      - name: Push preview
+        id: push
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          HAS_KEY: ${{ secrets.LAMDERA_SSH_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::error::LAMDERA_SSH_KEY secret not set; can't push the preview"
+            exit 1
+          fi
+          git push --force --no-verify lamdera "HEAD:refs/heads/pr-${PR}"
+          echo "url=https://${LAMDERA_APP}-pr-${PR}.lamdera.app" >> "$GITHUB_OUTPUT"
+
+  screenshots:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # Screenshots are nice-to-have; never let them hold up the PR for long.
+    timeout-minutes: 8
+    outputs:
+      commit: ${{ steps.publish.outputs.commit }}
+      files: ${{ steps.shoot.outputs.files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+
+      - name: Install Chromium
+        run: npx playwright-core install --with-deps chromium
+
+      # Screenshot a local `lamdera live` rather than the preview: it's ready
+      # immediately and doesn't depend on the Lamdera build queue.
+      - name: Take screenshots
+        id: shoot
+        run: |
+          npm run build:css
+          lamdera live --port=8000 > lamdera-live.log 2>&1 &
+          up=false
+          for _ in $(seq 1 120); do
+            if curl -fsS -o /dev/null http://localhost:8000/; then up=true; break; fi
+            sleep 1
+          done
+          if [ "$up" != "true" ]; then
+            echo "::error::lamdera live never answered on :8000"
+            tail -50 lamdera-live.log
+            exit 1
+          fi
+          # Warm every route so lamdera live has compiled before Chromium
+          # starts competing for CPU.
+          for route in $(node -p 'require("./scripts/screenshot-routes.json").routes.map((r) => r.path).join(" ")'); do
+            curl -fsS -o /dev/null "http://localhost:8000${route}"
+          done
+          status=0
+          node scripts/screenshots.js --base http://localhost:8000 --out shots || status=$?
+          if [ "$status" != "0" ]; then
+            echo "--- lamdera-live.log (tail) ---"
+            tail -50 lamdera-live.log
+            echo "--- load ---"
+            uptime
+            free -m
+            exit "$status"
+          fi
+          echo "files=$(cd shots && ls *.png | paste -sd, -)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: screenshots-pr-${{ github.event.pull_request.number }}
+          path: shots/
+
+      - name: Publish to ci/screenshots branch
+        id: publish
+        env:
+          PREFIX: pr-${{ github.event.pull_request.number }}/${{ github.event.pull_request.head.sha }}
+        run: echo "commit=$(bash scripts/ci-publish-screenshots.sh shots "$PREFIX")" >> "$GITHUB_OUTPUT"
+
+  # The comment goes up as soon as the preview is deployed (screenshots are
+  # optional), then `comment-screenshots` fills them in when they're ready.
+  comment:
+    needs: [deploy]
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Upsert PR comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PREVIEW_URL: ${{ needs.deploy.outputs.url }}
+          SHOTS_RESULT: pending
+        with:
+          script: await require('./.github/scripts/preview-comment.js')({ github, context })
+
+  comment-screenshots:
+    needs: [deploy, screenshots, comment]
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Upsert PR comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PREVIEW_URL: ${{ needs.deploy.outputs.url }}
+          SHOTS_RESULT: ${{ needs.screenshots.result }}
+          SHOTS_COMMIT: ${{ needs.screenshots.outputs.commit }}
+          SHOTS_FILES: ${{ needs.screenshots.outputs.files }}
+        with:
+          script: await require('./.github/scripts/preview-comment.js')({ github, context })

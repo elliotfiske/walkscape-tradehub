@@ -1,0 +1,104 @@
+name: Lamdera setup
+description: >
+  Node + npm deps, the pinned Lamdera compiler, a warm Elm package cache, and
+  (optionally) Lamdera CLI auth and an SSH key for pushing to apps.lamdera.com.
+
+inputs:
+  cli-auth:
+    description: Contents of ~/.elm/.lamdera-cli (enables `lamdera check`).
+    required: false
+    default: ""
+  ssh-key:
+    description: Private SSH key registered in the Lamdera dashboard (enables pushes to the lamdera remote).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      with:
+        node-version: 22
+        cache: npm
+
+    - name: Install Lamdera compiler
+      shell: bash
+      run: |
+        bash scripts/install-lamdera.sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    # Only the package cache — never all of ~/.elm, which holds .lamdera-cli.
+    - name: Cache Elm packages
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.elm/0.19.1
+        key: elm-${{ runner.os }}-${{ hashFiles('elm.json', 'review/elm.json', 'scripts/install-lamdera.sh', 'scripts/elm-prefetch.js') }}
+        restore-keys: elm-${{ runner.os }}-
+
+    - name: Install npm dependencies
+      shell: bash
+      run: |
+        npm ci
+        # `prepare` points core.hooksPath at .githooks; CI runs `lamdera check`
+        # explicitly, so don't let the local pre-push hook re-run it on pushes.
+        git config --unset core.hooksPath || true
+
+    # Same path the cloud SessionStart hook uses, so CI keeps it honest.
+    - name: Prefetch Elm packages
+      shell: bash
+      run: node scripts/elm-prefetch.js
+
+    # Populate ELM_HOME with Lamdera's vendored packages (lamdera/core, etc.).
+    # elm-test-rs's dependency solver reads the package cache, and those
+    # packages aren't on the public Elm registry.
+    - name: Prime Elm package cache
+      shell: bash
+      run: lamdera make src/Frontend.elm src/Backend.elm --output=/dev/null
+
+    - name: Lamdera remote
+      shell: bash
+      run: |
+        app=$(node -p 'require("./package.json").config.lamderaApp')
+        git remote add lamdera "git@apps.lamdera.com:${app}.git" 2>/dev/null \
+          || git remote set-url lamdera "git@apps.lamdera.com:${app}.git"
+        echo "LAMDERA_APP=${app}" >> "$GITHUB_ENV"
+
+    - name: Lamdera CLI auth
+      if: inputs.cli-auth != ''
+      shell: bash
+      env:
+        LAMDERA_CLI_AUTH: ${{ inputs.cli-auth }}
+      run: |
+        mkdir -p ~/.elm
+        printf '%s' "$LAMDERA_CLI_AUTH" > ~/.elm/.lamdera-cli
+        chmod 600 ~/.elm/.lamdera-cli
+
+    - name: Lamdera SSH key
+      if: inputs.ssh-key != ''
+      shell: bash
+      env:
+        LAMDERA_SSH_KEY: ${{ inputs.ssh-key }}
+      run: |
+        mkdir -p ~/.ssh && chmod 700 ~/.ssh
+        printf '%s\n' "$LAMDERA_SSH_KEY" > ~/.ssh/lamdera_deploy
+        chmod 600 ~/.ssh/lamdera_deploy
+        cat >> ~/.ssh/config <<'CFG'
+        Host apps.lamdera.com
+          User git
+          IdentityFile ~/.ssh/lamdera_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking accept-new
+          ConnectTimeout 20
+        CFG
+        # Fail fast with a clear message if this runner can't reach port 22.
+        out=$(ssh -o BatchMode=yes -T git@apps.lamdera.com 2>&1 </dev/null) || true
+        echo "ssh apps.lamdera.com: $out"
+        if echo "$out" | grep -qiE 'timed out|connection refused|could not resolve|no route'; then
+          echo "::error::This runner can't reach git@apps.lamdera.com over SSH (port 22). Lamdera pushes won't work from it."
+          exit 1
+        fi
+        if echo "$out" | grep -qi 'permission denied'; then
+          echo "::error::apps.lamdera.com rejected the SSH key. Add the public half of LAMDERA_SSH_KEY in the Lamdera dashboard."
+          exit 1
+        fi

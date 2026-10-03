@@ -35,8 +35,11 @@ if [[ ! -f "$DIR/elm.json" ]]; then
   exit 0
 fi
 
-# Run elm-review from the project root (plain-text output)
+# Run elm-review from the project root (plain-text output). Put
+# node_modules/.bin on PATH so elm-review finds the npm-installed `elm`
+# (@lydell/elm) when there's no global one.
 cd "$DIR"
+export PATH="$DIR/node_modules/.bin:$PATH"
 if [[ -x "./node_modules/.bin/elm-review" ]]; then
   REVIEW_CMD="./node_modules/.bin/elm-review"
 elif command -v elm-review >/dev/null 2>&1; then

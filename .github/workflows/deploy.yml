@@ -1,0 +1,36 @@
+name: Deploy
+
+# Every merge to main deploys to production (<app>.lamdera.app).
+#
+# Safe because migrations are gated at PR time (tests.yml runs `lamdera check
+# --force`), and scripts/deploy.sh still hard-stops if `lamdera check` would
+# generate an uncommitted migration here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Serialize production deploys; never cancel one mid-flight.
+concurrency:
+  group: lamdera-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+        with:
+          cli-auth: ${{ secrets.LAMDERA_CLI_AUTH }}
+          ssh-key: ${{ secrets.LAMDERA_SSH_KEY }}
+
+      - name: Deploy
+        run: npm run deploy
