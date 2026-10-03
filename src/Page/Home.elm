@@ -30,12 +30,12 @@ view model =
             [ Html.div []
                 [ Html.div [ Attr.class "font-bold text-[11px] tracking-[0.16em] text-gold mb-4" ] [ Html.text "A FAN-MADE MARKET FOR WALKSCAPE" ]
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[38px] md:text-[60px] leading-[1.02] tracking-tight mb-5" ]
-                    [ Html.text "Find a trade partner.", Html.br [] [], Html.text "Know the fair price." ]
+                    [ Html.text "Know the fair price", Html.br [] [], Html.text "before trading opens." ]
                 , Html.p [ Attr.class "text-body text-lg leading-relaxed max-w-lg mb-7" ]
-                    [ Html.text "Post what you have, find who wants it, and check every offer against what other players are asking." ]
+                    [ Html.text "Post what you'd sell or buy, and make offers on other people's listings. Nothing changes hands yet, but every price goes into an estimate anyone can check." ]
                 , Html.div [ Attr.class "flex flex-col sm:flex-row gap-3" ]
                     (if model.me == Nothing then
-                        [ Html.a [ Attr.href "/signin", Attr.id "hero-signin", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "SIGN IN TO TRADE" ]
+                        [ Html.a [ Attr.href "/signin", Attr.id "hero-signin", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "SIGN IN TO POST" ]
                         , Html.a [ Attr.href "/market", Attr.id "hero-browse", Attr.class "rounded-xl bg-raised hover:bg-tab text-soft hover:text-ink no-underline font-semibold px-6 py-3.5 text-center border border-rule" ] [ Html.text "Browse the market" ]
                         ]
 
@@ -43,7 +43,7 @@ view model =
                         [ Html.a [ Attr.href "/market", Attr.id "hero-browse", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "GO TO THE MARKET" ] ]
                     )
                 , if model.me == Nothing then
-                    Html.p [ Attr.class "text-faint text-sm mt-4" ] [ Html.text "Sign in with Discord" ]
+                    Html.p [ Attr.class "text-faint text-sm mt-4" ] [ Html.text "Sign in with Discord. Trailpost only sees your username." ]
 
                   else
                     Ui.empty
@@ -51,17 +51,32 @@ view model =
             , featuredCard model
             ]
         , Html.section [ Attr.class "grid sm:grid-cols-2 lg:grid-cols-4 gap-7 px-4 md:px-[72px] py-10 border-b border-line" ]
-            [ feature "Prices from real offers" "Estimates use the median of what traders ask, bid and offer, one vote per trader per day. Outliers are left out."
-            , feature "Preview first" "Trading isn't live in WalkScape yet. Post what you'd trade and show interest, so everyone can see roughly what things are worth."
-            , feature "Verified names, soon" "You'll prove you own your WalkScape name by sending a small coin offer to our bot, so nobody can trade as you."
-            , feature "No pressure tactics" "No countdowns anywhere. New listings wait 15 minutes before going live, and you can report anyone who tries to rush you."
+            [ feature "Why post if nothing trades?" "Every listing and offer is a vote in an item's price. More votes means a better guess for everyone. Listings reset when trading launches, but your account and name stay."
+            , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of everyone's prices, one vote per trader per day, with outliers cut."
+            , feature "Safe to try" "Discord only shares your username with Trailpost, and nothing here touches your WalkScape account."
+            , feature "No pressure tactics" "No countdowns anywhere. New listings wait 15 minutes before going live, so no deal appears and disappears before you can check it."
             ]
         , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line" ]
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]
             , Html.div [ Attr.class "grid md:grid-cols-3 gap-6" ]
-                [ startStep 1 "Sign in" "Use your Discord account."
-                , startStep 2 "Claim your name" "Tell us your WalkScape name. Checking it with a coin offer to TrailpostBot comes with trading."
+                [ startStep 1 "Sign in" "With Discord."
+                , startStep 2 "Claim your name" "Type the name you play under. Names are first-come for now. Once trading opens you'll verify yours, and if someone else grabbed it, it moves to you."
                 , startStep 3 "Post and offer" "List what you'd sell or buy, and make offers on other people's listings."
+                ]
+            ]
+        , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line", Ui.testId "about" ]
+            [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-4" ] [ Html.text "Who made this" ]
+            , Html.div [ Attr.class "flex flex-col gap-3 text-body leading-relaxed max-w-2xl" ]
+                [ Html.p [] [ Html.text "I'm Elliot, a WalkScape player. I built this so we'd have prices figured out before trading opens." ]
+                , Html.p []
+                    [ Html.text "It's a preview, so I'm still working out how it should work. If something's confusing or missing, tell me in the "
+                    , Html.a [ Attr.href Ui.feedbackThreadUrl, Attr.target "_blank", Attr.rel "noopener" ] [ Html.text "Trailpost thread on the WalkScape Discord" ]
+                    , Html.text "."
+                    ]
+                , Html.p []
+                    [ Html.b [ Attr.class "text-ink" ] [ Html.text "Moderation: " ]
+                    , Html.text "Nothing trades here yet, so there isn't much to moderate. The only problem I can think of is offensive names, and verification fixes that once trading opens. For real trades I'm weighing a few options: reviewing reports myself (slow, but I know the context), recruiting community volunteers as moderators (faster, but more people to trust), or no reports at all and just showing each trader's history (no ban hammer, but new players look sketchy). If you have opinions, the thread's the place."
+                    ]
                 ]
             ]
         , Html.footer [ Attr.class "px-4 md:px-[72px] py-6 text-faint text-[13px]" ]

@@ -140,7 +140,7 @@ termsCard model listing item =
 
           else
             Html.div [ Attr.class "rounded-lg border border-[#6b5520] bg-[#1a1608] px-3 py-2 text-[13px] text-[#e9d9a6]", Ui.testId "pending-note" ]
-                [ Html.text "Only you can see this for now. Every listing waits 15 minutes before going live, so no deal ever appears and disappears in seconds." ]
+                [ Html.text "Only you can see this for now. Every listing waits 15 minutes before going live, so no deal appears and disappears in seconds." ]
         ]
 
 
@@ -327,13 +327,7 @@ offerForm model listing myOffer =
                                 , Ui.testId "offer-check"
                                 ]
                                 [ Html.text
-                                    ((if Pricing.isWarning pct then
-                                        "Heads up: "
-
-                                      else
-                                        ""
-                                     )
-                                        ++ String.fromInt (abs pct)
+                                    (String.fromInt (abs pct)
                                         ++ "% "
                                         ++ (if pct >= 0 then
                                                 "above"
@@ -401,7 +395,7 @@ offerForm model listing myOffer =
                  else
                     "Update offer"
                 )
-            , Html.p [ Attr.class "text-xs text-faint" ] [ Html.text "This is a preview, so nothing is traded. Offers show interest and help everyone see what items are worth." ]
+            , Html.p [ Attr.class "text-xs text-faint" ] [ Html.text "Nothing trades yet. Your offer goes into the price estimate." ]
             ]
 
 

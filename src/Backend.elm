@@ -509,7 +509,7 @@ claimName user raw now model clientId sessionId =
             if takenBySomeoneElse then
                 ( model
                 , Effect.Lamdera.sendToFrontend clientId
-                    (ClaimRejected "Someone on Trailpost has already claimed that name. Once verification is live, the real owner can prove it and take it over.")
+                    (ClaimRejected "Someone already claimed that name here. Once trading opens, the real owner can verify it and take it back.")
                 )
 
             else

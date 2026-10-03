@@ -104,6 +104,7 @@ viewSignIn model =
             Nothing ->
                 Html.div [ Attr.class "flex flex-col gap-3" ]
                     [ providerButton Discord "bg-discord text-white hover:brightness-110"
+                    , Html.p [ Attr.class "text-xs text-faint text-center" ] [ Html.text "Trailpost only gets your Discord username, not your email, servers or messages." ]
                     , if AuthProviders.isConfigured Discord && Env.mode == Env.Production then
                         Ui.empty
 
@@ -124,13 +125,13 @@ viewSignIn model =
                 Ui.empty
         , Html.div [ Attr.class "mt-6" ]
             [ Ui.previewNote
-                [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Next, you'll link your WalkScape name. " ]
-                , Html.text "WalkScape doesn't have its own sign-in, so you'll claim the name you play under."
+                [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Next, you'll claim your WalkScape name. " ]
+                , Html.text "WalkScape doesn't have a sign-in other sites can use, so you'll type the name you play under."
                 ]
             ]
         , Html.div [ Attr.class "flex-1" ] []
         , Html.p [ Attr.class "text-center text-xs text-faint mt-10" ]
-            [ Html.text "By continuing you agree to the community rules. Trailpost isn't affiliated with WalkScape." ]
+            [ Html.text "Trailpost is a fan project and isn't affiliated with WalkScape." ]
         ]
 
 
@@ -140,7 +141,7 @@ viewPreviewSignIn provider =
         [ Html.div [ Attr.class "font-display font-extrabold text-lg text-gold" ]
             [ Html.text (providerName provider ++ " sign-in isn't connected yet") ]
         , Html.p [ Attr.class "text-sm text-body leading-relaxed" ]
-            [ Html.text "While Trailpost is in preview, you can use a preview account instead. It's tied to this browser, so you'll lose it if you clear your cookies." ]
+            [ Html.text "You can use a preview account instead. It's tied to this browser, so clearing your cookies loses it." ]
         , Ui.primaryButton "preview-signin-continue" (PreviewSignInConfirmed provider) "Continue with a preview account"
         , Html.button [ Attr.id "preview-signin-cancel", Events.onClick PreviewSignInCancelled, Attr.class "text-soft text-sm py-1" ] [ Html.text "Pick another option" ]
         ]
@@ -217,14 +218,14 @@ viewClaim model me =
                         , Html.div []
                             [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                             , Html.div [ Attr.class "text-xs text-faint mt-1" ]
-                                [ Html.text "Preview: we'll look this name up in the WalkScape API (level, steps) once trading launches." ]
+                                [ Html.text "Once trading opens, your level and steps from WalkScape show up here." ]
                             ]
                         ]
 
                 Nothing ->
                     Ui.empty
             , Html.p [ Attr.class "text-sm text-muted mt-4" ]
-                [ Html.text "If someone else has claimed this name, verifying it (once that's live) moves the name to you." ]
+                [ Html.text "Names are first-come for now. If someone grabbed yours, verifying it once trading opens moves it to you." ]
             , Html.div [ Attr.class "flex-1 min-h-8" ] []
             , Html.button
                 [ Attr.id "claim-submit"
@@ -284,7 +285,7 @@ viewDone me claim =
             , Html.span [ Attr.class "absolute -right-2 -bottom-2 w-8 h-8 rounded-full bg-[#6b5520] border-2 border-shell grid place-items-center text-gold font-bold" ] [ Html.text "?" ]
             ]
         , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "done-heading" ] [ Html.text (claim.name ++ " is linked") ]
-        , Html.p [ Attr.class "text-body" ] [ Html.text "You can now post listings and make offers. Until verification is live, your name shows as unverified." ]
+        , Html.p [ Attr.class "text-body" ] [ Html.text "You can post listings and make offers now. Your name shows as unverified until trading opens." ]
         , Ui.card [ Attr.class "w-full text-left p-4 mt-3 flex flex-col gap-3" ]
             [ Html.div [ Attr.class "flex items-center justify-between" ]
                 [ Html.span [ Attr.class "flex items-center gap-2.5 font-semibold" ]
@@ -297,7 +298,7 @@ viewDone me claim =
                         "You signed in with Discord, so your handle shows on your profile and traders can message you there."
 
                      else
-                        "Linking Discord, so traders can message you there, arrives with trading. Signing in with Discord shows your handle on your profile."
+                        "Sign in with Discord instead and your handle shows on your profile, so traders can message you."
                     )
                 ]
             ]

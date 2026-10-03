@@ -5,6 +5,7 @@ module Ui exposing
     , coinAmount
     , discordIcon
     , empty
+    , feedbackThreadUrl
     , fineTag
     , formatInt
     , gradeTag
@@ -57,6 +58,16 @@ plural n singular many =
 testId : String -> Html.Attribute msg
 testId id =
     Attr.attribute "data-testid" id
+
+
+{-| Elliot's Trailpost feedback thread on the WalkScape Discord.
+
+TODO: placeholder until the thread exists.
+
+-}
+feedbackThreadUrl : String
+feedbackThreadUrl =
+    "https://discord.gg/TODO"
 
 
 empty : Html msg

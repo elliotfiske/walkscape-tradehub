@@ -36,7 +36,7 @@ view model name =
           else if form.sent then
             Ui.card [ Attr.class "p-5 flex flex-col gap-2", Ui.testId "report-sent" ]
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl text-leaf" ] [ Html.text "Report sent" ]
-                , Html.p [ Attr.class "text-body text-sm" ] [ Html.text "Thanks. A moderator will look at it. You don't need to do anything else." ]
+                , Html.p [ Attr.class "text-body text-sm" ] [ Html.text "Thanks, it's saved." ]
                 , Html.a [ Attr.href "/market", Attr.class "text-sm" ] [ Html.text "Back to the market" ]
                 ]
 
@@ -84,8 +84,7 @@ view model name =
                     [ Html.text "screenshot uploads arrive with trading" ]
                 , Html.div [ Attr.class "rounded-xl border border-edge bg-card p-4 flex flex-col gap-2 text-sm text-body" ]
                     [ Ui.sectionLabel "What happens next"
-                    , Html.p [] [ Html.text "A moderator will review it. Players with repeat reports get denylisted." ]
-                    , Html.p [] [ Html.text "Anything that breaks game rules is forwarded to the WalkScape devs." ]
+                    , Html.p [] [ Html.text "There's no moderation in the preview yet. Your report is saved for when there is." ]
                     ]
                 , Ui.button "send-report" "w-full rounded-xl bg-[#a8403a] hover:bg-[#c0453b] text-white font-bold tracking-wider uppercase py-3.5" ReportSubmitted "Send report"
                 ]

@@ -128,7 +128,7 @@ notices model =
         Html.div [ Attr.class "relative rounded-xl border border-[#2c4a3a] bg-[#0f1d17] pl-3.5 pr-11 py-3 flex flex-col gap-1", Ui.testId "timers-notice" ]
             [ Html.div [ Attr.class "font-display font-extrabold text-base text-[#9be07f]" ] [ Html.text "No timers here" ]
             , Html.div [ Attr.class "text-[13px] leading-snug text-body" ]
-                [ Html.text "Listings don't expire on a countdown, and every new listing waits 15 minutes before anyone sees it. Watch out for false urgency. A trader who says a deal ends in five minutes is a common scam, meant to stop you from checking the item or the price." ]
+                [ Html.text "Listings never expire on a countdown, and every new one waits 15 minutes before anyone sees it. If a trader says a deal ends in five minutes, that's a common scam. It's meant to stop you from checking the item or the price." ]
             , Html.button [ Attr.id "dismiss-notice", Events.onClick NoticeDismissed, Attr.class "absolute top-2 right-2 w-[30px] h-[30px] rounded-md grid place-items-center text-muted hover:text-ink hover:bg-[#1a2a24] text-lg" ] [ Html.text "×" ]
             ]
 
