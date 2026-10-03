@@ -36,10 +36,14 @@ function arg(name, fallback) {
   });
   let failed = 0;
 
-  // Load a route and capture the viewport. Never fullPage: on CI runners
-  // Playwright's full-page capture stalls ~half the time (the viewport resize
-  // never yields a frame), while plain viewport captures always worked. If a
-  // frame still never arrives, retry once on a fresh page.
+  // Load a route and capture the viewport. Viewport-only on purpose
+  // (investigated 2026-10-03, PR #3): on GitHub runners
+  // page.screenshot({ fullPage: true }) stalled ~50% of the time (10-30s
+  // timeout, even on pages as tall as the viewport); viewport captures never
+  // did. Not the network (only Google Fonts) and not reproducible locally, even
+  // with 20x CPU throttling. --disable-gpu/--disable-dev-shm-usage didn't fix
+  // it. Retrying helps but costs ~16s per stall. Don't re-add fullPage without
+  // testing in CI. If a frame still never arrives, retry once on a fresh page.
   async function capture(context, route, file) {
     let lastError;
     for (let i = 0; i < 2; i++) {
