@@ -47,6 +47,7 @@ function arg(name, fallback) {
       const t0 = Date.now();
       const problems = [];
       page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text().slice(0, 200)}`); });
+      page.on('framenavigated', (f) => { if (f === page.mainFrame()) problems.push(`navigated: ${f.url().slice(0, 100)}`); });
       page.on('pageerror', (e) => problems.push(`pageerror: ${String(e.message).slice(0, 200)}`));
       page.on('requestfailed', (r) => problems.push(`requestfailed: ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
       try {
@@ -84,6 +85,11 @@ function arg(name, fallback) {
         deviceScaleFactor: 1,
         isMobile: vp.width < 600,
       });
+      // The `lamdera live` dev backend runs inside a browser tab, so closing or
+      // reloading the only tab drops it mid-capture (aborted requests, blank
+      // frames). Keep one leader tab open on the app for this whole context.
+      const leader = await context.newPage();
+      await leader.goto(base + '/', { waitUntil: 'load', timeout: 30000 }).catch(() => {});
       for (const route of config.routes) {
         const file = path.join(outDir, `${route.name}-${vp.name}.png`);
         try {
@@ -94,6 +100,7 @@ function arg(name, fallback) {
           console.error(`[screenshots] ${route.name}@${vp.name}: ${e.message}`);
         }
       }
+      await leader.close().catch(() => {});
       await context.close();
     }
   } finally {
