@@ -1,0 +1,80 @@
+[
+ {
+  "ctx": "leader"
+ },
+ {
+  "goto": "/",
+  "delay": 8000
+ },
+ {
+  "ctx": "guest"
+ },
+ {
+  "size": [
+   1280,
+   900
+  ]
+ },
+ {
+  "goto": "/"
+ },
+ {
+  "shot": "home-desktop",
+  "full": true
+ },
+ {
+  "goto": "/market"
+ },
+ {
+  "shot": "market-desktop"
+ },
+ {
+  "size": [
+   390,
+   844
+  ]
+ },
+ {
+  "goto": "/"
+ },
+ {
+  "shot": "home-mobile",
+  "full": true
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "shot": "signin-preview"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 2500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Smoketest"
+  ]
+ },
+ {
+  "shot": "claim"
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 2000
+ },
+ {
+  "shot": "verify"
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 2000
+ },
+ {
+  "shot": "done"
+ }
+]

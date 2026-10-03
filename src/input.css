@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-page text-ink font-sans antialiased;
+  }
+  a {
+    @apply text-gold;
+  }
+  a:hover {
+    @apply text-goldhi;
+  }
+}
+
+@layer components {
+  .hatch {
+    background: repeating-linear-gradient(45deg, #1b2b33 0 3px, #131f26 3px 6px);
+  }
+  .coin {
+    background: radial-gradient(circle at 35% 35%, #ffe08a, #d79a22 60%, #9a6512);
+  }
+  .pixel {
+    image-rendering: pixelated;
+  }
+  .meter {
+    background: linear-gradient(90deg, #7a3a34, #6b5520 25%, #2c5a2a 40%, #2c5a2a 60%, #6b5520 75%, #7a3a34);
+  }
+}

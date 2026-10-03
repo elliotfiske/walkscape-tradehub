@@ -1,0 +1,48 @@
+# Lamdera Project Rules
+
+## Development Server
+- The Lamdera dev server runs on `http://localhost:8000`
+- Start the server with `lamdera live`
+
+## Browser Interaction with Dev Toolbar
+
+### Accessing the Dev Toolbar
+- The Dev Toolbar appears in the **bottom-left corner** of the page, showing "Env: Dev"
+- The toolbar **expands on hover** (mouseover), not on click
+- **Do NOT click directly on the "Env: Dev" text** - this opens an Env.mode selection modal
+- Use `browser_hover` on the toolbar element first, then click on the desired option
+
+### Opening the REPL
+1. Hover over the Dev Toolbar to expand it
+2. Click "Show Repl" to open the REPL panel
+3. The REPL stays open even when the toolbar collapses (mouse leaves)
+4. Click "Hide Repl" to close it
+
+## Lamdera REPL Commands
+
+Access Lamdera-specific commands by typing `:lamdera` in the REPL.
+
+### Viewing Models
+- `bem` - View the current Backend model (`Types.BackendModel`)
+- `fem` - View the current Frontend model (`Types.FrontendModel`)
+
+### Modifying Models
+- `setBem <model>` - Set/replace the Backend model
+- `setFem <model>` - Set/replace the Frontend model
+
+### Sending Messages
+- `updateBE <msg>` - Send a `BackendMsg` to the backend
+- `updateFE <msg>` - Send a `FrontendMsg` to the frontend
+- `sendToBE <msg>` - Send a `ToBackend` message
+- `sendToFE <clientId> <msg>` - Send a `ToFrontend` message to a specific client
+- `broadcast <msg>` - Broadcast a `ToFrontend` message to all connected clients
+
+### Utilities
+- `capture <value>` - Create a snapshot of a value for debugging. This avoids problems where the value may be mutated from other REPL calls.
+- `:help` - Show general REPL help
+- `:exit` - Exit the REPL
+
+## Documentation
+- Lamdera REPL docs: https://dashboard.lamdera.app/docs/repl
+- Lamdera general docs: https://dashboard.lamdera.app/docs
+

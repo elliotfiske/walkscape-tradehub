@@ -1,0 +1,149 @@
+module UnitTests exposing (suite)
+
+import Expect
+import Item
+import Name
+import Page.NewListing
+import Pricing exposing (Source(..), Status(..))
+import Route
+import Test exposing (Test, describe, test)
+import Time
+import Types exposing (Payment(..), Side(..))
+import Url
+
+
+day : Int
+day =
+    86400000
+
+
+point : String -> Int -> Int -> Pricing.Point
+point trader price at =
+    { price = price, trader = trader, at = Time.millisToPosix at, source = Ask }
+
+
+suite : Test
+suite =
+    describe "Unit tests"
+        [ describe "Pricing.estimate"
+            [ test "no points means no estimate" <|
+                \_ -> Pricing.estimate [] |> Expect.equal Nothing
+            , test "median, not average" <|
+                \_ ->
+                    [ point "a" 100 0, point "b" 110 0, point "c" 120 0, point "d" 130 0, point "e" 900 0 ]
+                        |> Pricing.estimate
+                        |> Maybe.map .median
+                        |> Expect.equal (Just 115)
+            , test "a wild price is excluded as an outlier" <|
+                \_ ->
+                    [ point "a" 8800 0, point "b" 9000 0, point "c" 9100 0, point "d" 8900 0, point "e" 30000 0 ]
+                        |> Pricing.classify
+                        |> List.map Tuple.second
+                        |> Expect.equal [ Counted, Counted, Counted, Counted, Outlier ]
+            , test "only a trader's latest price per day counts" <|
+                \_ ->
+                    [ point "a" 100 1000, point "a" 120 2000, point "b" 110 3000, point "a" 130 (day + 10) ]
+                        |> Pricing.classify
+                        |> List.map Tuple.second
+                        |> Expect.equal [ Repeat, Counted, Counted, Counted ]
+            , test "counts traders and exclusions" <|
+                \_ ->
+                    [ point "a" 100 0, point "a" 100 5, point "b" 100 0 ]
+                        |> Pricing.estimate
+                        |> Maybe.map (\e -> ( e.counted, e.excluded, e.traders ))
+                        |> Expect.equal (Just ( 2, 1, 2 ))
+            , test "identical prices still form a normal range" <|
+                \_ ->
+                    [ point "a" 500 0, point "b" 500 0, point "c" 540 0 ]
+                        |> Pricing.classify
+                        |> List.map Tuple.second
+                        |> Expect.equal [ Counted, Counted, Counted ]
+            , test "deviation and warnings" <|
+                \_ ->
+                    ( Pricing.deviationPercent 8900 11480, Pricing.isWarning 29, Pricing.isWarning -25 )
+                        |> Expect.equal ( 29, True, False )
+            ]
+        , describe "Name"
+            [ test "validates length and characters" <|
+                \_ ->
+                    List.map (Name.validate >> Result.toMaybe) [ "  Wanderling ", "ab", "bad name!", "Juno_Trek" ]
+                        |> Expect.equal [ Just "Wanderling", Nothing, Nothing, Just "Juno_Trek" ]
+            , test "flags names one edit or an underscore away from an established name" <|
+                \_ ->
+                    List.map (\n -> Name.lookalikeOf n [ "Mossbeard", "Tallowmere" ]) [ "Mosbeard_", "Mossbeard_", "Mossbeerd", "Mossbeard", "Pikewalker" ]
+                        |> Expect.equal [ Just "Mossbeard", Just "Mossbeard", Just "Mossbeard", Nothing, Nothing ]
+            , test "short names aren't flagged for a single different letter" <|
+                \_ -> Name.lookalikeOf "Abc" [ "Abd" ] |> Expect.equal Nothing
+            ]
+        , describe "Route"
+            [ test "round-trips every route" <|
+                \_ ->
+                    let
+                        routes =
+                            [ Route.Home
+                            , Route.Market
+                            , Route.Prices
+                            , Route.ItemPrice "iron-pickaxe" (Just Item.Eternal)
+                            , Route.ItemPrice "shovel-axe" Nothing
+                            , Route.ListingPage 42
+                            , Route.NewListing
+                            , Route.MyTrades
+                            , Route.Profile "Juno_Trek"
+                            , Route.Report "Mosbeard_"
+                            , Route.SignIn
+                            , Route.Onboarding
+                            ]
+
+                        parse r =
+                            Url.fromString ("https://trailpost.lamdera.app" ++ Route.toString r) |> Maybe.map Route.fromUrl
+                    in
+                    List.map parse routes |> Expect.equal (List.map Just routes)
+            ]
+        , describe "Item catalog"
+            [ test "is imported from walkscapedb with kinds mapped" <|
+                \_ ->
+                    ( List.length Item.all > 800
+                    , Item.byId "shovel-axe" |> Maybe.map (\i -> Item.gradeLabel i Nothing)
+                    , [ "gold-ring", "copper-ore" ] |> List.filterMap Item.byId |> List.map (\i -> Item.gradeLabel i Nothing)
+                    )
+                        |> Expect.equal ( True, Just "Legendary", [ "Crafted item", "Material" ] )
+            , test "search puts names that start with the query first" <|
+                \_ ->
+                    Item.search "iron pick" |> List.map .id |> List.head |> Expect.equal (Just "iron-pickaxe")
+            ]
+        , describe "Page.NewListing.toDraft"
+            [ test "accepts 1.2k style prices and sets quality for crafted items" <|
+                \_ ->
+                    Page.NewListing.toDraft { form | itemId = Just "iron-pickaxe", quality = Item.Perfect, price = "1.2k", quantity = "3" }
+                        |> Result.map (\d -> ( d.quality, d.payment, d.quantity ))
+                        |> Expect.equal (Ok ( Just Item.Perfect, Coins 1200, 3 ))
+            , test "loot items have no quality, swaps need an item" <|
+                \_ ->
+                    ( Page.NewListing.toDraft { form | itemId = Just "shovel-axe", swap = True, swapItemId = Just "iron-bar", price = "4" }
+                        |> Result.map (\d -> ( d.quality, d.payment ))
+                    , Page.NewListing.toDraft { form | itemId = Just "shovel-axe", swap = True, price = "4" } |> Result.toMaybe
+                    )
+                        |> Expect.equal ( Ok ( Nothing, Swap "iron-bar" 4 ), Nothing )
+            , test "rejects a zero quantity" <|
+                \_ ->
+                    Page.NewListing.toDraft { form | itemId = Just "coal", price = "10", quantity = "0" }
+                        |> Expect.equal (Err "Enter a quantity above zero.")
+            ]
+        ]
+
+
+form : Types.ListingForm
+form =
+    { itemQuery = ""
+    , itemId = Nothing
+    , quality = Item.Normal
+    , side = Selling
+    , swap = False
+    , swapItemId = Nothing
+    , swapQuery = ""
+    , quantity = "1"
+    , price = ""
+    , note = ""
+    , error = Nothing
+    , submitting = False
+    }

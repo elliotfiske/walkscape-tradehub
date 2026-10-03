@@ -1,0 +1,23 @@
+{
+  "name": "lamdera-starter",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/run.js",
+    "test": "elm-test-rs --compiler $(which lamdera)",
+    "review": "elm-review",
+    "build:css": "npx tailwindcss -i ./src/input.css -o ./public/output.css",
+    "watch:css": "npx tailwindcss -i ./src/input.css -o ./public/output.css --watch",
+    "deploy": "bash scripts/deploy.sh",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "elm-review": "2.13.5",
+    "elm-test-rs": "3.0.2-0",
+    "tailwindcss": "3.4.19",
+    "ws": "8.21.0"
+  },
+  "allowScripts": {
+    "elm-test-rs@3.0.2-0": true,
+    "fsevents@2.3.3": true
+  }
+}

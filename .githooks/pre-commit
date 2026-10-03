@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Block commits to src/Env.elm that contain anything beyond the clean baseline.
+#
+# Lamdera requires Env.elm to be a valid, compilable module, so we can't
+# .gitignore it. Instead we keep a tracked clean baseline (Env-Clean.elm at the
+# repo root) and refuse any commit where the staged src/Env.elm doesn't match.
+#
+# To intentionally add a new config field: update BOTH src/Env.elm and
+# Env-Clean.elm in the same commit.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Rebuild Tailwind output.css when a source that feeds it is staged.
+#
+# Lamdera serves public/* statically but never runs the Tailwind build on
+# deploy, so public/output.css is tracked. To stop it drifting from the .elm
+# class names, rebuild it here whenever an input changes and re-stage the
+# result so the commit always carries a fresh stylesheet.
+# ---------------------------------------------------------------------------
+OUTPUT_CSS="public/output.css"
+VIEW_ELM="src/Frontend.elm"   # file carrying the /output.css?dev=<hash> cache-buster
+CSS_INPUT_RE='^(src/.*\.elm|src/input\.css|tailwind\.config\.js)$'
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE "$CSS_INPUT_RE"; then
+    # build:css scans the *working tree* (./src/**/*.elm), not the staged index,
+    # so any unstaged edit to a CSS input can make the committed output.css /
+    # cache-buster reflect content that isn't in this commit. We don't stash
+    # (pop would fight the output.css/Frontend.elm we restage); instead warn so
+    # the rare drift is visible — most commonly harmless extra utilities, but an
+    # unstaged class *removal* could omit a class the committed .elm still uses.
+    dirty_inputs=$(git diff --name-only -- | grep -E "$CSS_INPUT_RE" || true)
+    if [ -n "$dirty_inputs" ]; then
+        echo "pre-commit: CSS inputs have unstaged changes — output.css is built" >&2
+        echo "  from the working tree, so it may not match the staged .elm:" >&2
+        echo "$dirty_inputs" | sed 's/^/    /' >&2
+        echo "  Stage or stash these (or rebuild after) if styles look off." >&2
+    fi
+
+    echo "pre-commit: rebuilding $OUTPUT_CSS …" >&2
+    if ! npm run build:css >/dev/null 2>&1; then
+        echo "pre-commit: 'npm run build:css' failed — fix it or bypass with --no-verify." >&2
+        exit 1
+    fi
+    git add "$OUTPUT_CSS"
+
+    # Stamp the view's content-hash cache-buster so the committed markup
+    # matches the committed CSS (and the dev cachebust watcher, which uses the
+    # same hash, won't re-dirty the view after the commit). Only auto-stage the
+    # restamp when the user wasn't mid-editing the view, so we never sweep
+    # unrelated unstaged edits into the commit.
+    view_dirty_before=$(git diff --name-only -- "$VIEW_ELM")
+    if ! node scripts/cachebust.js --once; then
+        echo "pre-commit: cachebust failed — fix scripts/cachebust.js or bypass with --no-verify." >&2
+        exit 1
+    fi
+    if [ -z "$view_dirty_before" ]; then
+        git add "$VIEW_ELM"
+    elif ! git diff --quiet -- "$VIEW_ELM"; then
+        echo "pre-commit: $VIEW_ELM had unstaged edits — left the cache-buster" >&2
+        echo "  restamp unstaged so it won't sweep your in-progress changes." >&2
+    fi
+fi
+
+ENV_FILE="src/Env.elm"
+CLEAN_FILE="Env-Clean.elm"
+
+# Only run if Env.elm is staged.
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -qx "$ENV_FILE"; then
+    exit 0
+fi
+
+if [ ! -f "$CLEAN_FILE" ]; then
+    echo "pre-commit: $CLEAN_FILE not found — cannot verify $ENV_FILE is clean." >&2
+    echo "  Either restore $CLEAN_FILE or bypass with: git commit --no-verify" >&2
+    exit 1
+fi
+
+staged_env=$(git show ":$ENV_FILE")
+clean_env=$(cat "$CLEAN_FILE")
+
+if [ "$staged_env" != "$clean_env" ]; then
+    echo "pre-commit: staged $ENV_FILE differs from $CLEAN_FILE." >&2
+    echo "" >&2
+    echo "  This usually means you're about to commit a secret/key in Env.elm." >&2
+    echo "  Restore the clean baseline before committing:" >&2
+    echo "    cp $CLEAN_FILE $ENV_FILE" >&2
+    echo "    git add $ENV_FILE" >&2
+    echo "" >&2
+    echo "  If you're intentionally adding a config field, update both files:" >&2
+    echo "    git add $ENV_FILE $CLEAN_FILE" >&2
+    echo "" >&2
+    echo "  Diff (staged vs clean):" >&2
+    diff -u <(echo "$clean_env") <(echo "$staged_env") | sed 's/^/    /' >&2 || true
+    exit 1
+fi

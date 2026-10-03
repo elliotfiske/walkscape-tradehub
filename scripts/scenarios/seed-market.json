@@ -1,0 +1,876 @@
+[
+ {
+  "ctx": "leader"
+ },
+ {
+  "goto": "/",
+  "delay": 8000
+ },
+ {
+  "size": [
+   390,
+   844
+  ]
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "shot": "m-preview-signin"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Wanderling"
+  ]
+ },
+ {
+  "shot": "m-claim"
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "shot": "m-verify"
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "shot": "m-done"
+ },
+ {
+  "size": [
+   1280,
+   900
+  ]
+ },
+ {
+  "ctx": "Mossbeard"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Mossbeard"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Juno_Trek"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Juno_Trek"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Tallowmere"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Tallowmere"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Pikewalker"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Pikewalker"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Hollowfen"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Ferncastle"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Ferncastle"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Mosbeard_"
+ },
+ {
+  "goto": "/signin"
+ },
+ {
+  "click": "#signin-apple"
+ },
+ {
+  "click": "#preview-signin-continue",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Mosbeard_"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "#skip-verify",
+  "delay": 1200
+ },
+ {
+  "ctx": "Tallowmere"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "steel"
+  ]
+ },
+ {
+  "click": "#item-pick-steel-toe-boots"
+ },
+ {
+  "type": [
+   "#quantity",
+   "2"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "1150"
+  ]
+ },
+ {
+  "type": [
+   "#note",
+   "Spares from my last run."
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Juno_Trek"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "shovel"
+  ]
+ },
+ {
+  "click": "#item-pick-shovel-axe"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "9800"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Pikewalker"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "gold"
+  ]
+ },
+ {
+  "click": "#item-pick-gold-ring"
+ },
+ {
+  "click": "#pay-swap"
+ },
+ {
+  "click": "#swap-pick-iron-bar"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "4"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "cooked"
+  ]
+ },
+ {
+  "click": "#item-pick-cooked-largemouth-bass"
+ },
+ {
+  "click": "#side-buy"
+ },
+ {
+  "type": [
+   "#quantity",
+   "50"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "38"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Mosbeard_"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "iron"
+  ]
+ },
+ {
+  "click": "#item-pick-iron-pickaxe"
+ },
+ {
+  "click": "#pick-quality-normal"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "240"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Mossbeard"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "iron"
+  ]
+ },
+ {
+  "click": "#item-pick-iron-pickaxe"
+ },
+ {
+  "click": "#pick-quality-eternal"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "48000"
+  ]
+ },
+ {
+  "type": [
+   "#note",
+   "Usually online evenings EU. I check a mailbox most days."
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Ferncastle"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "shovel"
+  ]
+ },
+ {
+  "click": "#item-pick-shovel-axe"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "8700"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Mossbeard"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "shovel"
+  ]
+ },
+ {
+  "click": "#item-pick-shovel-axe"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "9100"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Tallowmere"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "iron"
+  ]
+ },
+ {
+  "click": "#item-pick-iron-pickaxe"
+ },
+ {
+  "click": "#pick-quality-normal"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "640"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "steel"
+  ]
+ },
+ {
+  "click": "#item-pick-steel-toe-boots"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "1200"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "shot": "listing-pending"
+ },
+ {
+  "goto": "/new"
+ },
+ {
+  "type": [
+   "#item-search",
+   "iron"
+  ]
+ },
+ {
+  "click": "#item-pick-iron-pickaxe"
+ },
+ {
+  "click": "#pick-quality-eternal"
+ },
+ {
+  "type": [
+   "#price",
+   "48000"
+  ]
+ },
+ {
+  "shot": "new-listing",
+  "full": true
+ },
+ {
+  "wait": 960000
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "9400"
+  ]
+ },
+ {
+  "type": [
+   "#offer-message",
+   "I can do 9.4k, need the bars anyway"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/6"
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "ctx": "Pikewalker"
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "8900"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/1"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "1100"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "goto": "/listing/7"
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "14800"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "ctx": "Ferncastle"
+ },
+ {
+  "goto": "/listing/8"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "8800"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/9"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "600"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "ctx": "Tallowmere"
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "click": "#offer-counter"
+ },
+ {
+  "type": [
+   "#offer-price",
+   "9000"
+  ]
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/4"
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "ctx": "Juno_Trek"
+ },
+ {
+  "goto": "/listing/1"
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1000
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "shot": "listing-owner",
+  "full": true
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "goto": "/market"
+ },
+ {
+  "shot": "market-desktop"
+ },
+ {
+  "goto": "/listing/2"
+ },
+ {
+  "shot": "listing-desktop",
+  "full": true
+ },
+ {
+  "goto": "/prices/shovel-axe"
+ },
+ {
+  "shot": "item-price",
+  "full": true
+ },
+ {
+  "goto": "/prices"
+ },
+ {
+  "shot": "prices-index",
+  "full": true
+ },
+ {
+  "goto": "/u/Mossbeard"
+ },
+ {
+  "shot": "profile-desktop",
+  "full": true
+ },
+ {
+  "size": [
+   390,
+   844
+  ]
+ },
+ {
+  "goto": "/market"
+ },
+ {
+  "shot": "m-market",
+  "full": true
+ },
+ {
+  "goto": "/trades"
+ },
+ {
+  "click": "#trades-sent"
+ },
+ {
+  "shot": "m-trades"
+ },
+ {
+  "goto": "/u/Mossbeard"
+ },
+ {
+  "shot": "m-profile",
+  "full": true
+ },
+ {
+  "goto": "/report/Mosbeard_"
+ },
+ {
+  "click": "#reason-0"
+ },
+ {
+  "click": "#reason-2"
+ },
+ {
+  "shot": "m-report"
+ },
+ {
+  "goto": "/listing/5"
+ },
+ {
+  "shot": "m-listing",
+  "full": true
+ }
+]

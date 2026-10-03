@@ -1,0 +1,8 @@
+
+elm-stuff
+node_modules
+review/elm-stuff
+
+.DS_Store
+.idea/
+.claude/worktrees/
