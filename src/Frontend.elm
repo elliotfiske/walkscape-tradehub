@@ -748,10 +748,19 @@ previewBanner =
     Html.div [ Attr.class "border-b border-[#6b5520] bg-[#1a1608] text-[13px] text-[#e9d9a6] px-4 md:px-7 py-2 flex gap-2 items-baseline", Ui.testId "preview-banner" ]
         [ Html.span [ Attr.class "font-bold tracking-widest text-[11px] text-gold flex-none" ] [ Html.text "PREVIEW" ]
         , Html.span [ Attr.class "hidden sm:inline" ]
-            [ Html.text "Trading isn't live in WalkScape yet. Post what you'd trade and offer on listings, so everyone gets a rough idea of what items are worth. Nothing changes hands here." ]
+            [ Html.text "Trading isn't live in WalkScape yet. Listings and offers here just build up price estimates, and nothing changes hands. "
+            , feedbackLink
+            ]
         , Html.span [ Attr.class "sm:hidden" ]
-            [ Html.text "Trading isn't live in WalkScape yet. Listings and offers here just help gauge prices." ]
+            [ Html.text "Trading isn't live in WalkScape yet. Listings and offers just build price estimates. "
+            , feedbackLink
+            ]
         ]
+
+
+feedbackLink : Html msg
+feedbackLink =
+    Html.a [ Attr.href Ui.feedbackThreadUrl, Attr.target "_blank", Attr.rel "noopener", Attr.class "text-gold whitespace-nowrap" ] [ Html.text "Feedback?" ]
 
 
 navItems : Model -> List ( Route, String )

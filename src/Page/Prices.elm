@@ -30,7 +30,7 @@ viewIndex model =
     Html.div [ Attr.class "w-full max-w-4xl mx-auto px-4 md:px-7 py-6 flex flex-col gap-5" ]
         [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px]" ] [ Html.text "Prices" ]
         , Html.p [ Attr.class "text-body max-w-2xl" ]
-            [ Html.text "Preview estimates from what traders ask, bid and offer here. There are no confirmed trades yet, so treat these as a rough guide to value." ]
+            [ Html.text "Estimates from what people ask, bid and offer here. Nothing has actually traded yet, so treat them as a rough guide." ]
         , Html.div [ Attr.class "hidden sm:grid grid-cols-[minmax(0,2fr)_1fr_1.2fr_1fr] gap-3 px-3.5 font-bold text-[11px] tracking-[0.12em] text-faint" ]
             [ Html.div [] [ Html.text "ITEM" ], Html.div [] [ Html.text "ESTIMATE" ], Html.div [] [ Html.text "TYPICAL RANGE" ], Html.div [ Attr.class "text-right" ] [ Html.text "PRICES" ] ]
         , Html.div [ Attr.class "flex flex-col gap-2", Ui.testId "price-index" ]
@@ -64,7 +64,7 @@ viewItem : FrontendModel -> String -> Item.Variant -> Html FrontendMsg
 viewItem model itemId requested =
     case Item.byId itemId of
         Nothing ->
-            Html.div [ Attr.class "p-10 text-center text-muted" ] [ Html.text "We don't know that item." ]
+            Html.div [ Attr.class "p-10 text-center text-muted" ] [ Html.text "Trailpost doesn't know that item." ]
 
         Just item ->
             let
@@ -198,7 +198,7 @@ viewItem model itemId requested =
                 , Html.aside [ Attr.class "flex flex-col gap-4" ]
                     [ Ui.card [ Attr.class "p-5 flex flex-col gap-3 text-sm text-body" ]
                         [ Html.h2 [ Attr.class "font-display font-extrabold text-xl text-gold" ] [ Html.text "How this estimate is made" ]
-                        , method "Asking prices, bids and offers." "Trading isn't live, so there are no confirmed trades yet. Every coin price someone posts or offers here counts."
+                        , method "Asking prices, bids and offers." "Nothing has traded yet, so every price someone posts or offers here counts."
                         , method "Median, not average." "One huge price can't drag the number around."
                         , method "One vote per trader per day." "Re-posting the same item counts once. Your latest price that day is the one used."
                         , method "Outliers cut." "Prices more than 2.5× the typical spread from the median are shown but left out."
