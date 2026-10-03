@@ -36,34 +36,40 @@ function arg(name, fallback) {
   });
   let failed = 0;
 
-  // Load a route and capture the viewport. Viewport-only on purpose
-  // (investigated 2026-10-03, PR #3): on GitHub runners
-  // page.screenshot({ fullPage: true }) stalled ~50% of the time (10-30s
-  // timeout, even on pages as tall as the viewport); viewport captures never
-  // did. Not the network (only Google Fonts) and not reproducible locally, even
-  // with 20x CPU throttling. --disable-gpu/--disable-dev-shm-usage didn't fix
-  // it. Retrying helps but costs ~16s per stall. Don't re-add fullPage without
-  // testing in CI. If a frame still never arrives, retry once on a fresh page.
+  // Load a route and capture the viewport (not fullPage; see the note below).
+  // A screenshot taken before the Elm app has rendered is a blank white page,
+  // so wait until the app's text is on screen and the stylesheet has applied,
+  // and retry once on a fresh page if that never happens.
   async function capture(context, route, file) {
     let lastError;
     for (let i = 0; i < 2; i++) {
       const page = await context.newPage();
       const t0 = Date.now();
+      const problems = [];
+      page.on('console', (m) => { if (m.type() === 'error') problems.push(`console.error: ${m.text().slice(0, 200)}`); });
+      page.on('pageerror', (e) => problems.push(`pageerror: ${String(e.message).slice(0, 200)}`));
+      page.on('requestfailed', (r) => problems.push(`requestfailed: ${r.url().slice(0, 120)} ${r.failure()?.errorText}`));
       try {
         await page.goto(base + route.path, { waitUntil: 'load', timeout: 30000 });
-        // `lamdera live` keeps long-lived connections (websocket, dev-tool
-        // polling) open, so networkidle may never fire — treat it as a
-        // best-effort wait rather than a requirement.
-        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+        await page.waitForFunction(
+          (text) =>
+            document.body.innerText.includes(text) &&
+            getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)',
+          config.readyText || 'Trailpost',
+          { timeout: Number(route.readyTimeoutMs ?? 45000) },
+        );
         // Lamdera opens a websocket and renders the first ToFrontend after
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
-        await page.screenshot({ path: file, timeout: 10000 });
+        await page.screenshot({ path: file, timeout: 15000 });
         console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1})`);
         return;
       } catch (e) {
         lastError = e;
         console.error(`[screenshots] ${path.basename(file)} attempt ${i + 1} failed after ${Date.now() - t0}ms: ${e.message.split('\n')[0]}`);
+        for (const p of problems.slice(0, 10)) console.error(`[screenshots]   ${p}`);
+        const body = await page.evaluate(() => document.body.innerText.slice(0, 120)).catch(() => '(page gone)');
+        console.error(`[screenshots]   body text: ${JSON.stringify(body)}`);
       } finally {
         await page.close().catch(() => {});
       }
