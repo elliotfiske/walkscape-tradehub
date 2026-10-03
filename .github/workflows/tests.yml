@@ -21,8 +21,6 @@ jobs:
 
       - name: Lamdera setup
         uses: ./.github/actions/lamdera-setup
-        with:
-          cli-auth: ${{ secrets.LAMDERA_CLI_AUTH }}
 
       - name: Verify Lamdera on PATH
         run: lamdera --version
@@ -33,13 +31,39 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # CI version of .githooks/pre-push: a persisted type changed since the
-      # last production deploy and no Evergreen migration is committed → fail
-      # the PR now rather than the deploy later. `--force` runs the real
-      # production check off main (see .claude/skills/lamdera-deploy).
-      # Skipped when the secret isn't available (forks).
+  # CI version of .githooks/pre-push. Its own job so "Evergreen" can be a
+  # required check, and so the Deploy workflow's re-run after each deploy
+  # re-checks every open PR against the new production version.
+  evergreen:
+    name: Evergreen
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0 # origin/main and origin/deployed
+
+      - name: Test the Evergreen scripts
+        run: bash scripts/test-evergreen.sh
+
+      # Every deploy bumps production's version, even without type changes,
+      # so a migration numbered against an older deploy is stale. Needs no
+      # secrets, so it runs on forks too.
+      - name: Migration numbers match production
+        run: scripts/evergreen-version-check.sh
+
+      - name: Lamdera setup
+        uses: ./.github/actions/lamdera-setup
+        with:
+          cli-auth: ${{ secrets.LAMDERA_CLI_AUTH }}
+
+      # A persisted type changed since the last production deploy and no
+      # migration is committed → fail the PR now rather than the deploy later.
+      # `--force` runs the real production check off main (see
+      # .claude/skills/lamdera-deploy). Skipped when the secret isn't
+      # available (forks).
       - name: Evergreen check (lamdera check)
-        if: github.event_name == 'pull_request'
         env:
           HAS_AUTH: ${{ secrets.LAMDERA_CLI_AUTH != '' }}
         run: |
@@ -48,7 +72,7 @@ jobs:
             exit 0
           fi
           status=0
-          lamdera check --force </dev/null || status=$?
+          scripts/lamdera-check.sh || status=$?
           if [ -n "$(git status --porcelain -- src/Evergreen)" ]; then
             git status --short -- src/Evergreen
             echo "::error::lamdera check generated Evergreen files: types changed vs production but no migration is committed. Run 'lamdera check --force', finish src/Evergreen/Migrate/V<N>.elm, and commit src/Evergreen (see .claude/skills/lamdera-deploy/SKILL.md)."
