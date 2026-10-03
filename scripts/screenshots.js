@@ -36,12 +36,13 @@ function arg(name, fallback) {
   });
   let failed = 0;
 
-  // Load a route and capture it. fullPage first; if the frame never arrives,
-  // retry on a fresh page, then fall back to a viewport-only capture.
+  // Load a route and capture the viewport. Never fullPage: on CI runners
+  // Playwright's full-page capture stalls ~half the time (the viewport resize
+  // never yields a frame), while plain viewport captures always worked. If a
+  // frame still never arrives, retry once on a fresh page.
   async function capture(context, route, file) {
-    const attempts = [{ fullPage: true }, { fullPage: false }, { fullPage: false }];
     let lastError;
-    for (const [i, opts] of attempts.entries()) {
+    for (let i = 0; i < 2; i++) {
       const page = await context.newPage();
       const t0 = Date.now();
       try {
@@ -53,8 +54,8 @@ function arg(name, fallback) {
         // Lamdera opens a websocket and renders the first ToFrontend after
         // load; give it a beat so we don't capture the pre-connect frame.
         await page.waitForTimeout(Number(route.settleMs ?? 1000));
-        await page.screenshot({ path: file, fullPage: opts.fullPage, timeout: 10000 });
-        console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1}, fullPage=${opts.fullPage})`);
+        await page.screenshot({ path: file, timeout: 10000 });
+        console.error(`[screenshots] ${path.basename(file)} ok in ${Date.now() - t0}ms (attempt ${i + 1})`);
         return;
       } catch (e) {
         lastError = e;
