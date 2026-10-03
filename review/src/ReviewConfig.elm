@@ -37,6 +37,10 @@ modules, which elm-review can't see) introspects these files: `app` in
 Backend/Frontend, `lamdera_handleEndpoints` in RPC, `process` in LamderaRPC.
 `NoUnused.Exports` would flag those bindings as dead. We keep each module's
 exposing list narrow and exempt the files from the unused-exports check.
+
+`src/Item.elm` is here too: `lamdera check` compiles the generated Evergreen
+migration against the live `Item.Rarity` constructors, so they must stay
+exposed even though nothing else outside the module uses them.
 -}
 lamderaMagicModules : List String
 lamderaMagicModules =
@@ -46,6 +50,7 @@ lamderaMagicModules =
     , "src/Env.elm"
     , "src/RPC.elm"
     , "src/LamderaRPC.elm"
+    , "src/Item.elm"
     ]
 
 
