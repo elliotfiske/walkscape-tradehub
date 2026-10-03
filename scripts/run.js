@@ -8,6 +8,9 @@
 //   LAMDERA_PORT=8005 node scripts/run.js   # force lamdera port
 //   CHROME_PORT=9230 node scripts/run.js    # force chrome debug port
 //   node scripts/run.js --no-chrome  # skip launching Chrome
+//
+// On Linux (e.g. Claude Code cloud sessions) it launches the Playwright-bundled
+// Chromium headless instead of macOS Chrome; override with CHROME_BIN.
 
 const net = require('net');
 const http = require('http');
@@ -203,16 +206,34 @@ function runLamderaMake() {
   });
 }
 
+function findChrome() {
+  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
+  const candidates = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'];
+  // Playwright's bundled Chromium (preinstalled in Claude Code cloud sessions).
+  const pwDir = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    for (const d of fs.readdirSync(pwDir).filter((n) => /^chromium-\d+$/.test(n)).sort().reverse()) {
+      candidates.push(path.join(pwDir, d, 'chrome-linux', 'chrome'));
+    }
+  } catch (_) {}
+  candidates.push('/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome');
+  return candidates.find((c) => fs.existsSync(c)) || null;
+}
+
 function startChrome(lamderaPort, chromePort) {
   const userDataDir = `/tmp/chrome-debug-${chromePort}`;
   try { fs.mkdirSync(userDataDir, { recursive: true }); } catch (_) {}
-  const chromeBin = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  if (!fs.existsSync(chromeBin)) {
-    console.error(`[run] Chrome not found at ${chromeBin}; skipping`);
+  const chromeBin = findChrome();
+  if (!chromeBin) {
+    console.error('[run] Chrome not found (set CHROME_BIN); skipping');
     return;
   }
-  console.log(`[run] starting Chrome (debug :${chromePort}, profile ${userDataDir})`);
+  // No display on Linux servers (cloud sessions, CI): run headless. The CDP
+  // scripts (cdp-screenshot.js etc.) work the same either way.
+  const headless = process.platform === 'linux' && !process.env.DISPLAY;
+  console.log(`[run] starting Chrome${headless ? ' (headless)' : ''} (debug :${chromePort}, profile ${userDataDir})`);
   const proc = spawn(chromeBin, [
+    ...(headless ? ['--headless=new', '--no-sandbox', '--window-size=1280,800'] : []),
     `--remote-debugging-port=${chromePort}`,
     `--user-data-dir=${userDataDir}`,
     '--no-first-run',

@@ -256,9 +256,26 @@ worktree, not the main checkout. If your `Debug.log` edit compiles on disk but
 never fires in the browser, check `lsof -p $(pgrep -f 'lamdera live') | grep cwd`
 and edit there instead.
 
-## Deploying (`npm run deploy`)
+## Deploying
 
-Production deploys run from **`main`** on the primary checkout (not a worktree —
+**Production deploys are automatic:** every merge to `main` runs
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml), which runs
+`npm run deploy` on CI. **Every PR push gets a preview app** at
+`https://<app>-pr-<N>.lamdera.app` via
+[.github/workflows/preview.yml](.github/workflows/preview.yml), plus a sticky
+PR comment with the preview URL and screenshots. The app name lives in
+`package.json` → `config.lamderaApp`. Preview apps don't run Evergreen and
+reset their backend on every deploy. Discord sign-in doesn't work on previews
+yet; see [TODO.md](TODO.md).
+
+Both workflows push to `git@apps.lamdera.com` over SSH using the
+`LAMDERA_SSH_KEY` repo secret. `lamdera check` uses `LAMDERA_CLI_AUTH`, the
+contents of `~/.elm/.lamdera-cli`. Shared setup is in
+[.github/actions/lamdera-setup](.github/actions/lamdera-setup/action.yml).
+
+### Manual deploy (`npm run deploy`)
+
+Manual deploys run from **`main`** on the primary checkout (not a worktree —
 lamdera can't run where `.git` is a pointer file). `scripts/deploy.sh` enforces
 the invariant that local `main` only ever mirrors `origin/main`, and hard-stops
 before pushing if the tree is dirty, `main` has un-pushed commits, or
@@ -266,6 +283,42 @@ before pushing if the tree is dirty, `main` has un-pushed commits, or
 [`lamdera-deploy`](.claude/skills/lamdera-deploy/SKILL.md) skill for the full
 PR-first migration workflow — the `.githooks/pre-push` gate runs `lamdera check`
 on every push so a missing migration is caught at PR time, not deploy time.
+
+## Cloud sessions (claude.ai/code)
+
+[.claude/hooks/cloud-setup.sh](.claude/hooks/cloud-setup.sh) is a SessionStart
+hook that only runs when `CLAUDE_CODE_REMOTE=true`. It installs the pinned
+Lamdera binary to `~/.local/bin`, runs `npm install`, fills `~/.elm`, writes the
+Lamdera CLI auth, and adds the `lamdera` remote. After it runs, `lamdera make`,
+`npm test`, `npm run review`, `lamdera live`, and `lamdera backend` all work
+as they do locally.
+
+Cloud quirks to know about:
+
+- **Elm packages:** the cloud egress proxy blocks GitHub zipball downloads for
+  any repo except this one, so the compiler's own package download fails
+  ("PROBLEM DOWNLOADING PACKAGE"). [scripts/elm-prefetch.js](scripts/elm-prefetch.js)
+  `git clone`s every package listed in `elm.json` and `review/elm.json` into
+  `~/.elm` instead, since git clones are allowed. **If you add or upgrade an Elm
+  package, run `node scripts/elm-prefetch.js` first**; to install a brand-new
+  one, use `node scripts/elm-prefetch.js --pkg owner/name@x.y.z`, then edit
+  `elm.json`. `lamdera/*` packages come from static.lamdera.com, which works.
+  elm-test-rs's runner package is listed in `EXTRA` in that script.
+- **`elm` for elm-review** comes from the `@lydell/elm` devDependency. `lamdera`
+  can't stand in for it, because review packages fail to build under it.
+- **`lamdera check --force`** works when the cloud environment has a
+  `LAMDERA_CLI_AUTH` secret env var. Without it, the pre-push hook skips the
+  check and CI enforces it on the PR.
+- **No pushes to Lamdera from the container:** SSH (port 22) is blocked. To
+  deploy, open or push to a PR (preview) or merge it (production).
+- **Screenshots:** `npm start` launches headless Playwright Chromium on Linux,
+  so the `cdp-*.js` scripts work unchanged. For one-off captures without a debug
+  Chrome, run `node scripts/screenshots.js --base http://localhost:<port> --out
+  screenshots`. It covers every route and viewport in
+  [scripts/screenshot-routes.json](scripts/screenshot-routes.json). `Read` the
+  PNGs to check your own work, and send them to the user to ask for feedback.
+  Add routes to that JSON as the app grows; CI uses the same list for PR
+  comments.
 
 ## Running the dev server (`npm start`)
 
@@ -312,9 +365,11 @@ changes. If you move the view into its own module, update `viewPath` in
   (quick-ref, user-interaction, view-assertions, http-mocking, timing,
   pitfalls) for `lamdera/program-test`.
 - CI ([.github/workflows/tests.yml](.github/workflows/tests.yml)) runs
-  `elm-review` + `npm test` on PRs, installing a **checksum-pinned** Lamdera
-  compiler (bump both `LAMDERA_VERSION` and `LAMDERA_SHA256` in lockstep when
-  upgrading).
+  `elm-review`, `npm test`, and `lamdera check --force` on PRs, installing a
+  **checksum-pinned** Lamdera compiler via
+  [scripts/install-lamdera.sh](scripts/install-lamdera.sh). That script is the
+  single source of truth for the version: bump both `LAMDERA_VERSION` and
+  `LAMDERA_SHA256` in lockstep when upgrading.
 - `src/Env.elm` is guarded by a pre-commit hook against secret leaks
   ([.githooks](.githooks/)).
 - `elm-review` runs on file edits via a `PostToolUse` hook in

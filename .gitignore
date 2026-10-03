@@ -10,3 +10,4 @@ review/elm-stuff
 # Local secrets (WalkScape data API key)
 .env
 __pycache__/
+screenshots/

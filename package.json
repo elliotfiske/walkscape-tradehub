@@ -1,6 +1,9 @@
 {
   "name": "lamdera-starter",
   "private": true,
+  "config": {
+    "lamderaApp": "trailpost"
+  },
   "scripts": {
     "start": "node scripts/run.js",
     "test": "elm-test-rs --compiler $(which lamdera)",
@@ -11,8 +14,10 @@
     "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
+    "@lydell/elm": "0.19.1-14",
     "elm-review": "2.13.5",
     "elm-test-rs": "3.0.2-0",
+    "playwright-core": "1.56.1",
     "tailwindcss": "3.4.19",
     "ws": "8.21.0"
   },

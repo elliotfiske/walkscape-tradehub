@@ -110,6 +110,14 @@ if [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
     fi
 fi
 
+# Cloud sessions (claude.ai/code) without the LAMDERA_CLI_AUTH environment
+# secret can't run `lamdera check`. Don't force --no-verify there: CI
+# (tests.yml) runs the same check on the PR.
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ ! -s "${ELM_HOME:-$HOME/.elm}/.lamdera-cli" ]; then
+    echo "pre-push: no Lamdera CLI auth in this cloud session — skipping 'lamdera check' (CI enforces it on the PR)." >&2
+    exit 0
+fi
+
 # Worktree shim: present .git as a directory so lamdera will run. Capture the
 # pointer's contents and the gitdir *before* touching anything, and restore on
 # any exit (success, failure, or interrupt).
