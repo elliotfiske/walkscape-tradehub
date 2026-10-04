@@ -1,5 +1,6 @@
 module Backend exposing (app, app_)
 
+import Account
 import Auth
 import Auth.Flow
 import Dict
@@ -9,7 +10,6 @@ import Effect.Lamdera exposing (ClientId, SessionId)
 import Effect.Subscription as Subscription exposing (Subscription)
 import Effect.Task
 import Effect.Time
-import Item
 import Lamdera as L
 import Market
 import Name
@@ -20,10 +20,8 @@ import Types
         , BackendMsg(..)
         , ClaimStatus(..)
         , Listing
-        , ListingDraft
         , Offer
         , OfferStatus(..)
-        , Payment(..)
         , ToBackend(..)
         , ToFrontend(..)
         , User
@@ -154,7 +152,7 @@ initialData : Maybe User -> Model -> Types.InitialData
 initialData user model =
     let
         myName =
-            user |> Maybe.andThen .claim |> Maybe.map .name
+            user |> Maybe.andThen Account.claimedName
 
         visible l =
             Market.isLive model.now l || Just l.trader == myName
@@ -179,7 +177,7 @@ sendToTrader name toFrontend model =
         ownerIds =
             model.users
                 |> Dict.values
-                |> List.filter (\u -> Maybe.map .name u.claim == Just name)
+                |> List.filter (\u -> Account.claimedName u == Just name)
                 |> List.map .id
     in
     model.sessions
@@ -230,11 +228,11 @@ handleRequest sessionId clientId now msg model =
         withReadyUser f =
             withUser
                 (\user ->
-                    case ( Users.isReady user, user.claim ) of
-                        ( True, Just claim ) ->
-                            f user claim.name
+                    case Account.readyName user of
+                        Just name ->
+                            f name
 
-                        _ ->
+                        Nothing ->
                             fail "Finish linking your WalkScape name first."
                 )
     in
@@ -265,19 +263,11 @@ handleRequest sessionId clientId now msg model =
         ClaimName raw ->
             withUser
                 (\user ->
-                    case ( Name.validate raw, user.claim ) of
-                        ( _, Just { status } ) ->
-                            if status == PreviewUnverified then
-                                fail "Your account already has a WalkScape name."
+                    if Account.readyName user /= Nothing then
+                        fail "Your account already has a WalkScape name."
 
-                            else
-                                claimName user raw now model clientId sessionId
-
-                        ( Err err, Nothing ) ->
-                            ( model, Effect.Lamdera.sendToFrontend clientId (ClaimRejected err) )
-
-                        ( Ok _, Nothing ) ->
-                            claimName user raw now model clientId sessionId
+                    else
+                        claimName user raw now model clientId sessionId
                 )
 
         SkipVerification ->
@@ -307,8 +297,8 @@ handleRequest sessionId clientId now msg model =
 
         CreateListing draft ->
             withReadyUser
-                (\_ name ->
-                    case validateDraft draft of
+                (\name ->
+                    case Market.validateDraft draft of
                         Err err ->
                             fail err
 
@@ -345,7 +335,7 @@ handleRequest sessionId clientId now msg model =
 
         CloseListing listingId ->
             withReadyUser
-                (\_ name ->
+                (\name ->
                     case Dict.get listingId model.listings of
                         Just listing ->
                             if listing.trader /= name then
@@ -367,7 +357,7 @@ handleRequest sessionId clientId now msg model =
 
         MakeOffer listingId price message ->
             withReadyUser
-                (\_ name ->
+                (\name ->
                     case Dict.get listingId model.listings of
                         Just listing ->
                             if listing.trader == name then
@@ -376,40 +366,31 @@ handleRequest sessionId clientId now msg model =
                             else if listing.closed || not (Market.isLive now listing) then
                                 fail "This listing isn't open for offers."
 
-                            else if Maybe.withDefault 1 price <= 0 then
-                                fail "Offer a price above zero."
-
-                            else if String.length message > 280 then
-                                fail "Keep your message under 280 characters."
-
                             else
-                                let
-                                    existing =
-                                        model.offers
-                                            |> Dict.values
-                                            |> List.filter (\o -> o.listingId == listingId && o.from == name && o.status == OfferOpen)
-                                            |> List.head
+                                case Market.validateOffer price message of
+                                    Err err ->
+                                        fail err
 
-                                    ( offer, nextId ) =
-                                        case existing of
-                                            Just o ->
-                                                ( { o | price = price, message = String.trim message, at = now }, model.nextId )
+                                    Ok valid ->
+                                        let
+                                            ( offer, nextId ) =
+                                                case Market.openOfferFrom name listingId (Dict.values model.offers) of
+                                                    Just o ->
+                                                        ( { o | price = valid.price, message = valid.message, at = now }, model.nextId )
 
-                                            Nothing ->
-                                                ( { id = model.nextId
-                                                  , listingId = listingId
-                                                  , from = name
-                                                  , price = price
-                                                  , message = String.trim message
-                                                  , at = now
-                                                  , status = OfferOpen
-                                                  }
-                                                , model.nextId + 1
-                                                )
-                                in
-                                ( { model | offers = Dict.insert offer.id offer model.offers, nextId = nextId }
-                                , Effect.Lamdera.broadcast (OfferUpserted offer)
-                                )
+                                                    Nothing ->
+                                                        ( { id = model.nextId
+                                                          , listingId = listingId
+                                                          , from = name
+                                                          , price = valid.price
+                                                          , message = valid.message
+                                                          , at = now
+                                                          , status = OfferOpen
+                                                          }
+                                                        , model.nextId + 1
+                                                        )
+                                        in
+                                        updateOffer offer { model | nextId = nextId }
 
                         Nothing ->
                             fail "That listing doesn't exist."
@@ -417,7 +398,7 @@ handleRequest sessionId clientId now msg model =
 
         WithdrawOffer offerId ->
             withReadyUser
-                (\_ name ->
+                (\name ->
                     case Dict.get offerId model.offers of
                         Just offer ->
                             if offer.from /= name || offer.status /= OfferOpen then
@@ -432,7 +413,7 @@ handleRequest sessionId clientId now msg model =
 
         RespondToOffer offerId accept ->
             withReadyUser
-                (\_ name ->
+                (\name ->
                     case Dict.get offerId model.offers |> Maybe.andThen (\o -> Dict.get o.listingId model.listings |> Maybe.map (Tuple.pair o)) of
                         Just ( offer, listing ) ->
                             if listing.trader /= name || offer.status /= OfferOpen then
@@ -456,8 +437,8 @@ handleRequest sessionId clientId now msg model =
 
         SubmitReport about reasons details ->
             withReadyUser
-                (\_ name ->
-                    if not (List.any (\t -> t.name == about) (Users.traders model)) then
+                (\name ->
+                    if not (List.any (\u -> Account.readyName u == Just about) (Dict.values model.users)) then
                         fail "There's no trader with that name."
 
                     else if about == name then
@@ -503,7 +484,7 @@ claimName user raw now model clientId sessionId =
                         |> List.any
                             (\u ->
                                 (u.id /= user.id)
-                                    && (u.claim |> Maybe.map (\c -> Name.normalize c.name == Name.normalize name) |> Maybe.withDefault False)
+                                    && (Account.claimedName u |> Maybe.map (\other -> Name.normalize other == Name.normalize name) |> Maybe.withDefault False)
                             )
             in
             if takenBySomeoneElse then
@@ -521,49 +502,3 @@ claimName user raw now model clientId sessionId =
                 , Effect.Lamdera.sendToFrontends sessionId (YouAre (Just (Users.toMe newUser)))
                 )
 
-
-validateDraft : ListingDraft -> Result String ListingDraft
-validateDraft draft =
-    case Item.byId draft.itemId of
-        Nothing ->
-            Err "Pick an item from the list."
-
-        Just item ->
-            let
-                qualityOk =
-                    case ( item.kind, draft.variant.quality ) of
-                        ( Item.Crafted, Just _ ) ->
-                            True
-
-                        ( Item.Crafted, Nothing ) ->
-                            False
-
-                        ( _, Nothing ) ->
-                            True
-
-                        _ ->
-                            False
-
-                paymentOk =
-                    case draft.payment of
-                        Coins price ->
-                            if price > 0 && price <= 1000000000 then
-                                Ok ()
-
-                            else
-                                Err "Enter a price above zero."
-            in
-            if not qualityOk then
-                Err "Pick a quality for crafted items."
-
-            else if draft.variant.fine && not item.canBeFine then
-                Err "This item doesn't come in a fine version."
-
-            else if draft.quantity <= 0 || draft.quantity > 1000000 then
-                Err "Enter a quantity above zero."
-
-            else if String.length draft.note > 280 then
-                Err "Keep your note under 280 characters."
-
-            else
-                paymentOk |> Result.map (\_ -> { draft | note = String.trim draft.note })

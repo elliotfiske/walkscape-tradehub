@@ -124,10 +124,8 @@ viewSignIn model =
             _ ->
                 Ui.empty
         , Html.div [ Attr.class "mt-6" ]
-            [ Ui.previewNote
-                [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Next, you'll claim your WalkScape name. " ]
-                , Html.text "WalkScape doesn't have a sign-in other sites can use, so you'll type the name you play under."
-                ]
+            [ Ui.previewNote "Next, you'll claim your WalkScape name."
+                [ Html.text "WalkScape doesn't have a sign-in other sites can use, so you'll type the name you play under." ]
             ]
         , Html.div [ Attr.class "flex-1" ] []
         , Html.p [ Attr.class "text-center text-xs text-faint mt-10" ]
@@ -142,7 +140,7 @@ viewPreviewSignIn provider =
             [ Html.text (providerName provider ++ " sign-in isn't connected yet") ]
         , Html.p [ Attr.class "text-sm text-body leading-relaxed" ]
             [ Html.text "You can use a preview account instead. It's tied to this browser, so clearing your cookies loses it." ]
-        , Ui.primaryButton "preview-signin-continue" (PreviewSignInConfirmed provider) "Continue with a preview account"
+        , Ui.button Ui.Primary Ui.Block "preview-signin-continue" (PreviewSignInConfirmed provider) "Continue with a preview account"
         , Html.button [ Attr.id "preview-signin-cancel", Events.onClick PreviewSignInCancelled, Attr.class "text-soft text-sm py-1" ] [ Html.text "Pick another option" ]
         ]
 
@@ -227,13 +225,7 @@ viewClaim model me =
             , Html.p [ Attr.class "text-sm text-muted mt-4" ]
                 [ Html.text "Names are first-come for now. If someone grabbed yours, verifying it once trading opens moves it to you." ]
             , Html.div [ Attr.class "flex-1 min-h-8" ] []
-            , Html.button
-                [ Attr.id "claim-submit"
-                , Attr.type_ "button"
-                , Events.onClick ClaimNameSubmitted
-                , Attr.class "w-full rounded-xl bg-go hover:bg-gohi text-white font-bold tracking-wider uppercase py-3.5 border border-white/10"
-                ]
-                [ Html.text "That's me · Continue" ]
+            , Ui.button Ui.Primary Ui.Block "claim-submit" ClaimNameSubmitted "That's me · Continue"
             ]
         ]
 
@@ -257,10 +249,8 @@ viewVerify claim =
             , Html.button [ Attr.id "change-name", Events.onClick ChangeClaimClicked, Attr.class "text-xs text-gold font-semibold" ] [ Html.text "Change" ]
             ]
         , Html.h1 [ Attr.class "font-display font-extrabold text-[22px]" ] [ Html.text ("Prove you own " ++ claim.name) ]
-        , Ui.previewNote
-            [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "This is where you'd verify your account. " ]
-            , Html.text "Trading isn't live yet, so TrailpostBot isn't running. Here's how it will work. For now you can carry on unverified, and your name will show as unverified."
-            ]
+        , Ui.previewNote "This is where you'd verify your account."
+            [ Html.text "Trading isn't live yet, so TrailpostBot isn't running. Here's how it will work. For now you can carry on unverified, and your name will show as unverified." ]
         , Html.div [ Attr.class "flex flex-col gap-3 opacity-80" ]
             [ stepRow 1 [ Html.text "In WalkScape, start a trade with ", Html.b [ Attr.class "text-[#9fd3e8]" ] [ Html.text "TrailpostBot" ], Html.text "." ]
             , stepRow 2 [ Html.text "Put exactly this many coins in your offer, with no items:" ]
@@ -272,7 +262,7 @@ viewVerify claim =
             , stepRow 3 [ Html.text "Send the offer. The bot checks the amount and rejects it, so your coins never leave." ]
             ]
         , Html.div [ Attr.class "flex-1" ] []
-        , Ui.primaryButton "skip-verify" SkipVerificationClicked "Continue unverified"
+        , Ui.button Ui.Primary Ui.Block "skip-verify" SkipVerificationClicked "Continue unverified"
         ]
 
 
@@ -303,10 +293,6 @@ viewDone me claim =
                 ]
             ]
         , Html.div [ Attr.class "flex-1" ] []
-        , Html.a
-            [ Attr.href "/market"
-            , Attr.id "goto-market"
-            , Attr.class "w-full block rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider uppercase py-3.5 border border-white/10"
-            ]
+        , Html.a [ Attr.href "/market", Attr.id "goto-market", Ui.buttonStyle Ui.Primary Ui.Block ]
             [ Html.text "Go to the market" ]
         ]

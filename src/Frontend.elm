@@ -18,6 +18,7 @@ import Html.Attributes as Attr
 import Html.Events as Events
 import Item
 import Lamdera as L
+import Market
 import OAuth.AuthorizationCode as OAuth
 import Page.Home
 import Page.Listing
@@ -98,15 +99,7 @@ doesn't silently turn a counter-offer back into "at their price".
 -}
 offerFormFor : Model -> Int -> OfferForm
 offerFormFor model listingId =
-    case
-        Derived.myName model
-            |> Maybe.andThen
-                (\name ->
-                    Derived.offersFor model listingId
-                        |> List.filter (\o -> o.from == name && o.status == Types.OfferOpen)
-                        |> List.head
-                )
-    of
+    case Derived.myOpenOffer model listingId of
         Just offer ->
             { emptyOfferForm
                 | counter = offer.price /= Nothing
@@ -439,25 +432,22 @@ update msg model =
             let
                 form =
                     model.offerForm
+
+                price =
+                    if form.counter then
+                        Market.parsePrice form.price |> Result.map Just
+
+                    else
+                        Ok Nothing
             in
-            if form.counter then
-                case Ui.parseAmount form.price of
-                    Just price ->
-                        if price > 0 then
-                            ( { model | offerForm = emptyOfferForm }
-                            , Effect.Lamdera.sendToBackend (MakeOffer listingId (Just price) form.message)
-                            )
+            case price |> Result.andThen (\p -> Market.validateOffer p form.message) of
+                Ok offer ->
+                    ( { model | offerForm = emptyOfferForm }
+                    , Effect.Lamdera.sendToBackend (MakeOffer listingId offer.price offer.message)
+                    )
 
-                        else
-                            updateOfferForm (\f -> { f | error = Just "Offer a price above zero." }) model
-
-                    Nothing ->
-                        updateOfferForm (\f -> { f | error = Just "Enter your price in coins, like 9400 or 9.4k." }) model
-
-            else
-                ( { model | offerForm = emptyOfferForm }
-                , Effect.Lamdera.sendToBackend (MakeOffer listingId Nothing form.message)
-                )
+                Err err ->
+                    updateOfferForm (\f -> { f | error = Just err }) model
 
         WithdrawOfferClicked offerId ->
             ( model, Effect.Lamdera.sendToBackend (WithdrawOffer offerId) )
@@ -612,7 +602,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=242a783e" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=27da60db" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -714,7 +704,7 @@ viewPage model =
             Ui.empty
 
         Route.NotFound ->
-            Html.div [ Attr.class "p-10 text-center text-muted" ]
+            Ui.pageMessage []
                 [ Html.h1 [ Attr.class "font-display text-3xl text-ink mb-3" ] [ Html.text "Nothing here" ]
                 , Html.a [ Attr.href "/market" ] [ Html.text "Back to the market" ]
                 ]
@@ -853,12 +843,8 @@ viewHeader model =
                         ]
 
                 Nothing ->
-                    Html.a
-                        [ Attr.href "/signin"
-                        , Attr.id "header-signin"
-                        , Attr.class "rounded-[10px] bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider text-sm px-5 py-2.5 border border-white/10"
-                        ]
-                        [ Html.text "SIGN IN" ]
+                    Html.a [ Attr.href "/signin", Attr.id "header-signin", Ui.buttonStyle Ui.Primary Ui.Small ]
+                        [ Html.text "Sign in" ]
             ]
         ]
 
@@ -901,7 +887,8 @@ viewToast : Model -> Html FrontendMsg
 viewToast model =
     case model.toast of
         Just text ->
-            Html.div [ Attr.class "fixed bottom-20 md:bottom-6 inset-x-4 md:inset-x-auto md:right-6 md:max-w-sm z-30 rounded-xl border border-[#7a3a34] bg-[#2a1412] text-[#f6c9c2] px-4 py-3 flex gap-3 items-start shadow-xl", Ui.testId "toast" ]
+            Ui.callout Ui.Bad
+                [ Attr.class "fixed bottom-20 md:bottom-6 inset-x-4 md:inset-x-auto md:right-6 md:max-w-sm z-30 px-4 py-3 flex gap-3 items-start shadow-xl", Ui.testId "toast" ]
                 [ Html.div [ Attr.class "flex-1 text-sm" ] [ Html.text text ]
                 , Html.button [ Attr.id "toast-dismiss", Events.onClick ToastDismissed, Attr.class "text-muted text-lg leading-none" ] [ Html.text "×" ]
                 ]

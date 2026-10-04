@@ -26,6 +26,7 @@ The rules follow the design's "How this price is made" panel:
 
 -}
 
+import Set
 import Time
 
 
@@ -156,7 +157,7 @@ estimate points =
             countedPoints |> List.map (.price >> toFloat) |> List.sort
 
         traders =
-            countedPoints |> List.map .trader |> uniqueCount
+            countedPoints |> List.map .trader |> Set.fromList |> Set.size
     in
     Maybe.map3
         (\m q1 q3 ->
@@ -171,21 +172,6 @@ estimate points =
         (quantile 0.5 sorted)
         (quantile 0.25 sorted)
         (quantile 0.75 sorted)
-
-
-uniqueCount : List String -> Int
-uniqueCount list =
-    List.foldl
-        (\x acc ->
-            if List.member x acc then
-                acc
-
-            else
-                x :: acc
-        )
-        []
-        list
-        |> List.length
 
 
 {-| Linearly interpolated quantile of an already-sorted list.

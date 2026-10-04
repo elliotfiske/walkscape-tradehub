@@ -5,22 +5,9 @@ import Derived
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Item
-import Market
-import Pricing
 import Route
 import Types exposing (FrontendModel, FrontendMsg)
 import Ui
-
-
-{-| The price series with the most data, to feature on the homepage.
--}
-featured : FrontendModel -> Maybe ( Item.Item, Item.Variant, List Pricing.Point )
-featured model =
-    Derived.activeSeries model
-        |> List.map (\( item, q ) -> ( item, q, Market.pricePoints model.now model.listings model.offers (Item.priceKey item.id q) ))
-        |> List.filter (\( _, _, points ) -> not (List.isEmpty points))
-        |> List.sortBy (\( _, _, points ) -> negate (List.length points))
-        |> List.head
 
 
 view : FrontendModel -> Html FrontendMsg
@@ -35,12 +22,12 @@ view model =
                     [ Html.text "Post what you'd sell or buy, and make offers on other people's listings. Nothing changes hands yet, but every price goes into an estimate anyone can check." ]
                 , Html.div [ Attr.class "flex flex-col sm:flex-row gap-3" ]
                     (if model.me == Nothing then
-                        [ Html.a [ Attr.href "/signin", Attr.id "hero-signin", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "SIGN IN TO POST" ]
-                        , Html.a [ Attr.href "/market", Attr.id "hero-browse", Attr.class "rounded-xl bg-raised hover:bg-tab text-soft hover:text-ink no-underline font-semibold px-6 py-3.5 text-center border border-rule" ] [ Html.text "Browse the market" ]
+                        [ Html.a [ Attr.href "/signin", Attr.id "hero-signin", Ui.buttonStyle Ui.Primary Ui.Large ] [ Html.text "Sign in to post" ]
+                        , Html.a [ Attr.href "/market", Attr.id "hero-browse", Ui.buttonStyle Ui.Secondary Ui.Large ] [ Html.text "Browse the market" ]
                         ]
 
                      else
-                        [ Html.a [ Attr.href "/market", Attr.id "hero-browse", Attr.class "rounded-xl bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-7 py-3.5 text-center border border-white/10" ] [ Html.text "GO TO THE MARKET" ] ]
+                        [ Html.a [ Attr.href "/market", Attr.id "hero-browse", Ui.buttonStyle Ui.Primary Ui.Large ] [ Html.text "Go to the market" ] ]
                     )
                 , if model.me == Nothing then
                     Html.p [ Attr.class "text-faint text-sm mt-4" ] [ Html.text "Sign in with Discord. Trailpost only sees your username." ]
@@ -105,46 +92,30 @@ startStep n title body =
 
 featuredCard : FrontendModel -> Html FrontendMsg
 featuredCard model =
-    case featured model of
-        Just ( item, quality, points ) ->
-            let
-                est =
-                    Pricing.estimate points
-            in
+    -- The price series with the most data.
+    case List.head (Derived.activeSeries model) of
+        Just { item, variant, points, estimate } ->
             Html.a
-                [ Attr.href (Route.toString (Route.ItemPrice item.id quality))
+                [ Attr.href (Route.toString (Route.ItemPrice item.id variant))
                 , Attr.class "block no-underline text-ink hover:text-ink"
                 , Ui.testId "featured-price"
                 ]
                 [ Ui.card [ Attr.class "p-5 rounded-2xl" ]
                     [ Html.div [ Attr.class "flex items-center gap-3.5" ]
-                        [ Ui.itemIcon "w-[52px] h-[52px]" item quality
+                        [ Ui.itemIcon "w-[52px] h-[52px]" item variant
                         , Html.div [ Attr.class "flex-1" ]
                             [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
-                            , Ui.gradeTag item quality
+                            , Ui.gradeTag item variant
                             ]
-                        , case est of
-                            Just e ->
-                                Html.div [ Attr.class "text-right" ]
-                                    [ Html.div [ Attr.class "flex items-center gap-2 justify-end" ]
-                                        [ Ui.coin "w-5 h-5", Html.span [ Attr.class "font-bold text-2xl text-gold" ] [ Html.text (Ui.formatInt e.median) ] ]
-                                    , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "preview estimate" ]
-                                    ]
-
-                            Nothing ->
-                                Ui.empty
+                        , Html.div [ Attr.class "text-right" ]
+                            [ Html.div [ Attr.class "flex items-center gap-2 justify-end" ]
+                                [ Ui.coin "w-5 h-5", Html.span [ Attr.class "font-bold text-2xl text-gold" ] [ Html.text (Ui.formatInt estimate.median) ] ]
+                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "preview estimate" ]
+                            ]
                         ]
                     , Html.div [ Attr.class "my-5" ] [ Chart.sparkline points ]
                     , Html.div [ Attr.class "text-[13px] text-muted" ]
-                        [ Html.text
-                            (case est of
-                                Just e ->
-                                    "Median of " ++ String.fromInt e.counted ++ " prices from " ++ String.fromInt e.traders ++ " traders · not confirmed trades"
-
-                                Nothing ->
-                                    ""
-                            )
-                        ]
+                        [ Html.text ("Median of " ++ String.fromInt estimate.counted ++ " prices from " ++ String.fromInt estimate.traders ++ " traders · not confirmed trades") ]
                     ]
                 ]
 

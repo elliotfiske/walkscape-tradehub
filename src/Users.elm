@@ -1,12 +1,13 @@
-module Users exposing (isReady, signIn, toMe, toTrader, traders)
+module Users exposing (signIn, toMe, toTrader, traders)
 
 {-| Backend-side helpers for accounts and their public trader profiles.
 -}
 
+import Account
 import Dict
 import Name
 import Time
-import Types exposing (BackendModel, ClaimStatus(..), Me, Provider(..), Trader, User, UserId)
+import Types exposing (BackendModel, Me, Provider(..), Trader, User, UserId)
 
 
 signIn :
@@ -48,50 +49,32 @@ toMe user =
     }
 
 
-{-| Signed in, named, and through the (preview) verification step.
--}
-isReady : User -> Bool
-isReady user =
-    case user.claim of
-        Just claim ->
-            claim.status == PreviewUnverified
-
-        Nothing ->
-            False
-
-
 {-| The public profile for a user who has finished onboarding. Look-alike
 names are checked against traders who joined earlier.
 -}
 toTrader : BackendModel -> User -> Maybe Trader
 toTrader model user =
-    case user.claim of
-        Just claim ->
-            if claim.status == PreviewUnverified then
+    Account.readyName user
+        |> Maybe.map
+            (\name ->
                 let
                     earlier =
                         model.users
                             |> Dict.values
-                            |> List.filter (\u -> isReady u && Time.posixToMillis u.joinedAt < Time.posixToMillis user.joinedAt)
-                            |> List.filterMap (.claim >> Maybe.map .name)
+                            |> List.filter (\u -> Time.posixToMillis u.joinedAt < Time.posixToMillis user.joinedAt)
+                            |> List.filterMap Account.readyName
                 in
-                Just
-                    { name = claim.name
-                    , joinedAt = user.joinedAt
-                    , discord =
-                        if user.provider == Discord then
-                            user.oauthUsername
+                { name = name
+                , joinedAt = user.joinedAt
+                , discord =
+                    if user.provider == Discord then
+                        user.oauthUsername
 
-                        else
-                            Nothing
-                    , lookalikeOf = Name.lookalikeOf claim.name earlier
-                    }
-
-            else
-                Nothing
-
-        Nothing ->
-            Nothing
+                    else
+                        Nothing
+                , lookalikeOf = Name.lookalikeOf name earlier
+                }
+            )
 
 
 traders : BackendModel -> List Trader

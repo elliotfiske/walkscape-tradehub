@@ -3,8 +3,13 @@ module Market exposing
     , isLive
     , item
     , maxActiveListings
+    , openOfferFrom
+    , parseCoins
+    , parsePrice
     , pricePoints
     , unitPrice
+    , validateDraft
+    , validateOffer
     )
 
 {-| Shared rules about listings and offers, used by both backend and frontend.
@@ -14,12 +19,29 @@ import Dict exposing (Dict)
 import Item exposing (Item)
 import Pricing
 import Time
-import Types exposing (Listing, Offer, OfferStatus(..), Payment(..), Side(..))
+import Types exposing (Listing, ListingDraft, Offer, OfferStatus(..), Payment(..), Side(..))
 
 
 maxActiveListings : Int
 maxActiveListings =
     10
+
+
+maxPrice : Int
+maxPrice =
+    1000000000
+
+
+maxQuantity : Int
+maxQuantity =
+    1000000
+
+
+{-| For listing notes and offer messages.
+-}
+maxTextLength : Int
+maxTextLength =
+    280
 
 
 isLive : Time.Posix -> Listing -> Bool
@@ -42,6 +64,112 @@ unitPrice listing =
     case listing.payment of
         Coins price ->
             Just price
+
+
+{-| `trader`'s open offer on a listing, if they have one. A trader has at
+most one; making another offer updates it.
+-}
+openOfferFrom : String -> Int -> List Offer -> Maybe Offer
+openOfferFrom trader listingId offers =
+    offers
+        |> List.filter (\o -> o.listingId == listingId && o.from == trader && o.status == OfferOpen)
+        |> List.head
+
+
+
+-- VALIDATION
+
+
+{-| Read a coin amount the way players type it: "9400", "9,400" or "9.4k".
+-}
+parseCoins : String -> Maybe Int
+parseCoins s =
+    let
+        t =
+            s |> String.replace "," "" |> String.replace " " "" |> String.toLower
+    in
+    if String.endsWith "k" t then
+        String.toFloat (String.dropRight 1 t) |> Maybe.map (\f -> round (f * 1000))
+
+    else
+        String.toInt t
+
+
+{-| A coin price typed into a form, checked the same way the backend checks it.
+-}
+parsePrice : String -> Result String Int
+parsePrice s =
+    parseCoins s
+        |> Result.fromMaybe "Enter a price in coins, like 1200 or 1.2k."
+        |> Result.andThen checkPrice
+
+
+checkPrice : Int -> Result String Int
+checkPrice price =
+    if price <= 0 then
+        Err "Enter a price above zero."
+
+    else if price > maxPrice then
+        Err "Keep the price under a billion coins."
+
+    else
+        Ok price
+
+
+checkText : String -> String -> Result String String
+checkText what text =
+    if String.length text > maxTextLength then
+        Err ("Keep your " ++ what ++ " under " ++ String.fromInt maxTextLength ++ " characters.")
+
+    else
+        Ok (String.trim text)
+
+
+{-| Check a new listing. The frontend runs this before sending, and the
+backend runs it again on what arrives.
+-}
+validateDraft : ListingDraft -> Result String ListingDraft
+validateDraft draft =
+    case Item.byId draft.itemId of
+        Nothing ->
+            Err "Pick an item from the list."
+
+        Just listed ->
+            if Item.normalizeVariant listed draft.variant /= draft.variant then
+                Err "This item doesn't come in that version."
+
+            else if draft.quantity <= 0 then
+                Err "Enter a quantity above zero."
+
+            else if draft.quantity > maxQuantity then
+                Err "Keep the quantity under a million."
+
+            else
+                Result.map2 (\_ note -> { draft | note = note })
+                    (case draft.payment of
+                        Coins price ->
+                            checkPrice price
+                    )
+                    (checkText "note" draft.note)
+
+
+{-| Check an offer's price (`Nothing` means "at your price") and message.
+-}
+validateOffer : Maybe Int -> String -> Result String { price : Maybe Int, message : String }
+validateOffer price message =
+    Result.map2 (\p m -> { price = p, message = m })
+        (case price of
+            Just p ->
+                checkPrice p |> Result.map Just
+
+            Nothing ->
+                Ok Nothing
+        )
+        (checkText "message" message)
+
+
+
+-- PRICES
 
 
 {-| Price points for one listing: its own coin price, plus each offer on it

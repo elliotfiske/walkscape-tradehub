@@ -13,35 +13,20 @@ import Ui
 
 view : FrontendModel -> Html FrontendMsg
 view model =
-    case Derived.myName model of
-        Nothing ->
-            Html.div [ Attr.class "w-full max-w-xl mx-auto px-4 py-6" ]
-                [ Ui.previewNote
-                    [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Link your WalkScape name first. " ]
-                    , Html.text "Your offers and listings show up here. "
-                    , Html.a [ Attr.href "/welcome" ] [ Html.text "Continue" ]
-                    ]
-                ]
-
-        Just name ->
+    case ( Derived.isReady model, Derived.myName model ) of
+        ( True, Just name ) ->
             let
-                listings =
-                    Dict.values model.listings
-
                 myListings =
-                    listings |> List.filter (\l -> l.trader == name) |> List.sortBy (.createdAt >> Time.posixToMillis >> negate)
-
-                myListingIds =
-                    List.map .id myListings
-
-                newestFirst =
-                    List.sortBy (.at >> Time.posixToMillis >> negate)
+                    model.listings
+                        |> Dict.values
+                        |> List.filter (\l -> l.trader == name)
+                        |> List.sortBy (.createdAt >> Time.posixToMillis >> negate)
 
                 received =
-                    model.offers |> Dict.values |> List.filter (\o -> List.member o.listingId myListingIds && o.status /= OfferWithdrawn) |> newestFirst
+                    Derived.offersReceived model name
 
                 sent =
-                    model.offers |> Dict.values |> List.filter (\o -> o.from == name) |> newestFirst
+                    Derived.offersSent model name
 
                 tabLabel text n =
                     text ++ " " ++ String.fromInt n
@@ -67,6 +52,10 @@ view model =
                 , Html.p [ Attr.class "text-[13px] text-faint" ]
                     [ Html.text "In the preview, accepting an offer just records that you'd trade. Once trading is live, it opens a trade room with locked terms and an in-game checklist." ]
                 ]
+
+        _ ->
+            Html.div [ Attr.class "w-full max-w-xl mx-auto px-4 py-6" ]
+                [ Ui.nameGate (Derived.onboardingRoute model) "Your offers and listings show up here." ]
 
 
 orEmpty : String -> List (Html msg) -> List (Html msg)
@@ -114,20 +103,24 @@ offerCard model received offer =
                             listing.trader
 
                     ( filled, color, status ) =
-                        case ( offer.status, received ) of
-                            ( OfferOpen, True ) ->
-                                ( 1, "#e3b54c", "Your turn: accept or decline this offer" )
+                        case offer.status of
+                            OfferOpen ->
+                                if listing.closed then
+                                    ( 0, "#6d7d85", "Listing closed" )
 
-                            ( OfferOpen, False ) ->
-                                ( 1, "#5aa2e6", "Offer sent · waiting for " ++ other )
+                                else if received then
+                                    ( 1, "#e3b54c", "Your turn: accept or decline this offer" )
 
-                            ( OfferAccepted, _ ) ->
+                                else
+                                    ( 1, "#5aa2e6", "Offer sent · waiting for " ++ other )
+
+                            OfferAccepted ->
                                 ( 2, "#57b34a", "Accepted · trade room opens when trading is live" )
 
-                            ( OfferDeclined, _ ) ->
+                            OfferDeclined ->
                                 ( 3, "#c0453b", "Declined" )
 
-                            ( OfferWithdrawn, _ ) ->
+                            OfferWithdrawn ->
                                 ( 0, "#6d7d85", "Withdrawn" )
 
                     priceText =
@@ -139,7 +132,7 @@ offerCard model received offer =
                                 " · at listed price"
 
                     highlight =
-                        received && offer.status == OfferOpen
+                        received && Derived.awaitsResponse model offer
                 in
                 Html.a
                     [ Attr.href ("/listing/" ++ String.fromInt listing.id)
@@ -175,7 +168,7 @@ listingCard model listing =
             (\item ->
                 let
                     openOffers =
-                        model.offers |> Dict.values |> List.filter (\o -> o.listingId == listing.id && o.status == OfferOpen) |> List.length
+                        Derived.offersFor model listing.id |> List.filter (\o -> o.status == OfferOpen) |> List.length
 
                     status =
                         if listing.closed then
