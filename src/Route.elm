@@ -19,6 +19,7 @@ type Route
     | Report String
     | SignIn
     | Onboarding
+    | Admin
     | NotFound
 
 
@@ -37,6 +38,7 @@ parser =
         , Parser.map Report (s "report" </> Parser.string)
         , Parser.map SignIn (s "signin")
         , Parser.map Onboarding (s "welcome")
+        , Parser.map Admin (s "admin")
         ]
 
 
@@ -94,6 +96,9 @@ toString route =
 
         Onboarding ->
             "/welcome"
+
+        Admin ->
+            "/admin"
 
         NotFound ->
             "/"

@@ -3,6 +3,7 @@ module Ui exposing
     , ButtonStyle(..)
     , Tone(..)
     , backLink
+    , bannedTag
     , button
     , buttonStyle
     , callout
@@ -289,6 +290,15 @@ unverifiedTag =
         , Attr.title "Verification isn't live yet, so nobody has proved they own this WalkScape name."
         ]
         [ Html.text "UNVERIFIED" ]
+
+
+bannedTag : Html msg
+bannedTag =
+    Html.span
+        [ Attr.class "font-bold text-[10px] tracking-widest text-warn border border-warn/50 rounded px-1.5 py-0.5"
+        , testId "banned-tag"
+        ]
+        [ Html.text "BANNED" ]
 
 
 card : List (Html.Attribute msg) -> List (Html msg) -> Html msg

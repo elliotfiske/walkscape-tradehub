@@ -116,6 +116,19 @@ postListing actions { item, price, quantity } =
     ]
 
 
+{-| Sign in with a development-only preview admin account and open the admin
+screen. Admins don't need a WalkScape name.
+-}
+signInAsAdmin : Actions -> List Action
+signInAsAdmin actions =
+    [ actions.clickLink 100 "/signin"
+    , actions.click 100 (Dom.id "signin-preview-admin")
+    , actions.clickLink 300 "/"
+    , actions.clickLink 100 "/admin"
+    , actions.checkView 300 (hasTestId "admin-stats")
+    ]
+
+
 tests : List EndToEndTest
 tests =
     [ start "A guest can browse the homepage and an empty market"
@@ -382,6 +395,153 @@ tests =
                                             )
                                        ]
                        ]
+        ]
+    , start "A report link opened directly knows who it's about"
+        [ connect "other" "/" <|
+            \other ->
+                onboard other "Hollowfen"
+                    ++ [ connect "victim" "/" <|
+                            \victim ->
+                                onboard victim "Wanderling"
+                                    ++ [ connect "victim" "/report/Hollowfen" <|
+                                            \tab ->
+                                                [ tab.click 300 (Dom.id "reason-0")
+                                                , tab.click 100 (Dom.id "send-report")
+                                                , tab.checkView 300 (byTestId "report-sent" >> seesText "Report sent")
+                                                ]
+                                       ]
+                       ]
+        ]
+    , start "An admin resolves a report and bans the player, which takes down their listings"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Hollowfen"
+                    ++ postListing seller { item = "copper_ore", price = "5", quantity = "100" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 16) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , buyer.checkView 300 (hasTestId "offer-2")
+                                       , buyer.clickLink 100 "/report/Hollowfen"
+                                       , buyer.click 100 (Dom.id "reason-4")
+                                       , buyer.click 100 (Dom.id "send-report")
+                                       , buyer.checkView 300 (hasTestId "report-sent")
+                                       , connect "mod" "/" <|
+                                            \mod ->
+                                                signInAsAdmin mod
+                                                    ++ [ mod.checkView 100 (byTestId "admin-report-3" >> seesText "Price manipulation")
+                                                       , mod.click 100 (Dom.id "admin-resolve-3")
+                                                       , mod.checkView 300 (byTestId "admin-report-3" >> seesText "Reopen")
+                                                       , mod.click 100 (Dom.id "admin-report-ban-3")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 100 (hasTestId "admin-confirm-box")
+                                                       , mod.input 100 (Dom.id "ban-reason") "Fake prices"
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , seller.checkView 300 (byTestId "ban-notice" >> seesText "Fake prices")
+                                                       , buyer.clickLink 100 "/u/Hollowfen"
+                                                       , buyer.checkView 100 (hasTestId "banned-tag")
+                                                       , buyer.checkView 100 (lacksTestId "report-player")
+                                                       , buyer.clickLink 100 "/market"
+                                                       , buyer.checkView 100 (lacksTestId "listing-1")
+                                                       , buyer.checkModel 100
+                                                            (\model ->
+                                                                if Dict.isEmpty model.offers then
+                                                                    Ok ()
+
+                                                                else
+                                                                    Err "the buyer's offer on the deleted listing should be gone"
+                                                            )
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                if Dict.isEmpty backend.listings && Dict.isEmpty backend.offers then
+                                                                    Ok ()
+
+                                                                else
+                                                                    Err "the banned player's listing and its offer should be gone"
+                                                            )
+                                                       , seller.clickLink 100 "/market"
+                                                       , seller.clickLink 100 "/new"
+                                                       , seller.input 100 (Dom.id "item-search") "copper ore"
+                                                       , seller.click 100 (Dom.id "item-pick-copper_ore")
+                                                       , seller.input 100 (Dom.id "price") "5"
+                                                       , seller.click 100 (Dom.id "post-listing")
+                                                       , seller.checkView 300 (byTestId "toast" >> seesText "Your account is banned.")
+                                                       , mod.click 100 (Dom.id "admin-tab-log")
+                                                       , mod.checkView 100 (seesText "Banned Hollowfen: Fake prices")
+                                                       , mod.click 100 (Dom.id "admin-tab-players")
+                                                       , mod.click 100 (Dom.id "admin-unban-Hollowfen")
+                                                       , seller.checkView 300 (lacksTestId "ban-notice")
+                                                       ]
+                                       ]
+                       ]
+        ]
+    , start "An admin deletes an offer, a listing that isn't live yet, and releases a name"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9000", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Pikewalker"
+                                    ++ [ buyer.clickLink (minutes 16) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       ]
+                                    ++ postListing seller { item = "iron_bar", price = "100", quantity = "10" }
+                                    ++ [ connect "mod" "/" <|
+                                            \mod ->
+                                                signInAsAdmin mod
+                                                    ++ [ mod.click 100 (Dom.id "admin-tab-listings")
+                                                       , mod.checkView 100 (byTestId "admin-listing-3" >> seesText "Waiting to go live")
+                                                       , mod.click 100 (Dom.id "admin-delete-offer-2")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (lacksTestId "admin-offer-2")
+                                                       , buyer.checkView 100 (lacksTestId "offer-2")
+                                                       , mod.click 100 (Dom.id "admin-delete-listing-3")
+                                                       , mod.click 100 (Dom.id "admin-cancel")
+                                                       , mod.checkView 100 (hasTestId "admin-listing-3")
+                                                       , mod.click 100 (Dom.id "admin-delete-listing-3")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (lacksTestId "admin-listing-3")
+                                                       , seller.checkView 100 (seesText "This listing doesn't exist")
+                                                       , mod.click 100 (Dom.id "admin-tab-players")
+                                                       , mod.click 100 (Dom.id "admin-release-Pikewalker")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (lacksTestId "admin-player-Pikewalker")
+                                                       , buyer.checkView 100 (byTestId "user-chip" >> seesText "Finish sign-up")
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                if List.any (\u -> Maybe.map .name u.claim == Just "Pikewalker") (Dict.values backend.users) then
+                                                                    Err "Pikewalker should be free to claim again"
+
+                                                                else
+                                                                    Ok ()
+                                                            )
+                                                       ]
+                                       ]
+                       ]
+        ]
+    , start "Only admins can open the admin screen"
+        [ connect "s1" "/" <|
+            \user ->
+                onboard user "Ferncastle"
+                    ++ [ user.clickLink 100 "/market"
+                       , user.checkView 100 (Query.hasNot [ Selector.attribute (Html.Attributes.href "/admin") ])
+                       ]
+        , connect "s3" "/admin" <|
+            \guest ->
+                [ guest.checkView 300 (byTestId "admin-only" >> seesText "only for admins")
+                , guest.checkModel 100
+                    (\model ->
+                        if model.admin == Nothing then
+                            Ok ()
+
+                        else
+                            Err "a guest shouldn't get admin data"
+                    )
+                ]
         ]
     , start "A trader can have at most 20 active listings at once"
         [ connect "seller" "/" <|

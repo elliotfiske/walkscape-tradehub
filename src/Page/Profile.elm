@@ -47,7 +47,11 @@ view model name =
                     [ Ui.portrait "w-24 h-24 rounded-xl"
                     , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "profile-name" ] [ Html.text trader.name ]
                     , Html.div [ Attr.class "flex items-center gap-2" ]
-                        [ Ui.unverifiedTag
+                        [ if trader.banned then
+                            Ui.bannedTag
+
+                          else
+                            Ui.unverifiedTag
                         , if model.me /= Nothing then
                             trader.discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
 
@@ -76,7 +80,7 @@ view model name =
                     Html.div [ Attr.class "flex flex-col gap-2 mt-4" ]
                         [ Ui.button Ui.Secondary Ui.Block "sign-out" SignOutClicked "Sign out" ]
 
-                  else if Derived.isReady model then
+                  else if Derived.isReady model && not trader.banned then
                     Html.a [ Attr.href ("/report/" ++ name), Attr.id "report-player", Attr.class "text-center text-warn hover:text-warn no-underline font-semibold text-sm mt-2" ]
                         [ Html.text "Report this player" ]
 

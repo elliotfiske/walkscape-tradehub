@@ -1,5 +1,6 @@
 module Market exposing
     ( activeListingCount
+    , describe
     , isLive
     , item
     , maxActiveListings
@@ -57,6 +58,28 @@ activeListingCount trader listings =
 item : Listing -> Maybe Item
 item listing =
     Item.byId listing.itemId
+
+
+{-| "Selling 2x fine Iron bar", for logs and admin lists.
+-}
+describe : Listing -> String
+describe listing =
+    (case listing.side of
+        Selling ->
+            "Selling "
+
+        Buying ->
+            "Buying "
+    )
+        ++ String.fromInt listing.quantity
+        ++ "x "
+        ++ (if listing.variant.fine then
+                "fine "
+
+            else
+                ""
+           )
+        ++ (item listing |> Maybe.map (\i -> Item.fullName i listing.variant) |> Maybe.withDefault listing.itemId)
 
 
 unitPrice : Listing -> Maybe Int

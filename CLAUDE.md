@@ -13,13 +13,13 @@ changes hands, and there are no trade rooms yet.
 | `Types.elm` | All models/messages. Public identity of a trader is their claimed WalkScape name. |
 | `Backend.elm` | Every `ToBackend` is re-dispatched with a timestamp (`FromFrontendAt`). A 15s `BackendTick` broadcasts listings whose 15-minute go-live delay has passed; until then a listing is only sent to its owner. |
 | `Frontend.elm` | Routing, update, the app shell (header, preview banner, mobile tab bar, toast). |
-| `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report. |
+| `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
 | `Pricing.elm` | Pure price-estimate rules: median, one vote per trader per day, outliers > 2.5× spread cut. |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides, and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Most items can also be **fine**: a listing's `Item.Variant` is `{ fine, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `iron_pickaxe/fine/perfect`) and price page (`/prices/iron_bar?fine=1`). Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Name.elm` | WalkScape-name validation and look-alike detection. |
-| `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`). |
+| `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`, who's an admin). |
 | `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Discord OAuth (on the vendored lamdera/auth). Discord is the only sign-in. |
 
 ## Preview-mode placeholders
@@ -37,6 +37,22 @@ changes hands, and there are no trade rooms yet.
   random amount, but "Continue unverified" skips it (`ClaimStatus.PreviewUnverified`).
   Names are first-come and shown with an UNVERIFIED tag.
 - **WalkScape API** lookups (level, steps, last active) are shown as "with trading".
+
+## Admin screen (`/admin`)
+
+Admins are the Discord accounts whose username is in the comma-separated
+`Env.adminDiscordUsernames` (set it in the Lamdera dashboard too, or
+`lamdera check` fails with MISSING PRODUCTION CONFIG). The backend checks
+`Users.isAdmin` on every `AdminLoad` / `AdminRequest`; the page only decides
+what to show. Admins can resolve reports, delete listings (any state) and
+offers, ban/unban players, and release a claimed name. Banning or releasing a
+name deletes that player's listings and offers. A banned account can still
+sign in and browse, but every other request fails. Every action is written to
+`BackendModel.adminLog`.
+
+In `Env.Development` (`lamdera live`, the E2E tests) the sign-in page also has
+"Use a preview admin account" (`#signin-preview-admin`), so you can try the
+admin screen without Discord. The backend refuses it in production.
 
 ## WalkScape Tools API (items and icons)
 

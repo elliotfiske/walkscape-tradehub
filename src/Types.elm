@@ -1,6 +1,13 @@
 module Types exposing
-    ( BackendModel
+    ( AdminAction(..)
+    , AdminData
+    , AdminLogEntry
+    , AdminPage
+    , AdminTab(..)
+    , AdminUser
+    , BackendModel
     , BackendMsg(..)
+    , Ban
     , Claim
     , ClaimStatus(..)
     , FrontendModel
@@ -71,6 +78,17 @@ type alias Me =
     { provider : Provider
     , isPreviewLogin : Bool
     , claim : Maybe Claim
+    , isAdmin : Bool
+    , ban : Maybe Ban
+    }
+
+
+{-| Why and when an admin banned someone. `by` is the admin's name.
+-}
+type alias Ban =
+    { reason : String
+    , at : Time.Posix
+    , by : String
     }
 
 
@@ -81,6 +99,7 @@ type alias Trader =
     , joinedAt : Time.Posix
     , discord : Maybe String
     , lookalikeOf : Maybe String
+    , banned : Bool
     }
 
 
@@ -139,12 +158,56 @@ type alias ListingDraft =
 
 
 type alias Report =
-    { reporter : String
+    { id : Int
+    , reporter : String
     , about : String
     , reasons : List String
     , details : String
     , at : Time.Posix
+    , resolved : Bool
     }
+
+
+{-| A player as admins see them. Players are named by their claimed WalkScape
+name, so ones who haven't claimed one yet only show up in `accounts`.
+-}
+type alias AdminUser =
+    { name : String
+    , ready : Bool
+    , discord : Maybe String
+    , isPreviewLogin : Bool
+    , joinedAt : Time.Posix
+    , isAdmin : Bool
+    , ban : Maybe Ban
+    }
+
+
+type alias AdminLogEntry =
+    { at : Time.Posix
+    , by : String
+    , text : String
+    }
+
+
+{-| Everything the admin screen shows, including listings that aren't live yet.
+-}
+type alias AdminData =
+    { accounts : Int
+    , users : List AdminUser
+    , listings : List Listing
+    , offers : List Offer
+    , reports : List Report
+    , log : List AdminLogEntry
+    }
+
+
+type AdminAction
+    = DeleteListing Int
+    | DeleteOffer Int
+    | BanPlayer String String
+    | UnbanPlayer String
+    | ReleaseName String
+    | SetReportResolved Int Bool
 
 
 type alias InitialData =
@@ -185,6 +248,24 @@ type TradesTab
     = ReceivedTab
     | SentTab
     | MyListingsTab
+
+
+type AdminTab
+    = AdminReports
+    | AdminListings
+    | AdminPlayers
+    | AdminLog
+
+
+{-| `confirming` is a destructive action waiting for a second click. For a ban,
+its reason is filled in from `banReason` when confirmed.
+-}
+type alias AdminPage =
+    { tab : AdminTab
+    , search : String
+    , confirming : Maybe AdminAction
+    , banReason : String
+    }
 
 
 type alias ListingForm =
@@ -239,6 +320,8 @@ type alias FrontendModel =
     , previewSignInFor : Maybe Provider
     , toast : Maybe String
     , tradesTab : TradesTab
+    , admin : Maybe AdminData
+    , adminPage : AdminPage
     }
 
 
@@ -248,6 +331,7 @@ type FrontendMsg
     | Tick Time.Posix
     | ProviderClicked Provider
     | PreviewSignInConfirmed Provider
+    | PreviewAdminSignInClicked
     | PreviewSignInCancelled
     | SignOutClicked
     | ClaimNameChanged String
@@ -285,6 +369,13 @@ type FrontendMsg
     | ReportSubmitted
     | ToastDismissed
     | TradesTabSelected TradesTab
+    | AdminTabSelected AdminTab
+    | AdminSearchChanged String
+    | AdminActionClicked AdminAction
+    | AdminBanReasonChanged String
+    | AdminConfirmed
+    | AdminCancelled
+    | AdminRefreshClicked
     | NoOpFrontendMsg
 
 
@@ -293,12 +384,16 @@ type ToFrontend
     | InitialDataSent InitialData
     | YouAre (Maybe Me)
     | ListingUpserted Listing
+    | ListingRemoved Int
     | OfferUpserted Offer
+    | OfferRemoved Int
     | TraderUpserted Trader
+    | TraderRemoved String
     | ClaimRejected String
     | ListingCreated Int
     | ReportReceived
     | ActionFailed String
+    | AdminDataSent AdminData
 
 
 
@@ -316,6 +411,7 @@ type alias User =
     , oauthUsername : Maybe String
     , claim : Maybe Claim
     , joinedAt : Time.Posix
+    , ban : Maybe Ban
     }
 
 
@@ -326,6 +422,7 @@ type alias BackendModel =
     , listings : Dict Int Listing
     , offers : Dict Int Offer
     , reports : List Report
+    , adminLog : List AdminLogEntry
     , nextId : Int
     , pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth
     }
@@ -334,6 +431,8 @@ type alias BackendModel =
 type ToBackend
     = AuthToBackend Auth.Common.ToBackend
     | PreviewSignIn Provider
+      -- Only works in development; see `Users.isAdmin`.
+    | PreviewAdminSignIn
     | SignOut
     | ClaimName String
     | SkipVerification
@@ -343,6 +442,8 @@ type ToBackend
     | WithdrawOffer Int
     | RespondToOffer Int Bool
     | SubmitReport String (List String) String
+    | AdminLoad
+    | AdminRequest AdminAction
 
 
 type BackendMsg

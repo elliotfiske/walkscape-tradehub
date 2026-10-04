@@ -32,6 +32,8 @@ Things the preview leaves for later. The original starter checklist is done
 
 ## Preview polish
 
-- Moderation view for `BackendModel.reports` (currently only readable via
-  `lamdera backend`).
+- Admins are matched by Discord *username*, which people can change and
+  reuse. Switch `adminDiscordUsernames` to Discord user ids if that matters.
+- Bans only stick for Discord accounts. A banned preview account can sign out
+  and make a new one.
 - Editing a listing (should restart the 15-minute wait).
