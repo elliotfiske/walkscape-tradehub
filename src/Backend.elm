@@ -367,11 +367,14 @@ handleRequest sessionId clientId now msg model =
                                 fail "This listing isn't open for offers."
 
                             else
-                                case Market.validateOffer price message of
-                                    Err err ->
+                                case ( Market.validateOffer price message, Market.offerLimitError name listingId model.listings (Dict.values model.offers) ) of
+                                    ( Err err, _ ) ->
                                         fail err
 
-                                    Ok valid ->
+                                    ( Ok _, Just err ) ->
+                                        fail err
+
+                                    ( Ok valid, Nothing ) ->
                                         let
                                             ( offer, nextId ) =
                                                 case Market.openOfferFrom name listingId (Dict.values model.offers) of
@@ -501,4 +504,3 @@ claimName user raw now model clientId sessionId =
                 ( saveUser newUser model
                 , Effect.Lamdera.sendToFrontends sessionId (YouAre (Just (Users.toMe newUser)))
                 )
-
