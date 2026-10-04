@@ -421,12 +421,12 @@ traderCard model name =
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                 , Html.div [ Attr.class "flex items-center gap-2" ]
                     [ Ui.unverifiedTag
-                    , case trader |> Maybe.andThen .discord of
-                        Just handle ->
+                    , case ( model.me, trader |> Maybe.andThen .discord ) of
+                        ( Just _, Just handle ) ->
                             Html.span [ Attr.class "flex items-center gap-1 text-[13px] text-muted" ]
                                 [ Ui.discordIcon "w-3.5 h-3.5", Html.text ("@" ++ handle) ]
 
-                        Nothing ->
+                        _ ->
                             Ui.empty
                     ]
                 ]
