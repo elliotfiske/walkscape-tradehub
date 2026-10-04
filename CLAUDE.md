@@ -35,8 +35,8 @@ changes hands, and there are no trade rooms yet.
   Discord (or a ban). **Testing OAuth under `lamdera live`:**
   keep a second app tab open. The dev backend runs in a tab, so if the only tab
   leaves for discord.com the pending sign-in is lost and the callback fails.
-- **Verification:** the coin-offer-to-TrailpostBot step is shown with a real
-  random amount, but "Continue unverified" skips it (`ClaimStatus.PreviewUnverified`).
+- **Verification:** there is no verify step while trading isn't live. Claiming
+  a name goes straight to the done screen (`ClaimStatus.PreviewUnverified`).
   Names are first-come and shown with an UNVERIFIED tag.
 - **Feedback thread:** the "Feedback?" banner link and the home page's
   "Trailpost thread on the WalkScape Discord" both use `Ui.feedbackThreadUrl`.
@@ -89,7 +89,7 @@ journey and read the PNGs back:
 
 ```bash
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/smoke.json
-# → ./.context/shots/{home-desktop,market-desktop,home-mobile,signin-preview,claim,verify,done}.png
+# → ./.context/shots/{home-desktop,market-desktop,home-mobile,signin-preview,claim,done}.png
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/seed-market.json
 # 8 accounts, 10 listings, waits 16 min for go-live, then offers + screenshots
 ```

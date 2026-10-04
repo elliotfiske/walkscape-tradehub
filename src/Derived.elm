@@ -36,11 +36,11 @@ myName model =
     model.me |> Maybe.andThen Account.claimedName
 
 
-{-| Signed in, named, and through the (preview) verification step.
+{-| Signed in and named.
 -}
 isReady : FrontendModel -> Bool
 isReady model =
-    (model.me |> Maybe.andThen Account.readyName) /= Nothing
+    (model.me |> Maybe.andThen Account.claimedName) /= Nothing
 
 
 {-| Where to send someone who isn't `isReady` yet to link their name.

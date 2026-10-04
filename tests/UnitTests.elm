@@ -1,6 +1,5 @@
 module UnitTests exposing (suite)
 
-import Account
 import Expect
 import Item
 import Market
@@ -10,7 +9,7 @@ import Pricing exposing (Source(..), Status(..))
 import Route
 import Test exposing (Test, describe, test)
 import Time
-import Types exposing (ClaimStatus(..), Payment(..), Side(..))
+import Types exposing (Payment(..), Side(..))
 import Url
 
 
@@ -196,16 +195,6 @@ suite =
                             [ Err "Enter a price above zero."
                             , Ok { price = Nothing, message = "hi" }
                             ]
-            ]
-        , describe "Account.readyName"
-            [ test "is only set once the account is through verification" <|
-                \_ ->
-                    [ Nothing
-                    , Just { name = "Wanderling", coins = 40, status = AwaitingCoinOffer }
-                    , Just { name = "Wanderling", coins = 40, status = PreviewUnverified }
-                    ]
-                        |> List.map (\claim -> Account.readyName { claim = claim })
-                        |> Expect.equal [ Nothing, Nothing, Just "Wanderling" ]
             ]
         ]
 

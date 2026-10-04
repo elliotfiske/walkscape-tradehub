@@ -212,11 +212,6 @@ saveUser user model =
     { model | users = Dict.insert user.id user model.users }
 
 
-coinAmount : Time.Posix -> Int -> Int
-coinAmount now salt =
-    5 + modBy 96 (Time.posixToMillis now // 7 + salt * 31)
-
-
 handleRequest : SessionId -> ClientId -> Time.Posix -> ToBackend -> Model -> ( Model, Cmd_ )
 handleRequest sessionId clientId now msg model =
     let
@@ -268,7 +263,7 @@ handleRequest sessionId clientId now msg model =
         withReadyUser f =
             withUser
                 (\user ->
-                    case Account.readyName user of
+                    case Account.claimedName user of
                         Just name ->
                             f name
 
@@ -304,36 +299,11 @@ handleRequest sessionId clientId now msg model =
         ClaimName raw ->
             withUser
                 (\user ->
-                    if Account.readyName user /= Nothing then
+                    if Account.claimedName user /= Nothing then
                         fail "Your account already has a WalkScape name."
 
                     else
-                        claimName user raw now model clientId sessionId
-                )
-
-        SkipVerification ->
-            withUser
-                (\user ->
-                    case user.claim of
-                        Just claim ->
-                            let
-                                newUser =
-                                    { user | claim = Just { claim | status = PreviewUnverified } }
-
-                                newModel =
-                                    saveUser newUser model
-                            in
-                            ( newModel
-                            , Command.batch
-                                [ replyMe newUser
-                                , Users.toTrader newModel newUser
-                                    |> Maybe.map (TraderUpserted >> Effect.Lamdera.broadcast)
-                                    |> Maybe.withDefault Command.none
-                                ]
-                            )
-
-                        Nothing ->
-                            fail "Claim a WalkScape name first."
+                        claimName user raw model clientId sessionId
                 )
 
         CreateListing draft ->
@@ -479,7 +449,7 @@ handleRequest sessionId clientId now msg model =
         SubmitReport about reasons details ->
             withReadyUser
                 (\name ->
-                    if not (List.any (\u -> Account.readyName u == Just about) (Dict.values model.users)) then
+                    if not (List.any (\u -> Account.claimedName u == Just about) (Dict.values model.users)) then
                         fail "There's no trader with that name."
 
                     else if about == name then
@@ -713,8 +683,8 @@ updateOffer offer model =
     )
 
 
-claimName : User -> String -> Time.Posix -> Model -> ClientId -> SessionId -> ( Model, Cmd_ )
-claimName user raw now model clientId sessionId =
+claimName : User -> String -> Model -> ClientId -> SessionId -> ( Model, Cmd_ )
+claimName user raw model clientId sessionId =
     case Name.validate raw of
         Err err ->
             ( model, Effect.Lamdera.sendToFrontend clientId (ClaimRejected err) )
@@ -739,9 +709,17 @@ claimName user raw now model clientId sessionId =
             else
                 let
                     newUser =
-                        { user | claim = Just { name = name, coins = coinAmount now 0, status = AwaitingCoinOffer } }
+                        { user | claim = Just { name = name, status = PreviewUnverified } }
+
+                    newModel =
+                        saveUser newUser model
                 in
-                ( saveUser newUser model
-                , Effect.Lamdera.sendToFrontends sessionId (YouAre (Just (Users.toMe newUser)))
+                ( newModel
+                , Command.batch
+                    [ Effect.Lamdera.sendToFrontends sessionId (YouAre (Just (Users.toMe newUser)))
+                    , Users.toTrader newModel newUser
+                        |> Maybe.map (TraderUpserted >> Effect.Lamdera.broadcast)
+                        |> Maybe.withDefault Command.none
+                    ]
                 )
 

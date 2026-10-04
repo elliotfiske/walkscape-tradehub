@@ -21,8 +21,9 @@ Things the preview leaves for later. The original starter checklist is done
 
 ## When trading goes live
 
-- TrailpostBot verification: check the coin amount, flip `ClaimStatus` to a
-  verified state, let a verified owner take a name over from a squatter.
+- TrailpostBot verification: bring back a claim step where the player offers a
+  random coin amount to the bot, add a verified `ClaimStatus`, and let a
+  verified owner take a name over from a squatter.
 - WalkScape API lookups on the claim step and profiles.
 - Trade rooms (design 1d/1e): locked terms, in-game checklist, both-confirm,
   chat. Accepted offers are the natural entry point.

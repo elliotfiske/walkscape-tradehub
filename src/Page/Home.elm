@@ -47,7 +47,7 @@ view model =
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]
             , Html.div [ Attr.class "grid md:grid-cols-3 gap-6" ]
                 [ startStep 1 "Sign in" "With Discord."
-                , startStep 2 "Claim your name" "Type the name you play under. Names are first-come for now. Once trading opens you'll verify yours, and if someone else grabbed it, it moves to you."
+                , startStep 2 "Claim your name" "Type the name you play under. Names are first-come for now. If someone else grabbed yours, you can verify it once trading opens and it moves to you."
                 , startStep 3 "Post and offer" "List what you'd sell or buy, and make offers on other people's listings."
                 ]
             ]

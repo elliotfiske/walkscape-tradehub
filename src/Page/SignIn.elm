@@ -8,14 +8,13 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Name
-import Types exposing (Claim, ClaimStatus(..), FrontendModel, FrontendMsg(..), Me, Provider(..))
+import Types exposing (Claim, FrontendModel, FrontendMsg(..), Me, Provider(..))
 import Ui
 
 
 type Step
     = StepSignIn
     | StepClaim
-    | StepVerify
     | StepDone
 
 
@@ -30,11 +29,8 @@ stepper current =
                 StepClaim ->
                     1
 
-                StepVerify ->
-                    2
-
                 StepDone ->
-                    3
+                    2
 
         item s text =
             let
@@ -65,7 +61,7 @@ stepper current =
                 []
     in
     Html.div [ Attr.class "w-full flex items-center my-4" ]
-        [ item StepSignIn "SIGN IN", bar StepClaim, item StepClaim "CLAIM NAME", bar StepVerify, item StepVerify "VERIFY" ]
+        [ item StepSignIn "SIGN IN", bar StepClaim, item StepClaim "CLAIM NAME", bar StepDone, item StepDone "DONE" ]
 
 
 providerName : Provider -> String
@@ -178,12 +174,7 @@ viewOnboarding model =
                     viewClaim model me
 
                 Just claim ->
-                    case claim.status of
-                        AwaitingCoinOffer ->
-                            viewVerify claim
-
-                        PreviewUnverified ->
-                            viewDone me claim
+                    viewDone me claim
 
 
 viewClaim : FrontendModel -> Me -> Html FrontendMsg
@@ -229,46 +220,10 @@ viewClaim model me =
                 Nothing ->
                     Ui.empty
             , Html.p [ Attr.class "text-sm text-muted mt-4" ]
-                [ Html.text "Names are first-come for now. If someone grabbed yours, verifying it once trading opens moves it to you." ]
+                [ Html.text "Names are first-come for now. If someone grabbed yours, you can verify it once trading opens and it moves to you." ]
             , Html.div [ Attr.class "flex-1 min-h-8" ] []
             , Ui.button Ui.Primary Ui.Block "claim-submit" ClaimNameSubmitted "That's me · Continue"
             ]
-        ]
-
-
-viewVerify : Claim -> Html FrontendMsg
-viewVerify claim =
-    let
-        stepRow n content =
-            Html.div [ Attr.class "flex gap-3 items-start" ]
-                [ Html.span [ Attr.class "flex-none w-6 h-6 rounded-full bg-raised border border-rule grid place-items-center text-xs font-bold text-gold" ] [ Html.text (String.fromInt n) ]
-                , Html.div [ Attr.class "text-soft leading-snug" ] content
-                ]
-    in
-    Html.div [ Attr.class "flex-1 flex flex-col gap-4" ]
-        [ stepper StepVerify
-        , Html.div [ Attr.class "flex items-center justify-between rounded-xl bg-card border border-edge px-3.5 py-2.5 text-sm" ]
-            [ Html.span [ Attr.class "text-muted" ]
-                [ Html.text "Claimed "
-                , Html.b [ Attr.class "text-ink ml-1", Ui.testId "claimed-name" ] [ Html.text claim.name ]
-                ]
-            , Html.button [ Attr.id "change-name", Events.onClick ChangeClaimClicked, Attr.class "text-xs text-gold font-semibold" ] [ Html.text "Change" ]
-            ]
-        , Html.h1 [ Attr.class "font-display font-extrabold text-[22px]" ] [ Html.text ("Prove you own " ++ claim.name) ]
-        , Ui.previewNote "This is where you'd verify your account."
-            [ Html.text "Trading isn't live yet, so TrailpostBot isn't running. Here's how it will work. For now you can carry on unverified, and your name will show as unverified." ]
-        , Html.div [ Attr.class "flex flex-col gap-3 opacity-80" ]
-            [ stepRow 1 [ Html.text "In WalkScape, start a trade with ", Html.b [ Attr.class "text-[#9fd3e8]" ] [ Html.text "TrailpostBot" ], Html.text "." ]
-            , stepRow 2 [ Html.text "Put exactly this many coins in your offer, with no items:" ]
-            , Html.div [ Attr.class "self-center flex items-center gap-3 rounded-2xl border border-[#6b5520] bg-card px-7 py-4 shadow-[0_0_30px_rgba(227,181,76,0.12)]" ]
-                [ Ui.coin "w-10 h-10"
-                , Html.span [ Attr.class "font-display font-extrabold text-[40px] text-gold leading-none", Ui.testId "coin-amount" ] [ Html.text (String.fromInt claim.coins) ]
-                , Html.span [ Attr.class "text-muted" ] [ Html.text "coins" ]
-                ]
-            , stepRow 3 [ Html.text "Send the offer. The bot checks the amount and rejects it, so your coins never leave." ]
-            ]
-        , Html.div [ Attr.class "flex-1" ] []
-        , Ui.button Ui.Primary Ui.Block "skip-verify" SkipVerificationClicked "Continue unverified"
         ]
 
 

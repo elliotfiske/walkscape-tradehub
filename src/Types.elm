@@ -56,18 +56,15 @@ type Provider
 
 
 type ClaimStatus
-    = AwaitingCoinOffer
-      -- Trading (and the TrailpostBot) isn't live yet, so nobody can actually
-      -- verify. Preview accounts skip the step and are shown as unverified.
-    | PreviewUnverified
+    = -- Trading isn't live yet, so nobody can actually verify a name. Every
+      -- claim is shown as unverified.
+      PreviewUnverified
 
 
-{-| A WalkScape name someone says is theirs, and the coin amount they'd send
-the bot to prove it.
+{-| A WalkScape name someone says is theirs.
 -}
 type alias Claim =
     { name : String
-    , coins : Int
     , status : ClaimStatus
     }
 
@@ -336,8 +333,6 @@ type FrontendMsg
     | SignOutClicked
     | ClaimNameChanged String
     | ClaimNameSubmitted
-    | ChangeClaimClicked
-    | SkipVerificationClicked
     | SearchChanged String
     | TabSelected MarketTab
     | SortSelected MarketSort
@@ -435,7 +430,6 @@ type ToBackend
     | PreviewAdminSignIn
     | SignOut
     | ClaimName String
-    | SkipVerification
     | CreateListing ListingDraft
     | CloseListing Int
     | MakeOffer Int (Maybe Int) String
