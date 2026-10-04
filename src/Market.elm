@@ -3,9 +3,6 @@ module Market exposing
     , isLive
     , item
     , maxActiveListings
-    , maxOpenOffers
-    , offerLimitError
-    , openOfferCount
     , openOfferFrom
     , parseCoins
     , parsePrice
@@ -28,14 +25,6 @@ import Types exposing (Listing, ListingDraft, Offer, OfferStatus(..), Payment(..
 maxActiveListings : Int
 maxActiveListings =
     10
-
-
-{-| How many open offers a trader can have at once, across all listings.
-Updating an offer you already have doesn't count as a new one.
--}
-maxOpenOffers : Int
-maxOpenOffers =
-    20
 
 
 maxPrice : Int
@@ -85,35 +74,6 @@ openOfferFrom trader listingId offers =
     offers
         |> List.filter (\o -> o.listingId == listingId && o.from == trader && o.status == OfferOpen)
         |> List.head
-
-
-{-| `trader`'s open offers on listings that are still open. Offers on closed
-listings don't count towards `maxOpenOffers`.
--}
-openOfferCount : String -> Dict Int Listing -> List Offer -> Int
-openOfferCount trader listings offers =
-    offers
-        |> List.filter
-            (\o ->
-                o.from
-                    == trader
-                    && o.status
-                    == OfferOpen
-                    && (Dict.get o.listingId listings |> Maybe.map (not << .closed) |> Maybe.withDefault False)
-            )
-        |> List.length
-
-
-{-| An error if `trader` can't make another offer on `listingId`: they're at
-`maxOpenOffers` and don't already have an open offer there to update.
--}
-offerLimitError : String -> Int -> Dict Int Listing -> List Offer -> Maybe String
-offerLimitError trader listingId listings offers =
-    if openOfferFrom trader listingId offers == Nothing && openOfferCount trader listings offers >= maxOpenOffers then
-        Just ("You can have up to " ++ String.fromInt maxOpenOffers ++ " open offers. Withdraw one first.")
-
-    else
-        Nothing
 
 
 

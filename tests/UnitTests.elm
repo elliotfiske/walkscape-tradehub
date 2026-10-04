@@ -1,7 +1,6 @@
 module UnitTests exposing (suite)
 
 import Account
-import Dict exposing (Dict)
 import Expect
 import Item
 import Market
@@ -11,7 +10,7 @@ import Pricing exposing (Source(..), Status(..))
 import Route
 import Test exposing (Test, describe, test)
 import Time
-import Types exposing (ClaimStatus(..), OfferStatus(..), Payment(..), Side(..))
+import Types exposing (ClaimStatus(..), Payment(..), Side(..))
 import Url
 
 
@@ -23,41 +22,6 @@ day =
 point : String -> Int -> Int -> Pricing.Point
 point trader price at =
     { price = price, trader = trader, at = Time.millisToPosix at, source = Ask }
-
-
-listing : Int -> Bool -> Types.Listing
-listing id closed =
-    { id = id
-    , trader = "Seller"
-    , itemId = "coal"
-    , variant = { fine = False, quality = Nothing }
-    , side = Selling
-    , payment = Coins 10
-    , quantity = 1
-    , note = ""
-    , createdAt = Time.millisToPosix 0
-    , liveAt = Time.millisToPosix 0
-    , closed = closed
-    }
-
-
-{-| Listings 1–30, with 30 closed.
--}
-listings : Dict Int Types.Listing
-listings =
-    List.range 1 30 |> List.map (\id -> ( id, listing id (id == 30) )) |> Dict.fromList
-
-
-offer : String -> Types.OfferStatus -> Int -> Types.Offer
-offer from status listingId =
-    { id = 100 + listingId
-    , listingId = listingId
-    , from = from
-    , price = Nothing
-    , message = ""
-    , at = Time.millisToPosix 0
-    , status = status
-    }
 
 
 suite : Test
@@ -231,33 +195,6 @@ suite =
                         |> Expect.equal
                             [ Err "Enter a price above zero."
                             , Ok { price = Nothing, message = "hi" }
-                            ]
-            ]
-        , describe "Market.offerLimitError"
-            [ test "only open offers on open listings count" <|
-                \_ ->
-                    (List.range 1 19 |> List.map (offer "Buyer" OfferOpen))
-                        ++ [ offer "Buyer" OfferWithdrawn 20
-                           , offer "Buyer" OfferAccepted 21
-                           , offer "Buyer" OfferOpen 30
-                           , offer "Other" OfferOpen 22
-                           ]
-                        |> Market.openOfferCount "Buyer" listings
-                        |> Expect.equal 19
-            , test "a 21st open offer is refused, but updating an existing one is fine" <|
-                \_ ->
-                    let
-                        twenty =
-                            List.range 1 20 |> List.map (offer "Buyer" OfferOpen)
-                    in
-                    [ Market.offerLimitError "Buyer" 21 listings (List.take 19 twenty)
-                    , Market.offerLimitError "Buyer" 21 listings twenty
-                    , Market.offerLimitError "Buyer" 5 listings twenty
-                    ]
-                        |> Expect.equal
-                            [ Nothing
-                            , Just "You can have up to 20 open offers. Withdraw one first."
-                            , Nothing
                             ]
             ]
         , describe "Account.readyName"

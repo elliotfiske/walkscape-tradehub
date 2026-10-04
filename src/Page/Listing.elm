@@ -327,23 +327,14 @@ offerForm model listing myOffer =
                         Ui.empty
         in
         Html.div [ Attr.class "flex flex-col gap-3 border-t border-line pt-4 mt-1" ]
-            [ Html.div [ Attr.class "flex items-baseline justify-between gap-2" ]
-                [ Html.div [ Attr.class "font-semibold" ]
-                    [ Html.text
-                        (if myOffer == Nothing then
-                            "Interested?"
+            [ Html.div [ Attr.class "font-semibold" ]
+                [ Html.text
+                    (if myOffer == Nothing then
+                        "Interested?"
 
-                         else
-                            "Update your offer"
-                        )
-                    ]
-                , case Derived.myName model of
-                    Just name ->
-                        Html.span [ Attr.class "text-[13px] text-muted", Ui.testId "open-offer-count" ]
-                            [ Html.text (String.fromInt (Market.openOfferCount name model.listings (Dict.values model.offers)) ++ " of " ++ String.fromInt Market.maxOpenOffers ++ " open offers") ]
-
-                    Nothing ->
-                        Ui.empty
+                     else
+                        "Update your offer"
+                    )
                 ]
             , Ui.segmented
                 [ { id = "offer-at-price", label = "At their price", active = not form.counter, msg = OfferCounterToggled False }

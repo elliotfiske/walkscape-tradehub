@@ -383,49 +383,6 @@ tests =
                                        ]
                        ]
         ]
-    , start "A trader can have at most 20 open offers at once"
-        [ connect "s1" "/" <|
-            \s1 ->
-                onboard s1 "Juno_Trek"
-                    ++ List.concatMap (\_ -> postListing s1 { item = "coal", price = "10", quantity = "1" }) (List.range 1 7)
-                    ++ [ connect "s2" "/" <|
-                            \s2 ->
-                                onboard s2 "Mossbeard"
-                                    ++ List.concatMap (\_ -> postListing s2 { item = "coal", price = "10", quantity = "1" }) (List.range 1 7)
-                                    ++ [ connect "s3" "/" <|
-                                            \s3 ->
-                                                onboard s3 "Tallowmere"
-                                                    ++ List.concatMap (\_ -> postListing s3 { item = "coal", price = "10", quantity = "1" }) (List.range 1 7)
-                                                    ++ [ connect "buyer" "/" <|
-                                                            \buyer ->
-                                                                onboard buyer "Wanderling"
-                                                                    ++ [ buyer.clickLink (minutes 16) "/market" ]
-                                                                    ++ List.concatMap
-                                                                        (\id ->
-                                                                            [ buyer.clickLink 100 "/market"
-                                                                            , buyer.clickLink 100 ("/listing/" ++ String.fromInt id)
-                                                                            , buyer.click 100 (Dom.id "send-offer")
-                                                                            ]
-                                                                        )
-                                                                        (List.range 1 20)
-                                                                    ++ [ buyer.checkView 300 (byTestId "open-offer-count" >> seesText "20 of 20 open offers")
-                                                                       , buyer.clickLink 100 "/market"
-                                                                       , buyer.clickLink 100 "/listing/21"
-                                                                       , buyer.click 100 (Dom.id "send-offer")
-                                                                       , buyer.checkView 300 (byTestId "offer-error" >> seesText "You can have up to 20 open offers")
-                                                                       , Effect.Test.checkBackend 100
-                                                                            (\backend ->
-                                                                                if Dict.size backend.offers == 20 then
-                                                                                    Ok ()
-
-                                                                                else
-                                                                                    Err ("expected 20 offers, got " ++ String.fromInt (Dict.size backend.offers))
-                                                                            )
-                                                                       ]
-                                                       ]
-                                       ]
-                       ]
-        ]
     , start "Signing out returns to the guest view and keeps the account"
         [ connect "s1" "/" <|
             \user ->

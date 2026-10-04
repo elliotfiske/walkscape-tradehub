@@ -1,8 +1,8 @@
 module Frontend exposing (app, app_)
 
+import AuthProviders
 import Auth.Common
 import Auth.Flow
-import AuthProviders
 import Browser
 import Derived
 import Dict
@@ -439,16 +439,8 @@ update msg model =
 
                     else
                         Ok Nothing
-
-                limitCheck offer =
-                    case Derived.myName model |> Maybe.andThen (\name -> Market.offerLimitError name listingId model.listings (Dict.values model.offers)) of
-                        Just err ->
-                            Err err
-
-                        Nothing ->
-                            Ok offer
             in
-            case price |> Result.andThen (\p -> Market.validateOffer p form.message) |> Result.andThen limitCheck of
+            case price |> Result.andThen (\p -> Market.validateOffer p form.message) of
                 Ok offer ->
                     ( { model | offerForm = emptyOfferForm }
                     , Effect.Lamdera.sendToBackend (MakeOffer listingId offer.price offer.message)
