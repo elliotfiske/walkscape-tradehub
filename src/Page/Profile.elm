@@ -54,12 +54,12 @@ view model name =
                     , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "profile-name" ] [ Html.text trader.name ]
                     , Html.div [ Attr.class "flex items-center gap-2" ]
                         [ Ui.unverifiedTag
-                        , case trader.discord of
-                            Just handle ->
+                        , case ( model.me, trader.discord ) of
+                            ( Just _, Just handle ) ->
                                 Html.span [ Attr.class "flex items-center gap-1.5 text-sm text-[#b7bdf7]" ]
                                     [ Ui.discordIcon "w-4 h-4 text-discord", Html.text ("@" ++ handle) ]
 
-                            Nothing ->
+                            _ ->
                                 Ui.empty
                         ]
                     ]
