@@ -17,6 +17,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { findChrome } = require('./find-chrome');
 
 const noChrome = process.argv.includes('--no-chrome');
 
@@ -204,20 +205,6 @@ function runLamderaMake() {
     });
     proc.on('error', reject);
   });
-}
-
-function findChrome() {
-  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
-  const candidates = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'];
-  // Playwright's bundled Chromium (preinstalled in Claude Code cloud sessions).
-  const pwDir = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    for (const d of fs.readdirSync(pwDir).filter((n) => /^chromium-\d+$/.test(n)).sort().reverse()) {
-      candidates.push(path.join(pwDir, d, 'chrome-linux', 'chrome'));
-    }
-  } catch (_) {}
-  candidates.push('/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome');
-  return candidates.find((c) => fs.existsSync(c)) || null;
 }
 
 function startChrome(lamderaPort, chromePort) {
