@@ -20,6 +20,7 @@ import Item
 import Lamdera as L
 import Market
 import OAuth.AuthorizationCode as OAuth
+import Page.Admin
 import Page.Home
 import Page.Listing
 import Page.Market
@@ -33,7 +34,9 @@ import Route exposing (Route)
 import Time
 import Types
     exposing
-        ( FrontendModel
+        ( AdminAction(..)
+        , AdminTab(..)
+        , FrontendModel
         , FrontendMsg(..)
         , ListingForm
         , MarketSort(..)
@@ -148,10 +151,18 @@ init url key =
             , claimError = Nothing
             , listingForm = emptyListingForm
             , offerForm = emptyOfferForm
-            , reportForm = emptyReportForm
+            , reportForm =
+                case Route.fromUrl url of
+                    Route.Report name ->
+                        { emptyReportForm | about = name }
+
+                    _ ->
+                        emptyReportForm
             , previewSignInFor = Nothing
             , toast = Nothing
             , tradesTab = ReceivedTab
+            , admin = Nothing
+            , adminPage = { tab = AdminReports, search = "", confirming = Nothing, banReason = "" }
             }
 
         getTime =
@@ -241,6 +252,20 @@ updateOfferForm f model =
     ( { model | offerForm = f model.offerForm }, Command.none )
 
 
+updateAdminPage : (Types.AdminPage -> Types.AdminPage) -> Model -> ( Model, Cmd_ )
+updateAdminPage f model =
+    ( { model | adminPage = f model.adminPage }, Command.none )
+
+
+loadAdmin : Model -> Cmd_
+loadAdmin model =
+    if Maybe.map .isAdmin model.me == Just True then
+        Effect.Lamdera.sendToBackend AdminLoad
+
+    else
+        Command.none
+
+
 toggle : a -> List a -> List a
 toggle x list =
     if List.member x list then
@@ -293,7 +318,13 @@ update msg model =
                         _ ->
                             emptyOfferForm
             in
-            ( { model | route = route, reportForm = reportForm, offerForm = offerForm, filtersOpen = False }, Command.none )
+            ( { model | route = route, reportForm = reportForm, offerForm = offerForm, filtersOpen = False }
+            , if route == Route.Admin && route /= model.route then
+                loadAdmin model
+
+              else
+                Command.none
+            )
 
         Tick now ->
             ( { model | now = now }, Command.none )
@@ -309,6 +340,9 @@ update msg model =
 
         PreviewSignInConfirmed provider ->
             ( { model | previewSignInFor = Nothing }, Effect.Lamdera.sendToBackend (PreviewSignIn provider) )
+
+        PreviewAdminSignInClicked ->
+            ( model, Effect.Lamdera.sendToBackend PreviewAdminSignIn )
 
         PreviewSignInCancelled ->
             ( { model | previewSignInFor = Nothing }, Command.none )
@@ -482,6 +516,57 @@ update msg model =
         TradesTabSelected tab ->
             ( { model | tradesTab = tab }, Command.none )
 
+        AdminTabSelected tab ->
+            updateAdminPage (\p -> { p | tab = tab, confirming = Nothing }) model
+
+        AdminSearchChanged search ->
+            updateAdminPage (\p -> { p | search = search }) model
+
+        AdminActionClicked action ->
+            case action of
+                SetReportResolved _ _ ->
+                    ( model, Effect.Lamdera.sendToBackend (AdminRequest action) )
+
+                UnbanPlayer _ ->
+                    ( model, Effect.Lamdera.sendToBackend (AdminRequest action) )
+
+                _ ->
+                    updateAdminPage (\p -> { p | confirming = Just action, banReason = "" }) model
+
+        AdminBanReasonChanged reason ->
+            updateAdminPage (\p -> { p | banReason = reason }) model
+
+        AdminConfirmed ->
+            let
+                page =
+                    model.adminPage
+
+                send action =
+                    ( { model | adminPage = { page | confirming = Nothing } }
+                    , Effect.Lamdera.sendToBackend (AdminRequest action)
+                    )
+            in
+            case page.confirming of
+                Just (BanPlayer name _) ->
+                    -- The button is disabled until there's a reason.
+                    if String.trim page.banReason == "" then
+                        ( model, Command.none )
+
+                    else
+                        send (BanPlayer name page.banReason)
+
+                Just action ->
+                    send action
+
+                Nothing ->
+                    ( model, Command.none )
+
+        AdminCancelled ->
+            updateAdminPage (\p -> { p | confirming = Nothing }) model
+
+        AdminRefreshClicked ->
+            ( model, loadAdmin model )
+
         NoOpFrontendMsg ->
             ( model, Command.none )
 
@@ -537,12 +622,19 @@ updateFromBackend msg model =
                         Nothing ->
                             False
             in
-            ( newModel
+            ( if Maybe.map .isAdmin me == Just True then
+                newModel
+
+              else
+                { newModel | admin = Nothing }
             , if model.route == Route.SignIn && me /= Nothing then
                 navigate model Route.Onboarding
 
               else if onboarding && model.route == Route.Home then
                 navigate model Route.Onboarding
+
+              else if model.route == Route.Admin && model.admin == Nothing then
+                loadAdmin newModel
 
               else
                 Command.none
@@ -550,6 +642,23 @@ updateFromBackend msg model =
 
         ListingUpserted listing ->
             ( { model | listings = Dict.insert listing.id listing model.listings }, Command.none )
+
+        ListingRemoved listingId ->
+            ( { model
+                | listings = Dict.remove listingId model.listings
+                , offers = Dict.filter (\_ o -> o.listingId /= listingId) model.offers
+              }
+            , Command.none
+            )
+
+        OfferRemoved offerId ->
+            ( { model | offers = Dict.remove offerId model.offers }, Command.none )
+
+        TraderRemoved name ->
+            ( { model | traders = Dict.remove name model.traders }, Command.none )
+
+        AdminDataSent data ->
+            ( { model | admin = Just data }, Command.none )
 
         OfferUpserted offer ->
             let
@@ -602,7 +711,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=27da60db" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=68535275" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -663,6 +772,9 @@ pageTitle route =
         Route.Onboarding ->
             suffix "Welcome"
 
+        Route.Admin ->
+            suffix "Admin"
+
         Route.NotFound ->
             suffix "Not found"
 
@@ -697,6 +809,9 @@ viewPage model =
         Route.Report name ->
             Page.Report.view model name
 
+        Route.Admin ->
+            Page.Admin.view model
+
         Route.SignIn ->
             Ui.empty
 
@@ -725,6 +840,7 @@ appShell model content =
     Html.div [ Attr.class "min-h-screen bg-shell flex flex-col" ]
         [ viewHeader model
         , previewBanner
+        , viewBanNotice model
         , Html.main_ [ Attr.class "flex-1 flex flex-col pb-20 md:pb-0" ] [ content ]
         , viewTabBar model
         ]
@@ -745,6 +861,20 @@ previewBanner =
         ]
 
 
+viewBanNotice : Model -> Html msg
+viewBanNotice model =
+    case model.me |> Maybe.andThen .ban of
+        Just ban ->
+            Ui.callout Ui.Bad
+                [ Attr.class "rounded-none border-x-0 border-t-0 px-4 md:px-7 py-2.5 text-sm", Ui.testId "ban-notice" ]
+                [ Html.b [] [ Html.text "Your account is banned. " ]
+                , Html.text ("Reason: " ++ ban.reason ++ ". You can browse, but you can't post listings, make offers or send reports.")
+                ]
+
+        Nothing ->
+            Ui.empty
+
+
 feedbackLink : Html msg
 feedbackLink =
     Html.a [ Attr.href Ui.feedbackThreadUrl, Attr.target "_blank", Attr.rel "noopener", Attr.class "text-gold whitespace-nowrap" ] [ Html.text "Feedback?" ]
@@ -756,6 +886,12 @@ navItems model =
         :: ( Route.Prices, "PRICES" )
         :: (if model.me /= Nothing then
                 [ ( Route.MyTrades, "TRADES" ), ( profileRoute model, "PROFILE" ) ]
+
+            else
+                []
+           )
+        ++ (if Maybe.map .isAdmin model.me == Just True then
+                [ ( Route.Admin, "ADMIN" ) ]
 
             else
                 []

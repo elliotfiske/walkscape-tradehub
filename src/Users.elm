@@ -1,13 +1,14 @@
-module Users exposing (signIn, toMe, toTrader, traders)
+module Users exposing (adminName, byName, isAdmin, previewAdminPrefix, signIn, toAdminUser, toMe, toTrader, traders)
 
 {-| Backend-side helpers for accounts and their public trader profiles.
 -}
 
 import Account
 import Dict
+import Env
 import Name
 import Time
-import Types exposing (BackendModel, Me, Provider(..), Trader, User, UserId)
+import Types exposing (AdminUser, BackendModel, Me, Provider(..), Trader, User, UserId)
 
 
 signIn :
@@ -31,6 +32,7 @@ signIn info sessionId now model =
                     , oauthUsername = info.oauthUsername
                     , claim = Nothing
                     , joinedAt = now
+                    , ban = Nothing
                     }
     in
     ( { model
@@ -46,7 +48,80 @@ toMe user =
     { provider = user.provider
     , isPreviewLogin = user.isPreviewLogin
     , claim = user.claim
+    , isAdmin = isAdmin user
+    , ban = user.ban
     }
+
+
+{-| Preview accounts made with `PreviewAdminSignIn` get user ids starting with this.
+-}
+previewAdminPrefix : String
+previewAdminPrefix =
+    "preview-admin:"
+
+
+{-| Discord accounts whose username is in `Env.adminDiscordUsernames`. In
+development there are also preview admin accounts, so the admin screen can be
+tried (and tested) without Discord.
+-}
+isAdmin : User -> Bool
+isAdmin user =
+    if user.isPreviewLogin then
+        Env.mode == Env.Development && String.startsWith previewAdminPrefix user.id
+
+    else
+        case ( user.provider, user.oauthUsername ) of
+            ( Discord, Just username ) ->
+                List.member (String.toLower username) adminUsernames
+
+            _ ->
+                False
+
+
+adminUsernames : List String
+adminUsernames =
+    Env.adminDiscordUsernames
+        |> String.split ","
+        |> List.map (String.trim >> String.toLower)
+        |> List.filter (not << String.isEmpty)
+
+
+{-| How an admin is named in the admin log.
+-}
+adminName : User -> String
+adminName user =
+    case ( user.oauthUsername, Account.claimedName user ) of
+        ( Just username, _ ) ->
+            "@" ++ username
+
+        ( Nothing, Just name ) ->
+            name
+
+        ( Nothing, Nothing ) ->
+            "a preview admin"
+
+
+{-| The account that claimed this WalkScape name.
+-}
+byName : String -> BackendModel -> Maybe User
+byName name model =
+    model.users |> Dict.values |> List.filter (\u -> Account.claimedName u == Just name) |> List.head
+
+
+toAdminUser : User -> Maybe AdminUser
+toAdminUser user =
+    Account.claimedName user
+        |> Maybe.map
+            (\name ->
+                { name = name
+                , ready = Account.readyName user /= Nothing
+                , discord = user.oauthUsername
+                , isPreviewLogin = user.isPreviewLogin
+                , joinedAt = user.joinedAt
+                , isAdmin = isAdmin user
+                , ban = user.ban
+                }
+            )
 
 
 {-| The public profile for a user who has finished onboarding. Look-alike
@@ -73,6 +148,7 @@ toTrader model user =
                     else
                         Nothing
                 , lookalikeOf = Name.lookalikeOf name earlier
+                , banned = user.ban /= Nothing
                 }
             )
 

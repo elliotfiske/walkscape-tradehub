@@ -10,13 +10,16 @@ import Effect.Lamdera exposing (ClientId, SessionId)
 import Effect.Subscription as Subscription exposing (Subscription)
 import Effect.Task
 import Effect.Time
+import Env
 import Lamdera as L
 import Market
 import Name
 import Time
 import Types
     exposing
-        ( BackendModel
+        ( AdminAction(..)
+        , AdminData
+        , BackendModel
         , BackendMsg(..)
         , ClaimStatus(..)
         , Listing
@@ -25,6 +28,7 @@ import Types
         , ToBackend(..)
         , ToFrontend(..)
         , User
+        , UserId
         )
 import Users
 
@@ -76,6 +80,7 @@ init =
       , listings = Dict.empty
       , offers = Dict.empty
       , reports = []
+      , adminLog = []
       , nextId = 1
       , pendingAuths = Dict.empty
       }
@@ -173,16 +178,19 @@ initialData user model =
 -}
 sendToTrader : String -> ToFrontend -> Model -> Cmd_
 sendToTrader name toFrontend model =
-    let
-        ownerIds =
-            model.users
-                |> Dict.values
-                |> List.filter (\u -> Account.claimedName u == Just name)
-                |> List.map .id
-    in
+    case Users.byName name model of
+        Just user ->
+            sendToUser user.id toFrontend model
+
+        Nothing ->
+            Command.none
+
+
+sendToUser : UserId -> ToFrontend -> Model -> Cmd_
+sendToUser userId toFrontend model =
     model.sessions
         |> Dict.toList
-        |> List.filter (\( _, userId ) -> List.member userId ownerIds)
+        |> List.filter (\( _, id ) -> id == userId)
         |> List.map (\( sessionId, _ ) -> Effect.Lamdera.sendToFrontends (Effect.Lamdera.sessionIdFromString sessionId) toFrontend)
         |> Command.batch
 
@@ -220,10 +228,41 @@ handleRequest sessionId clientId now msg model =
         withUser f =
             case userForSession sessionId model of
                 Just user ->
-                    f user
+                    if user.ban /= Nothing then
+                        fail "Your account is banned."
+
+                    else
+                        f user
 
                 Nothing ->
                     fail "Sign in first."
+
+        withAdmin f =
+            case userForSession sessionId model of
+                Just user ->
+                    if Users.isAdmin user then
+                        f user
+
+                    else
+                        fail "That's only for admins."
+
+                Nothing ->
+                    fail "Sign in first."
+
+        previewSignIn provider userId =
+            let
+                ( newModel, user ) =
+                    Users.signIn
+                        { userId = userId
+                        , provider = provider
+                        , isPreviewLogin = True
+                        , oauthUsername = Nothing
+                        }
+                        (Effect.Lamdera.sessionIdToString sessionId)
+                        now
+                        model
+            in
+            ( newModel, replyMe user )
 
         withReadyUser f =
             withUser
@@ -241,19 +280,14 @@ handleRequest sessionId clientId now msg model =
             ( model, Command.none )
 
         PreviewSignIn provider ->
-            let
-                ( newModel, user ) =
-                    Users.signIn
-                        { userId = "preview:" ++ Effect.Lamdera.sessionIdToString sessionId
-                        , provider = provider
-                        , isPreviewLogin = True
-                        , oauthUsername = Nothing
-                        }
-                        (Effect.Lamdera.sessionIdToString sessionId)
-                        now
-                        model
-            in
-            ( newModel, replyMe user )
+            previewSignIn provider ("preview:" ++ Effect.Lamdera.sessionIdToString sessionId)
+
+        PreviewAdminSignIn ->
+            if Env.mode == Env.Development then
+                previewSignIn Types.Discord (Users.previewAdminPrefix ++ Effect.Lamdera.sessionIdToString sessionId)
+
+            else
+                fail "Preview admin accounts only work in development."
 
         SignOut ->
             ( { model | sessions = Dict.remove (Effect.Lamdera.sessionIdToString sessionId) model.sessions }
@@ -450,17 +484,219 @@ handleRequest sessionId clientId now msg model =
                     else
                         ( { model
                             | reports =
-                                { reporter = name
+                                { id = model.nextId
+                                , reporter = name
                                 , about = about
                                 , reasons = reasons
                                 , details = String.left 2000 details
                                 , at = now
+                                , resolved = False
                                 }
                                     :: model.reports
+                            , nextId = model.nextId + 1
                           }
                         , Effect.Lamdera.sendToFrontend clientId ReportReceived
                         )
                 )
+
+        AdminLoad ->
+            withAdmin (\_ -> ( model, Effect.Lamdera.sendToFrontend clientId (AdminDataSent (adminData model)) ))
+
+        AdminRequest action ->
+            withAdmin
+                (\admin ->
+                    case adminAction (Users.adminName admin) now action model of
+                        Ok ( newModel, logText, cmd ) ->
+                            let
+                                logged =
+                                    { newModel | adminLog = { at = now, by = Users.adminName admin, text = logText } :: newModel.adminLog }
+                            in
+                            ( logged
+                            , Command.batch [ cmd, Effect.Lamdera.sendToFrontend clientId (AdminDataSent (adminData logged)) ]
+                            )
+
+                        Err err ->
+                            fail err
+                )
+
+
+adminData : Model -> AdminData
+adminData model =
+    { accounts = Dict.size model.users
+    , users = model.users |> Dict.values |> List.filterMap Users.toAdminUser
+    , listings = Dict.values model.listings
+    , offers = Dict.values model.offers
+    , reports = model.reports
+    , log = List.take 200 model.adminLog
+    }
+
+
+{-| Carry out an admin action. On success, also returns what to write in the admin log.
+-}
+adminAction : String -> Time.Posix -> AdminAction -> Model -> Result String ( Model, String, Cmd_ )
+adminAction adminName now action model =
+    let
+        withPlayer name f =
+            case Users.byName name model of
+                Just user ->
+                    if Users.isAdmin user then
+                        Err "You can't do that to an admin."
+
+                    else
+                        f user
+
+                Nothing ->
+                    Err ("There's no player called " ++ name ++ ".")
+
+        -- Re-send a changed account to its owner and, if it's public, to everyone.
+        announce user newModel =
+            Command.batch
+                [ sendToUser user.id (YouAre (Just (Users.toMe user))) newModel
+                , Users.toTrader newModel user
+                    |> Maybe.map (TraderUpserted >> Effect.Lamdera.broadcast)
+                    |> Maybe.withDefault Command.none
+                ]
+    in
+    case action of
+        DeleteListing listingId ->
+            case Dict.get listingId model.listings of
+                Just listing ->
+                    let
+                        ( newModel, cmd ) =
+                            removeWhere (\l -> l.id == listingId) (\_ -> False) model
+                    in
+                    Ok ( newModel, "Deleted listing #" ++ String.fromInt listingId ++ " (" ++ Market.describe listing ++ " by " ++ listing.trader ++ ")", cmd )
+
+                Nothing ->
+                    Err "That listing doesn't exist."
+
+        DeleteOffer offerId ->
+            case Dict.get offerId model.offers of
+                Just offer ->
+                    let
+                        ( newModel, cmd ) =
+                            removeWhere (\_ -> False) (\o -> o.id == offerId) model
+                    in
+                    Ok ( newModel, "Deleted offer #" ++ String.fromInt offerId ++ " by " ++ offer.from ++ " on listing #" ++ String.fromInt offer.listingId, cmd )
+
+                Nothing ->
+                    Err "That offer doesn't exist."
+
+        BanPlayer name rawReason ->
+            withPlayer name
+                (\user ->
+                    let
+                        reason =
+                            String.left 280 (String.trim rawReason)
+                    in
+                    if user.ban /= Nothing then
+                        Err (name ++ " is already banned.")
+
+                    else if String.isEmpty reason then
+                        Err "Add a reason, so other admins know why."
+
+                    else
+                        let
+                            banned =
+                                { user | ban = Just { reason = reason, at = now, by = adminName } }
+
+                            ( newModel, removals ) =
+                                removeWhere (\l -> l.trader == name) (\o -> o.from == name) (saveUser banned model)
+                        in
+                        Ok ( newModel, "Banned " ++ name ++ ": " ++ reason, Command.batch [ removals, announce banned newModel ] )
+                )
+
+        UnbanPlayer name ->
+            withPlayer name
+                (\user ->
+                    if user.ban == Nothing then
+                        Err (name ++ " isn't banned.")
+
+                    else
+                        let
+                            unbanned =
+                                { user | ban = Nothing }
+
+                            newModel =
+                                saveUser unbanned model
+                        in
+                        Ok ( newModel, "Unbanned " ++ name, announce unbanned newModel )
+                )
+
+        ReleaseName name ->
+            withPlayer name
+                (\user ->
+                    let
+                        released =
+                            { user | claim = Nothing }
+
+                        ( newModel, removals ) =
+                            removeWhere (\l -> l.trader == name) (\o -> o.from == name) (saveUser released model)
+                    in
+                    Ok
+                        ( newModel
+                        , "Released the name " ++ name
+                        , Command.batch
+                            [ removals
+                            , sendToUser user.id (YouAre (Just (Users.toMe released))) newModel
+                            , Effect.Lamdera.broadcast (TraderRemoved name)
+                            ]
+                        )
+                )
+
+        SetReportResolved reportId resolved ->
+            case List.filter (\r -> r.id == reportId) model.reports of
+                [ report ] ->
+                    Ok
+                        ( { model
+                            | reports =
+                                List.map
+                                    (\r ->
+                                        if r.id == reportId then
+                                            { r | resolved = resolved }
+
+                                        else
+                                            r
+                                    )
+                                    model.reports
+                          }
+                        , (if resolved then
+                            "Resolved"
+
+                           else
+                            "Reopened"
+                          )
+                            ++ " report #"
+                            ++ String.fromInt reportId
+                            ++ " about "
+                            ++ report.about
+                        , Command.none
+                        )
+
+                _ ->
+                    Err "That report doesn't exist."
+
+
+{-| Delete matching listings (with every offer on them) and matching offers,
+and tell everyone they're gone.
+-}
+removeWhere : (Listing -> Bool) -> (Offer -> Bool) -> Model -> ( Model, Cmd_ )
+removeWhere listingGone offerGone model =
+    let
+        goneListings =
+            Dict.filter (\_ l -> listingGone l) model.listings
+
+        goneOffers =
+            Dict.filter (\_ o -> offerGone o || Dict.member o.listingId goneListings) model.offers
+    in
+    ( { model
+        | listings = Dict.diff model.listings goneListings
+        , offers = Dict.diff model.offers goneOffers
+      }
+    , List.map (ListingRemoved >> Effect.Lamdera.broadcast) (Dict.keys goneListings)
+        ++ List.map (OfferRemoved >> Effect.Lamdera.broadcast) (Dict.keys goneOffers)
+        |> Command.batch
+    )
 
 
 updateOffer : Offer -> Model -> ( Model, Cmd_ )

@@ -81,7 +81,7 @@ view model name =
                     [ Html.text "screenshot uploads arrive with trading" ]
                 , Html.div [ Attr.class "rounded-xl border border-edge bg-card p-4 flex flex-col gap-2 text-sm text-body" ]
                     [ Ui.sectionLabel "What happens next"
-                    , Html.p [] [ Html.text "There's no moderation in the preview yet. Your report is saved for when there is." ]
+                    , Html.p [] [ Html.text "I read every report. If someone's breaking the rules, I can take their listings down or ban them." ]
                     ]
                 , Ui.button Ui.Danger Ui.Block "send-report" ReportSubmitted "Send report"
                 ]

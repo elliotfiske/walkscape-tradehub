@@ -112,6 +112,12 @@ viewSignIn model =
                         -- Lets dev and the E2E tests sign in without real Discord.
                         Html.button [ Attr.id "signin-preview", Events.onClick (PreviewSignInConfirmed Discord), Attr.class "text-soft text-sm py-1" ]
                             [ Html.text "Use a preview account instead" ]
+                    , if Env.mode == Env.Development then
+                        Html.button [ Attr.id "signin-preview-admin", Events.onClick PreviewAdminSignInClicked, Attr.class "text-faint text-xs py-1" ]
+                            [ Html.text "Use a preview admin account (development only)" ]
+
+                      else
+                        Ui.empty
                     ]
         , case model.authFlow of
             Auth.Common.Errored _ ->
