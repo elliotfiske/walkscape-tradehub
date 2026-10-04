@@ -30,13 +30,24 @@ changes hands, and there are no trade rooms yet.
   `<origin>/login/OAuthDiscord/callback`). Accounts are keyed by the Discord
   user id. Outside `Env.Production` the sign-in page also shows "Use a preview
   account instead" (`#signin-preview`), which the E2E tests and the
-  screenshot scenarios use. **Testing OAuth under `lamdera live`:**
+  screenshot scenarios use. In production with Discord configured, the
+  backend refuses `PreviewSignIn` too, so it can't be used to get around
+  Discord (or a ban). **Testing OAuth under `lamdera live`:**
   keep a second app tab open. The dev backend runs in a tab, so if the only tab
   leaves for discord.com the pending sign-in is lost and the callback fails.
 - **Verification:** the coin-offer-to-TrailpostBot step is shown with a real
   random amount, but "Continue unverified" skips it (`ClaimStatus.PreviewUnverified`).
   Names are first-come and shown with an UNVERIFIED tag.
+- **Feedback thread:** the "Feedback?" banner link and the home page's
+  "Trailpost thread on the WalkScape Discord" both use `Ui.feedbackThreadUrl`.
 - **WalkScape API** lookups (level, steps, last active) are shown as "with trading".
+
+## Link previews and favicon
+
+`head.html` (project root) is injected into the served page's `<head>` by
+Lamdera: description, Open Graph tags for Discord/social embeds, favicon, and a
+dark background so the page doesn't flash white while loading. The images are
+`public/og.png` (1200×630), `public/favicon.svg` and `public/apple-touch-icon.png`.
 
 ## Admin screen (`/admin`)
 

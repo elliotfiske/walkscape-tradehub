@@ -3,6 +3,7 @@ module Backend exposing (app, app_)
 import Account
 import Auth
 import Auth.Flow
+import AuthProviders
 import Dict
 import Duration
 import Effect.Command as Command exposing (BackendOnly, Command)
@@ -280,7 +281,13 @@ handleRequest sessionId clientId now msg model =
             ( model, Command.none )
 
         PreviewSignIn provider ->
-            previewSignIn provider ("preview:" ++ Effect.Lamdera.sessionIdToString sessionId)
+            -- Once real Discord sign-in is set up, preview accounts would be a
+            -- way around it (and around bans), one account per session.
+            if AuthProviders.isConfigured provider && Env.mode == Env.Production then
+                fail "Sign in with Discord instead."
+
+            else
+                previewSignIn provider ("preview:" ++ Effect.Lamdera.sessionIdToString sessionId)
 
         PreviewAdminSignIn ->
             if Env.mode == Env.Development then

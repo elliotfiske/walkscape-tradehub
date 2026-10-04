@@ -987,36 +987,32 @@ viewHeader model =
 
 viewTabBar : Model -> Html FrontendMsg
 viewTabBar model =
-    if model.me == Nothing then
-        Ui.empty
+    Html.nav [ Attr.class "md:hidden fixed bottom-0 inset-x-0 h-14 bg-bar border-t border-line flex z-20" ]
+        (navItems model
+            |> List.map
+                (\( route, text ) ->
+                    Html.a
+                        [ Attr.href (Route.toString route)
+                        , Attr.class
+                            ("flex-1 flex items-center justify-center no-underline font-semibold text-xs tracking-[0.05em] "
+                                ++ (if isActive model.route route then
+                                        "text-gold shadow-[inset_0_2px_0_#e3b54c]"
 
-    else
-        Html.nav [ Attr.class "md:hidden fixed bottom-0 inset-x-0 h-14 bg-bar border-t border-line flex z-20" ]
-            (navItems model
-                |> List.map
-                    (\( route, text ) ->
-                        Html.a
-                            [ Attr.href (Route.toString route)
-                            , Attr.class
-                                ("flex-1 flex items-center justify-center no-underline font-semibold text-xs tracking-[0.05em] "
-                                    ++ (if isActive model.route route then
-                                            "text-gold shadow-[inset_0_2px_0_#e3b54c]"
+                                    else
+                                        "text-muted"
+                                   )
+                            )
+                        ]
+                        [ Html.text text
+                        , if route == Route.MyTrades && Derived.pendingResponses model > 0 then
+                            Html.span [ Attr.class "ml-1.5 bg-danger text-white rounded-lg px-1.5 text-[10px]" ]
+                                [ Html.text (String.fromInt (Derived.pendingResponses model)) ]
 
-                                        else
-                                            "text-muted"
-                                       )
-                                )
-                            ]
-                            [ Html.text text
-                            , if route == Route.MyTrades && Derived.pendingResponses model > 0 then
-                                Html.span [ Attr.class "ml-1.5 bg-danger text-white rounded-lg px-1.5 text-[10px]" ]
-                                    [ Html.text (String.fromInt (Derived.pendingResponses model)) ]
-
-                              else
-                                Ui.empty
-                            ]
-                    )
-            )
+                          else
+                            Ui.empty
+                        ]
+                )
+        )
 
 
 viewToast : Model -> Html FrontendMsg
