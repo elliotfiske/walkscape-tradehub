@@ -84,19 +84,19 @@ postButton : FrontendModel -> Html msg
 postButton model =
     Html.a
         [ Attr.href
-            (if Derived.isReady model then
-                "/new"
+            (Route.toString
+                (if Derived.isReady model then
+                    Route.NewListing
 
-             else if model.me == Nothing then
-                "/signin"
-
-             else
-                "/welcome"
+                 else
+                    Derived.onboardingRoute model
+                )
             )
         , Attr.id "post-listing-link"
-        , Attr.class "flex-none rounded-[10px] bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider text-[13px] px-4 py-2.5 border border-white/10"
+        , Attr.class "flex-none"
+        , Ui.buttonStyle Ui.Primary Ui.Small
         ]
-        [ Html.text "POST A LISTING" ]
+        [ Html.text "Post a listing" ]
 
 
 emptyState : FrontendModel -> Html msg
@@ -113,21 +113,23 @@ emptyState model =
 notices : FrontendModel -> Html FrontendMsg
 notices model =
     if model.me == Nothing then
-        Html.div [ Attr.class "flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-[#2e4b75] bg-gradient-to-br from-[#121b26] to-[#0f1820] px-3.5 py-3", Ui.testId "guest-notice" ]
-            [ Html.div [ Attr.class "flex-1 text-sm text-[#b7cbe6]" ]
+        Ui.callout Ui.Info
+            [ Attr.class "flex flex-col sm:flex-row sm:items-center gap-3 px-3.5 py-3", Ui.testId "guest-notice" ]
+            [ Html.div [ Attr.class "flex-1 text-sm" ]
                 [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "You're browsing as a guest. " ]
                 , Html.text "Sign in and link your WalkScape name to post listings or make offers."
                 ]
-            , Html.a [ Attr.href "/signin", Attr.class "rounded-[10px] bg-go text-white hover:text-white no-underline font-bold tracking-wider text-sm px-5 py-2.5 text-center" ] [ Html.text "SIGN IN" ]
+            , Html.a [ Attr.href (Route.toString Route.SignIn), Ui.buttonStyle Ui.Primary Ui.Small ] [ Html.text "Sign in" ]
             ]
 
     else if model.noticeDismissed then
         Ui.empty
 
     else
-        Html.div [ Attr.class "relative rounded-xl border border-[#2c4a3a] bg-[#0f1d17] pl-3.5 pr-11 py-3 flex flex-col gap-1", Ui.testId "timers-notice" ]
+        Ui.callout Ui.Good
+            [ Attr.class "relative pl-3.5 pr-11 py-3 flex flex-col gap-1", Ui.testId "timers-notice" ]
             [ Html.div [ Attr.class "font-display font-extrabold text-base text-[#9be07f]" ] [ Html.text "No timers here" ]
-            , Html.div [ Attr.class "text-[13px] leading-snug text-body" ]
+            , Html.div [ Attr.class "text-[13px] leading-snug" ]
                 [ Html.text "Listings never expire on a countdown, and every new one waits 15 minutes before anyone sees it. If a trader says a deal ends in five minutes, that's a common scam. It's meant to stop you from checking the item or the price." ]
             , Html.button [ Attr.id "dismiss-notice", Events.onClick NoticeDismissed, Attr.class "absolute top-2 right-2 w-[30px] h-[30px] rounded-md grid place-items-center text-muted hover:text-ink hover:bg-[#1a2a24] text-lg" ] [ Html.text "×" ]
             ]
@@ -138,32 +140,19 @@ filterPanel model =
     let
         chip id text color active msg =
             Html.button
-                [ Attr.id id
-                , Events.onClick msg
-                , Attr.class "px-2 py-1 rounded-md text-[12.5px]"
-                , Attr.style "border" ("1px solid " ++ color)
-                , Attr.style "color"
+                ([ Attr.id id
+                 , Events.onClick msg
+                 , Attr.class "px-2 py-1 rounded-md text-[12.5px]"
+                 , Attr.class
                     (if active then
-                        "#0a1014"
+                        "font-bold"
 
                      else
-                        color
+                        "font-medium"
                     )
-                , Attr.style "background"
-                    (if active then
-                        color
-
-                     else
-                        "transparent"
-                    )
-                , Attr.style "font-weight"
-                    (if active then
-                        "700"
-
-                     else
-                        "500"
-                    )
-                ]
+                 ]
+                    ++ Ui.colorChip color active
+                )
                 [ Html.text text ]
 
         heading text =
@@ -293,7 +282,7 @@ listingRow model listing =
                                                )
                                         )
                                     ]
-                                    [ Html.text (signedPercent pct) ]
+                                    [ Html.text (Ui.signedPercent pct) ]
                                 , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text ("vs " ++ Ui.formatInt est.median) ]
                                 ]
 
@@ -358,7 +347,7 @@ listingRow model listing =
                             , case estimate of
                                 Just ( est, pct ) ->
                                     Html.span [ Attr.class "text-xs text-faint" ]
-                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median) ]
+                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (Ui.signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median) ]
 
                                 Nothing ->
                                     Ui.empty
@@ -371,24 +360,11 @@ listingRow model listing =
                     ]
                 , case lookalike of
                     Just original ->
-                        Html.div [ Attr.class "px-3.5 pb-2.5 text-xs text-warn", Ui.testId "lookalike-warning" ]
-                            [ Html.text ("This name is very close to " ++ original ++ ", who joined earlier. Check the spelling in-game.") ]
+                        Html.div [ Attr.class "px-3.5 pb-2.5" ] [ Ui.lookalikeWarning original ]
 
                     Nothing ->
                         Ui.empty
                 ]
-
-
-signedPercent : Int -> String
-signedPercent pct =
-    if pct > 0 then
-        "+" ++ String.fromInt pct ++ "%"
-
-    else if pct < 0 then
-        "−" ++ String.fromInt (abs pct) ++ "%"
-
-    else
-        "0%"
 
 
 minutesUntil : Time.Posix -> Time.Posix -> String
@@ -400,20 +376,7 @@ mostActive : FrontendModel -> List (Html msg)
 mostActive model =
     let
         series =
-            model.listings
-                |> Dict.values
-                |> List.filter (Market.isLive model.now)
-                |> List.map (\l -> ( Item.priceKey l.itemId l.variant, ( l.itemId, l.variant ) ))
-                |> Dict.fromList
-                |> Dict.toList
-                |> List.filterMap
-                    (\( key, ( itemId, quality ) ) ->
-                        Maybe.map2 (\item est -> ( item, quality, est ))
-                            (Item.byId itemId)
-                            (Derived.estimateFor model key)
-                    )
-                |> List.sortBy (\( _, _, est ) -> negate (est.counted + est.excluded))
-                |> List.take 6
+            Derived.activeSeries model |> List.take 6
     in
     Html.div [ Attr.class "font-bold text-[11px] tracking-[0.14em] text-muted mb-1" ] [ Html.text "MOST ACTIVE · PREVIEW" ]
         :: (if List.isEmpty series then
@@ -421,17 +384,17 @@ mostActive model =
 
             else
                 List.map
-                    (\( item, quality, est ) ->
+                    (\{ item, variant, estimate } ->
                         Html.a
-                            [ Attr.href (Route.toString (Route.ItemPrice item.id quality))
+                            [ Attr.href (Route.toString (Route.ItemPrice item.id variant))
                             , Attr.class "flex items-center gap-2.5 no-underline text-ink hover:text-ink"
                             ]
-                            [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item quality
+                            [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item variant
                             , Html.div [ Attr.class "flex-1 min-w-0 leading-tight" ]
-                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item quality), Html.text " ", Ui.fineTag quality ]
-                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural est.counted "price" "prices" ++ " · " ++ Ui.plural est.traders "trader" "traders") ]
+                                [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item variant), Html.text " ", Ui.fineTag variant ]
+                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders") ]
                                 ]
-                            , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt est.median) ]
+                            , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt estimate.median) ]
                             ]
                     )
                     series

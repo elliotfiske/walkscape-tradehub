@@ -1419,11 +1419,6 @@ a:hover {
   background-color: rgb(26 22 8 / var(--tw-bg-opacity, 1));
 }
 
-.bg-\[\#1d1708\] {
-  --tw-bg-opacity: 1;
-  background-color: rgb(29 23 8 / var(--tw-bg-opacity, 1));
-}
-
 .bg-\[\#2a1412\] {
   --tw-bg-opacity: 1;
   background-color: rgb(42 20 18 / var(--tw-bg-opacity, 1));
@@ -1875,6 +1870,10 @@ a:hover {
 
 .font-extrabold {
   font-weight: 800;
+}
+
+.font-medium {
+  font-weight: 500;
 }
 
 .font-semibold {

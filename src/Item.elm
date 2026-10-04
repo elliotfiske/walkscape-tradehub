@@ -11,6 +11,7 @@ module Item exposing
     , fullName
     , gradeColor
     , gradeLabel
+    , normalizeVariant
     , plain
     , priceKey
     , qualityColor
@@ -170,6 +171,22 @@ search query =
 
     else
         starts ++ rest
+
+
+{-| The variant this item can actually come in: fine only if the item can be
+fine, and a quality for crafted items only (`Normal` if none was picked).
+-}
+normalizeVariant : Item -> Variant -> Variant
+normalizeVariant item variant =
+    { fine = variant.fine && item.canBeFine
+    , quality =
+        case item.kind of
+            Crafted ->
+                Just (Maybe.withDefault Normal variant.quality)
+
+            _ ->
+                Nothing
+    }
 
 
 {-| The name plus a crafted item's quality, e.g. "Iron pickaxe · Perfect".

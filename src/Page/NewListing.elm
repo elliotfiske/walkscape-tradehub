@@ -8,6 +8,7 @@ import Html.Events as Events
 import Item
 import Market
 import Pricing
+import Route
 import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm, Payment(..), Side(..))
 import Ui
 
@@ -17,15 +18,7 @@ choice left over from another item is dropped if this one can't be fine.
 -}
 variantFor : Item.Item -> ListingForm -> Item.Variant
 variantFor item form =
-    { fine = form.fine && item.canBeFine
-    , quality =
-        case item.kind of
-            Item.Crafted ->
-                Just form.quality
-
-            _ ->
-                Nothing
-    }
+    Item.normalizeVariant item { fine = form.fine, quality = Just form.quality }
 
 
 {-| Check the form and turn it into what the backend expects.
@@ -37,39 +30,23 @@ toDraft form =
             Err "Pick an item first."
 
         Just item ->
-            let
-                payment =
-                    case Ui.parseAmount form.price of
-                        Just price ->
-                            if price > 0 then
-                                Ok (Coins price)
-
-                            else
-                                Err "Enter a price above zero."
-
-                        Nothing ->
-                            Err "Enter a price in coins, like 1200 or 1.2k."
-            in
             case String.toInt (String.trim form.quantity) of
-                Just quantity ->
-                    if quantity <= 0 then
-                        Err "Enter a quantity above zero."
+                Nothing ->
+                    Err "Enter a quantity, like 1 or 50."
 
-                    else
-                        payment
-                            |> Result.map
-                                (\p ->
+                Just quantity ->
+                    Market.parsePrice form.price
+                        |> Result.andThen
+                            (\price ->
+                                Market.validateDraft
                                     { itemId = item.id
                                     , variant = variantFor item form
                                     , side = form.side
-                                    , payment = p
+                                    , payment = Coins price
                                     , quantity = quantity
                                     , note = form.note
                                     }
-                                )
-
-                Nothing ->
-                    Err "Enter a quantity, like 1 or 50."
+                            )
 
 
 view : FrontendModel -> Html FrontendMsg
@@ -85,7 +62,7 @@ view model =
     in
     Html.div [ Attr.class "w-full max-w-xl mx-auto flex flex-col gap-4 px-4 py-5" ]
         [ Html.div [ Attr.class "flex items-center gap-3" ]
-            [ Html.a [ Attr.href "/market", Attr.class "w-9 h-9 rounded-lg bg-raised border border-rule grid place-items-center text-gold no-underline" ] [ Html.text "‹" ]
+            [ Ui.backLink Route.Market
             , Html.h1 [ Attr.class "flex-1 font-display font-extrabold text-[26px] text-gold" ] [ Html.text "New listing" ]
             , Html.span [ Attr.class "text-[13px] text-muted" ] [ Html.text (String.fromInt activeCount ++ " of " ++ String.fromInt Market.maxActiveListings ++ " active") ]
             ]
@@ -93,20 +70,7 @@ view model =
             viewForm model
 
           else
-            Ui.previewNote
-                [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Link your WalkScape name first. " ]
-                , Html.text "You need to sign in and claim the name you play under before you can post a listing. "
-                , Html.a
-                    [ Attr.href
-                        (if model.me == Nothing then
-                            "/signin"
-
-                         else
-                            "/welcome"
-                        )
-                    ]
-                    [ Html.text "Continue" ]
-                ]
+            Ui.nameGate (Derived.onboardingRoute model) "You need to sign in and claim the name you play under before you can post a listing."
         ]
 
 
@@ -131,7 +95,7 @@ viewForm model =
                             [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
                             , Ui.gradeTag item { fine = (variantFor item form).fine, quality = Nothing }
                             ]
-                        , Ui.button "change-item" "text-soft text-sm" ListingItemCleared "Change"
+                        , Html.button [ Attr.id "change-item", Events.onClick ListingItemCleared, Attr.class "text-soft text-sm" ] [ Html.text "Change" ]
                         ]
 
                 Nothing ->
@@ -161,33 +125,13 @@ viewForm model =
                         (Item.allQualities
                             |> List.map
                                 (\q ->
-                                    let
-                                        active =
-                                            q == form.quality
-
-                                        color =
-                                            Item.qualityColor q
-                                    in
                                     Html.button
-                                        [ Attr.id ("pick-quality-" ++ Item.qualityToString q)
-                                        , Events.onClick (ListingQualityPicked q)
-                                        , Attr.class "rounded-lg py-2 text-[13px] font-semibold"
-                                        , Attr.style "border" ("1.5px solid " ++ color)
-                                        , Attr.style "color"
-                                            (if active then
-                                                "#0a1014"
-
-                                             else
-                                                color
-                                            )
-                                        , Attr.style "background"
-                                            (if active then
-                                                color
-
-                                             else
-                                                "transparent"
-                                            )
-                                        ]
+                                        ([ Attr.id ("pick-quality-" ++ Item.qualityToString q)
+                                         , Events.onClick (ListingQualityPicked q)
+                                         , Attr.class "rounded-lg py-2 text-[13px] font-semibold"
+                                         ]
+                                            ++ Ui.colorChip (Item.qualityColor q) (q == form.quality)
+                                        )
                                         [ Html.text (Item.qualityLabel q) ]
                                 )
                         )
@@ -219,26 +163,22 @@ viewForm model =
         , medianCheck model form
         , Html.div []
             [ Ui.label "Note (optional)"
-            , Html.textarea
-                [ Attr.id "note"
-                , Attr.class "w-full rounded-xl bg-field border border-rule focus:border-gold outline-none px-4 py-3 text-ink placeholder:text-faint h-20"
-                , Attr.placeholder "Usually online evenings EU. I check a mailbox most days."
-                , Attr.value form.note
-                , Events.onInput ListingNoteChanged
-                ]
-                []
+            , Ui.textArea
+                [ Attr.id "note", Attr.class "h-20", Attr.placeholder "Usually online evenings EU. I check a mailbox most days." ]
+                form.note
+                ListingNoteChanged
             ]
-        , Ui.previewNote
-            [ Html.b [ Attr.class "text-[#d6e4f7]" ] [ Html.text "Goes live in 15 minutes. " ]
-            , Html.text "Every listing waits the same amount of time, so no deal ever disappears in seconds."
-            ]
+        , Ui.previewNote "Goes live in 15 minutes."
+            [ Html.text "Every listing waits the same amount of time, so no deal ever disappears in seconds." ]
         , case form.error of
             Just err ->
                 Html.p [ Attr.class "text-sm text-warn", Ui.testId "listing-error" ] [ Html.text err ]
 
             Nothing ->
                 Ui.empty
-        , Ui.primaryButton "post-listing"
+        , Ui.button Ui.Primary
+            Ui.Block
+            "post-listing"
             ListingSubmitted
             (if form.submitting then
                 "Posting…"
@@ -284,7 +224,7 @@ itemPicker prefix query onQuery onPick =
 
 medianCheck : FrontendModel -> ListingForm -> Html msg
 medianCheck model form =
-    case ( form.itemId |> Maybe.andThen Item.byId, Ui.parseAmount form.price ) of
+    case ( form.itemId |> Maybe.andThen Item.byId, Market.parseCoins form.price ) of
         ( Just item, Just price ) ->
             let
                 variant =
@@ -308,18 +248,14 @@ medianCheck model form =
                         warn =
                             Pricing.isWarning pct
                     in
-                    Html.div
-                        [ Attr.class
-                            ("rounded-xl border p-3.5 flex flex-col gap-2.5 "
-                                ++ (if warn then
-                                        "border-[#7a3a34] bg-[#2a1412]"
+                    Ui.callout
+                        (if warn then
+                            Ui.Bad
 
-                                    else
-                                        "border-[#2c4a3a] bg-[#0f1d17]"
-                                   )
-                            )
-                        , Ui.testId "median-check"
-                        ]
+                         else
+                            Ui.Good
+                        )
+                        [ Attr.class "p-3.5 flex flex-col gap-2.5", Ui.testId "median-check" ]
                         [ Html.div [ Attr.class "flex justify-between text-[13px]" ]
                             [ Html.span
                                 [ Attr.class
@@ -333,14 +269,8 @@ medianCheck model form =
                                     )
                                 ]
                                 [ Html.text
-                                    ((if pct >= 0 then
-                                        "+"
-
-                                      else
-                                        "−"
-                                     )
-                                        ++ String.fromInt (abs pct)
-                                        ++ "% · "
+                                    (Ui.signedPercent pct
+                                        ++ " · "
                                         ++ (if warn then
                                                 "far from the estimate"
 

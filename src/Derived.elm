@@ -1,12 +1,18 @@
 module Derived exposing
-    ( TraderStats
+    ( Series
+    , TraderStats
     , activeSeries
+    , awaitsResponse
     , estimateFor
     , isReady
     , listingEstimate
     , marketListings
     , myName
+    , myOpenOffer
     , offersFor
+    , offersReceived
+    , offersSent
+    , onboardingRoute
     , pendingResponses
     , traderStats
     )
@@ -14,27 +20,38 @@ module Derived exposing
 {-| Values the frontend computes from the listings, offers and traders it holds.
 -}
 
+import Account
 import Dict
 import Item
 import Market
 import Pricing
+import Route exposing (Route)
+import Set
 import Time
-import Types exposing (ClaimStatus(..), FrontendModel, Listing, MarketSort(..), MarketTab(..), Offer, OfferStatus(..), Side(..))
+import Types exposing (FrontendModel, Listing, MarketSort(..), MarketTab(..), Offer, OfferStatus(..), Side(..))
 
 
 myName : FrontendModel -> Maybe String
 myName model =
-    model.me |> Maybe.andThen .claim |> Maybe.map .name
+    model.me |> Maybe.andThen Account.claimedName
 
 
+{-| Signed in, named, and through the (preview) verification step.
+-}
 isReady : FrontendModel -> Bool
 isReady model =
-    case model.me |> Maybe.andThen .claim of
-        Just claim ->
-            claim.status == PreviewUnverified
+    (model.me |> Maybe.andThen Account.readyName) /= Nothing
 
-        Nothing ->
-            False
+
+{-| Where to send someone who isn't `isReady` yet to link their name.
+-}
+onboardingRoute : FrontendModel -> Route
+onboardingRoute model =
+    if model.me == Nothing then
+        Route.SignIn
+
+    else
+        Route.Onboarding
 
 
 estimateFor : FrontendModel -> String -> Maybe Pricing.Estimate
@@ -42,17 +59,36 @@ estimateFor model key =
     Market.pricePoints model.now model.listings model.offers key |> Pricing.estimate
 
 
-{-| Price series (item + fine + quality) that have at least one live listing.
+type alias Series =
+    { item : Item.Item
+    , variant : Item.Variant
+    , points : List Pricing.Point
+    , estimate : Pricing.Estimate
+    }
+
+
+{-| Price series (item + fine + quality) that have a live listing, the ones
+with the most prices first.
 -}
-activeSeries : FrontendModel -> List ( Item.Item, Item.Variant )
+activeSeries : FrontendModel -> List Series
 activeSeries model =
     model.listings
         |> Dict.values
         |> List.filter (Market.isLive model.now)
         |> List.map (\l -> ( Item.priceKey l.itemId l.variant, ( l.itemId, l.variant ) ))
         |> Dict.fromList
-        |> Dict.values
-        |> List.filterMap (\( itemId, variant ) -> Item.byId itemId |> Maybe.map (\item -> ( item, variant )))
+        |> Dict.toList
+        |> List.filterMap
+            (\( key, ( itemId, variant ) ) ->
+                let
+                    points =
+                        Market.pricePoints model.now model.listings model.offers key
+                in
+                Maybe.map2 (\item estimate -> { item = item, variant = variant, points = points, estimate = estimate })
+                    (Item.byId itemId)
+                    (Pricing.estimate points)
+            )
+        |> List.sortBy (.points >> List.length >> negate)
 
 
 {-| The estimate a listing's price is compared against, and how far off it is.
@@ -67,29 +103,61 @@ listingEstimate model listing =
             Nothing
 
 
+newestFirst : List Offer -> List Offer
+newestFirst =
+    List.sortBy (.at >> Time.posixToMillis >> negate)
+
+
 offersFor : FrontendModel -> Int -> List Offer
 offersFor model listingId =
     model.offers
         |> Dict.values
         |> List.filter (\o -> o.listingId == listingId)
-        |> List.sortBy (.at >> Time.posixToMillis >> negate)
+        |> newestFirst
 
 
-{-| Open offers on my listings that I haven't answered yet.
+myOpenOffer : FrontendModel -> Int -> Maybe Offer
+myOpenOffer model listingId =
+    myName model |> Maybe.andThen (\name -> Market.openOfferFrom name listingId (Dict.values model.offers))
+
+
+{-| Offers on `name`'s listings, newest first. Withdrawn ones are left out.
+-}
+offersReceived : FrontendModel -> String -> List Offer
+offersReceived model name =
+    model.offers
+        |> Dict.values
+        |> List.filter (\o -> o.status /= OfferWithdrawn && (Dict.get o.listingId model.listings |> Maybe.map .trader) == Just name)
+        |> newestFirst
+
+
+{-| Offers `name` has made, newest first, including withdrawn ones.
+-}
+offersSent : FrontendModel -> String -> List Offer
+offersSent model name =
+    model.offers
+        |> Dict.values
+        |> List.filter (\o -> o.from == name)
+        |> newestFirst
+
+
+{-| An open offer on a listing that's still open, so its owner can still
+accept or decline it.
+-}
+awaitsResponse : FrontendModel -> Offer -> Bool
+awaitsResponse model offer =
+    offer.status
+        == OfferOpen
+        && (Dict.get offer.listingId model.listings |> Maybe.map (not << .closed) |> Maybe.withDefault False)
+
+
+{-| Offers on my listings that I haven't answered yet.
 -}
 pendingResponses : FrontendModel -> Int
 pendingResponses model =
     case myName model of
         Just name ->
-            model.offers
-                |> Dict.values
-                |> List.filter
-                    (\o ->
-                        o.status
-                            == OfferOpen
-                            && (Dict.get o.listingId model.listings |> Maybe.map (\l -> l.trader == name && not l.closed) |> Maybe.withDefault False)
-                    )
-                |> List.length
+            offersReceived model name |> List.filter (awaitsResponse model) |> List.length
 
         Nothing ->
             0
@@ -107,41 +175,21 @@ type alias TraderStats =
 traderStats : FrontendModel -> String -> TraderStats
 traderStats model name =
     let
-        listings =
-            Dict.values model.listings
-
-        offers =
-            Dict.values model.offers
-
-        mine =
-            List.filter (\l -> l.trader == name) listings
-
-        myListingIds =
-            List.map .id mine
-
         made =
-            List.filter (\o -> o.from == name && o.status /= OfferWithdrawn) offers
+            offersSent model name |> List.filter (\o -> o.status /= OfferWithdrawn)
 
-        partnerNames =
+        partners =
             (made |> List.filterMap (\o -> Dict.get o.listingId model.listings |> Maybe.map .trader))
-                ++ (offers |> List.filter (\o -> List.member o.listingId myListingIds && o.status /= OfferWithdrawn) |> List.map .from)
-                |> List.foldl
-                    (\x acc ->
-                        if List.member x acc then
-                            acc
-
-                        else
-                            x :: acc
-                    )
-                    []
+                ++ (offersReceived model name |> List.map .from)
+                |> Set.fromList
 
         joined =
             Dict.get name model.traders |> Maybe.map .joinedAt |> Maybe.withDefault model.now
     in
-    { activeListings = mine |> List.filter (not << .closed) |> List.length
+    { activeListings = Market.activeListingCount name (Dict.values model.listings)
     , offersMade = List.length made
     , offersAccepted = made |> List.filter (\o -> o.status == OfferAccepted) |> List.length
-    , partners = List.length partnerNames
+    , partners = Set.size partners
     , days = (Time.posixToMillis model.now - Time.posixToMillis joined) // 86400000
     }
 

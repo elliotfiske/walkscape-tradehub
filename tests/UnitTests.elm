@@ -1,14 +1,16 @@
 module UnitTests exposing (suite)
 
+import Account
 import Expect
 import Item
+import Market
 import Name
 import Page.NewListing
 import Pricing exposing (Source(..), Status(..))
 import Route
 import Test exposing (Test, describe, test)
 import Time
-import Types exposing (Payment(..), Side(..))
+import Types exposing (ClaimStatus(..), Payment(..), Side(..))
 import Url
 
 
@@ -150,6 +152,60 @@ suite =
                 \_ ->
                     Page.NewListing.toDraft { form | itemId = Just "coal", price = "10", quantity = "0" }
                         |> Expect.equal (Err "Enter a quantity above zero.")
+            , test "rejects prices over a billion with a message that says so" <|
+                \_ ->
+                    Page.NewListing.toDraft { form | itemId = Just "coal", price = "2000000000" }
+                        |> Expect.equal (Err "Keep the price under a billion coins.")
+            , test "rejects a note over 280 characters" <|
+                \_ ->
+                    Page.NewListing.toDraft { form | itemId = Just "coal", price = "10", note = String.repeat 281 "a" }
+                        |> Expect.equal (Err "Keep your note under 280 characters.")
+            ]
+        , describe "Item.normalizeVariant"
+            [ test "drops fine and quality where the item can't have them, and defaults crafted quality to Normal" <|
+                \_ ->
+                    [ ( "agility_chip", { fine = True, quality = Just Item.Perfect } )
+                    , ( "iron_pickaxe", { fine = True, quality = Nothing } )
+                    ]
+                        |> List.filterMap (\( id, v ) -> Item.byId id |> Maybe.map (\i -> Item.normalizeVariant i v))
+                        |> Expect.equal
+                            [ { fine = False, quality = Nothing }
+                            , { fine = True, quality = Just Item.Normal }
+                            ]
+            ]
+        , describe "Market.validateDraft"
+            [ test "rejects a variant the item doesn't come in" <|
+                \_ ->
+                    Market.validateDraft
+                        { itemId = "shovel_axe"
+                        , variant = { fine = False, quality = Just Item.Good }
+                        , side = Selling
+                        , payment = Coins 10
+                        , quantity = 1
+                        , note = ""
+                        }
+                        |> Expect.equal (Err "This item doesn't come in that version.")
+            ]
+        , describe "Market.validateOffer"
+            [ test "checks the price and trims the message" <|
+                \_ ->
+                    [ Market.validateOffer (Just 0) "hi"
+                    , Market.validateOffer Nothing "  hi  "
+                    ]
+                        |> Expect.equal
+                            [ Err "Enter a price above zero."
+                            , Ok { price = Nothing, message = "hi" }
+                            ]
+            ]
+        , describe "Account.readyName"
+            [ test "is only set once the account is through verification" <|
+                \_ ->
+                    [ Nothing
+                    , Just { name = "Wanderling", coins = 40, status = AwaitingCoinOffer }
+                    , Just { name = "Wanderling", coins = 40, status = PreviewUnverified }
+                    ]
+                        |> List.map (\claim -> Account.readyName { claim = claim })
+                        |> Expect.equal [ Nothing, Nothing, Just "Wanderling" ]
             ]
         ]
 

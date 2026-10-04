@@ -207,7 +207,7 @@ tests =
                                        , buyer.click 100 (Dom.id "offer-counter")
                                        , buyer.input 100 (Dom.id "offer-price") "nine thousand"
                                        , buyer.click 100 (Dom.id "send-offer")
-                                       , buyer.checkView 100 (byTestId "offer-error" >> seesText "Enter your price in coins")
+                                       , buyer.checkView 100 (byTestId "offer-error" >> seesText "Enter a price in coins")
                                        , buyer.input 100 (Dom.id "offer-price") "9.4k"
                                        , buyer.checkView 100 (byTestId "offer-check" >> seesText "4% below the preview estimate of 9,800")
                                        , buyer.input 100 (Dom.id "offer-message") "Can pick up at the Kallaheim mailbox"

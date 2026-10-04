@@ -21,12 +21,6 @@ itemUrl id variant =
 
 viewIndex : FrontendModel -> Html FrontendMsg
 viewIndex model =
-    let
-        withEstimates =
-            Derived.activeSeries model
-                |> List.filterMap (\( item, q ) -> Derived.estimateFor model (Item.priceKey item.id q) |> Maybe.map (\e -> ( item, q, e )))
-                |> List.sortBy (\( _, _, e ) -> negate (e.counted + e.excluded))
-    in
     Html.div [ Attr.class "w-full max-w-4xl mx-auto px-4 md:px-7 py-6 flex flex-col gap-5" ]
         [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px]" ] [ Html.text "Prices" ]
         , Html.p [ Attr.class "text-body max-w-2xl" ]
@@ -35,22 +29,22 @@ viewIndex model =
             [ Html.div [] [ Html.text "ITEM" ], Html.div [] [ Html.text "ESTIMATE" ], Html.div [] [ Html.text "TYPICAL RANGE" ], Html.div [ Attr.class "text-right" ] [ Html.text "PRICES" ] ]
         , Html.div [ Attr.class "flex flex-col gap-2", Ui.testId "price-index" ]
             (List.map
-                (\( item, q, est ) ->
+                (\{ item, variant, estimate } ->
                     Html.a
-                        [ Attr.href (itemUrl item.id q)
+                        [ Attr.href (itemUrl item.id variant)
                         , Attr.class "grid grid-cols-[minmax(0,2fr)_1fr] sm:grid-cols-[minmax(0,2fr)_1fr_1.2fr_1fr] gap-3 items-center px-3.5 py-2.5 rounded-[10px] bg-card border border-[#22343d] hover:bg-raised no-underline text-ink hover:text-ink"
-                        , Ui.testId ("price-row-" ++ Item.priceKey item.id q)
+                        , Ui.testId ("price-row-" ++ Item.priceKey item.id variant)
                         ]
                         [ Html.div [ Attr.class "flex items-center gap-3 min-w-0" ]
-                            [ Ui.itemIcon "w-10 h-10" item q
-                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text item.name ], Ui.gradeTag item q ]
+                            [ Ui.itemIcon "w-10 h-10" item variant
+                            , Html.div [ Attr.class "min-w-0" ] [ Html.div [ Attr.class "font-semibold truncate" ] [ Html.text item.name ], Ui.gradeTag item variant ]
                             ]
-                        , Ui.coinAmount est.median
-                        , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high) ]
-                        , Html.div [ Attr.class "hidden sm:block text-right text-[13px] text-muted" ] [ Html.text (Ui.plural est.counted "price" "prices" ++ " · " ++ Ui.plural est.traders "trader" "traders") ]
+                        , Ui.coinAmount estimate.median
+                        , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt estimate.low ++ "–" ++ Ui.formatInt estimate.high) ]
+                        , Html.div [ Attr.class "hidden sm:block text-right text-[13px] text-muted" ] [ Html.text (Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders") ]
                         ]
                 )
-                withEstimates
+                (Derived.activeSeries model)
             )
         , Html.p [ Attr.class "text-sm text-faint" ]
             [ Html.text ("Only items with live listings show up here. Trailpost knows " ++ String.fromInt (List.length Item.all) ++ " WalkScape items; search for one in ")
@@ -64,20 +58,12 @@ viewItem : FrontendModel -> String -> Item.Variant -> Html FrontendMsg
 viewItem model itemId requested =
     case Item.byId itemId of
         Nothing ->
-            Html.div [ Attr.class "p-10 text-center text-muted" ] [ Html.text "Trailpost doesn't know that item." ]
+            Ui.pageMessage [] [ Html.text "Trailpost doesn't know that item." ]
 
         Just item ->
             let
                 variant =
-                    { fine = requested.fine && item.canBeFine
-                    , quality =
-                        case item.kind of
-                            Item.Crafted ->
-                                Just (Maybe.withDefault Item.Normal requested.quality)
-
-                            _ ->
-                                Nothing
-                    }
+                    Item.normalizeVariant item requested
 
                 key =
                     Item.priceKey item.id variant
@@ -115,9 +101,9 @@ viewItem model itemId requested =
                                 ]
                             ]
                         , Html.div [ Attr.class "flex gap-2.5" ]
-                            [ Html.a [ Attr.href "/market", Attr.class "rounded-[10px] bg-raised border border-rule text-soft hover:text-ink no-underline font-semibold px-4 py-2.5 text-sm" ]
+                            [ Html.a [ Attr.href (Route.toString Route.Market), Ui.buttonStyle Ui.Secondary Ui.Small ]
                                 [ Html.text (Ui.plural listingCount "listing" "listings") ]
-                            , Html.a [ Attr.href "/new", Attr.class "rounded-[10px] bg-go hover:bg-gohi text-white hover:text-white no-underline font-bold tracking-wider px-4 py-2.5 text-sm" ] [ Html.text "POST A LISTING" ]
+                            , Html.a [ Attr.href (Route.toString Route.NewListing), Ui.buttonStyle Ui.Primary Ui.Small ] [ Html.text "Post a listing" ]
                             ]
                         ]
                     , if item.canBeFine then
@@ -134,29 +120,12 @@ viewItem model itemId requested =
                                 (Item.allQualities
                                     |> List.map
                                         (\q ->
-                                            let
-                                                active =
-                                                    Just q == variant.quality
-                                            in
                                             Html.a
-                                                [ Attr.href (itemUrl item.id { variant | quality = Just q })
-                                                , Attr.class "px-2.5 py-1 rounded-md text-[13px] no-underline"
-                                                , Attr.style "border" ("1px solid " ++ Item.qualityColor q)
-                                                , Attr.style "color"
-                                                    (if active then
-                                                        "#0a1014"
-
-                                                     else
-                                                        Item.qualityColor q
-                                                    )
-                                                , Attr.style "background"
-                                                    (if active then
-                                                        Item.qualityColor q
-
-                                                     else
-                                                        "transparent"
-                                                    )
-                                                ]
+                                                ([ Attr.href (itemUrl item.id { variant | quality = Just q })
+                                                 , Attr.class "px-2.5 py-1 rounded-md text-[13px] no-underline"
+                                                 ]
+                                                    ++ Ui.colorChip (Item.qualityColor q) (Just q == variant.quality)
+                                                )
                                                 [ Html.text (Item.qualityLabel q) ]
                                         )
                                 )
@@ -273,15 +242,7 @@ pointTable model classified est =
                         [ Html.text
                             ("Excluded: outlier"
                                 ++ (if pct /= 0 then
-                                        ", "
-                                            ++ (if pct > 0 then
-                                                    "+"
-
-                                                else
-                                                    "−"
-                                               )
-                                            ++ String.fromInt (abs pct)
-                                            ++ "%"
+                                        ", " ++ Ui.signedPercent pct
 
                                     else
                                         ""

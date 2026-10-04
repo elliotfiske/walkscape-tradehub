@@ -4,6 +4,7 @@ import Derived
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
+import Route
 import Types exposing (FrontendModel, FrontendMsg(..))
 import Ui
 
@@ -27,11 +28,11 @@ view model name =
     in
     Html.div [ Attr.class "w-full max-w-xl mx-auto px-4 py-5 flex flex-col gap-4" ]
         [ Html.div [ Attr.class "flex items-center gap-3" ]
-            [ Html.a [ Attr.href ("/u/" ++ name), Attr.class "w-9 h-9 rounded-lg bg-raised border border-rule grid place-items-center text-gold no-underline" ] [ Html.text "‹" ]
+            [ Ui.backLink (Route.Profile name)
             , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] text-gold" ] [ Html.text ("Report " ++ name) ]
             ]
         , if not (Derived.isReady model) then
-            Ui.previewNote [ Html.text "Sign in and link your WalkScape name to report a player." ]
+            Ui.nameGate (Derived.onboardingRoute model) "You need it to report a player."
 
           else if form.sent then
             Ui.card [ Attr.class "p-5 flex flex-col gap-2", Ui.testId "report-sent" ]
@@ -71,14 +72,10 @@ view model name =
                     ]
                 , Html.div []
                     [ Ui.label "Details"
-                    , Html.textarea
-                        [ Attr.id "report-details"
-                        , Attr.class "w-full rounded-xl bg-field border border-rule focus:border-gold outline-none px-4 py-3 text-ink placeholder:text-faint h-28"
-                        , Attr.placeholder "What did you agree on, and what happened instead?"
-                        , Attr.value form.details
-                        , Events.onInput ReportDetailsChanged
-                        ]
-                        []
+                    , Ui.textArea
+                        [ Attr.id "report-details", Attr.class "h-28", Attr.placeholder "What did you agree on, and what happened instead?" ]
+                        form.details
+                        ReportDetailsChanged
                     ]
                 , Html.div [ Attr.class "hatch rounded-xl border border-dashed border-rule p-6 text-center font-mono text-xs text-muted" ]
                     [ Html.text "screenshot uploads arrive with trading" ]
@@ -86,6 +83,6 @@ view model name =
                     [ Ui.sectionLabel "What happens next"
                     , Html.p [] [ Html.text "There's no moderation in the preview yet. Your report is saved for when there is." ]
                     ]
-                , Ui.button "send-report" "w-full rounded-xl bg-[#a8403a] hover:bg-[#c0453b] text-white font-bold tracking-wider uppercase py-3.5" ReportSubmitted "Send report"
+                , Ui.button Ui.Danger Ui.Block "send-report" ReportSubmitted "Send report"
                 ]
         ]

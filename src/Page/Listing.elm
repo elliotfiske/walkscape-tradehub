@@ -4,7 +4,6 @@ import Derived
 import Dict
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Events as Events
 import Item exposing (Item)
 import Market
 import Pricing
@@ -20,7 +19,7 @@ view model listingId =
             viewListing model listing item
 
         Nothing ->
-            Html.div [ Attr.class "p-10 text-center text-muted", Ui.testId "listing-missing" ]
+            Ui.pageMessage [ Ui.testId "listing-missing" ]
                 [ Html.p [ Attr.class "mb-3" ]
                     [ Html.text
                         (if model.loaded then
@@ -51,7 +50,7 @@ viewListing model listing item =
     Html.div [ Attr.class "flex-1 grid lg:grid-cols-[minmax(0,1fr)_320px]" ]
         [ Html.div [ Attr.class "flex flex-col gap-4 px-4 md:px-7 py-5 md:py-6 min-w-0" ]
             [ Html.div [ Attr.class "flex items-center gap-3 flex-wrap" ]
-                [ Html.a [ Attr.href "/market", Attr.class "w-9 h-9 rounded-lg bg-raised border border-rule grid place-items-center text-gold no-underline" ] [ Html.text "‹" ]
+                [ Ui.backLink Route.Market
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] md:text-[28px]", Ui.testId "listing-title" ]
                     [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.fineTag listing.variant ]
                 , statusTag model listing
@@ -70,7 +69,7 @@ viewListing model listing item =
                     Ui.empty
 
                 else
-                    Ui.secondaryButton "close-listing" (CloseListingClicked listing.id) "Close this listing"
+                    Ui.button Ui.Secondary Ui.Block "close-listing" (CloseListingClicked listing.id) "Close this listing"
 
               else if Derived.isReady model then
                 Html.a [ Attr.href ("/report/" ++ listing.trader), Attr.id "report-link", Attr.class "text-warn hover:text-warn text-sm font-semibold no-underline" ]
@@ -139,7 +138,8 @@ termsCard model listing item =
             Ui.empty
 
           else
-            Html.div [ Attr.class "rounded-lg border border-[#6b5520] bg-[#1a1608] px-3 py-2 text-[13px] text-[#e9d9a6]", Ui.testId "pending-note" ]
+            Ui.callout Ui.Caution
+                [ Attr.class "px-3 py-2 text-[13px]", Ui.testId "pending-note" ]
                 [ Html.text "Only you can see this for now. Every listing waits 15 minutes before going live, so no deal appears and disappears in seconds." ]
         ]
 
@@ -186,26 +186,19 @@ valueCard model listing =
 
 fairValueText : Listing -> Int -> String
 fairValueText listing pct =
-    let
-        amount =
-            String.fromInt (abs pct) ++ "%"
-    in
     if pct == 0 then
         "Right at the estimate"
 
     else
-        case ( listing.side, pct > 0 ) of
-            ( Selling, True ) ->
-                "Asks " ++ amount ++ " above the estimate"
+        (case listing.side of
+            Selling ->
+                "Asks "
 
-            ( Selling, False ) ->
-                "Asks " ++ amount ++ " below the estimate"
-
-            ( Buying, True ) ->
-                "Pays " ++ amount ++ " above the estimate"
-
-            ( Buying, False ) ->
-                "Pays " ++ amount ++ " below the estimate"
+            Buying ->
+                "Pays "
+        )
+            ++ Ui.percentAboveBelow pct
+            ++ " the estimate"
 
 
 offersSection : FrontendModel -> Listing -> Bool -> Html FrontendMsg
@@ -215,8 +208,7 @@ offersSection model listing isMine =
             Derived.offersFor model listing.id |> List.filter (\o -> o.status /= OfferWithdrawn)
 
         myOffer =
-            Derived.myName model
-                |> Maybe.andThen (\name -> offers |> List.filter (\o -> o.from == name && o.status == OfferOpen) |> List.head)
+            Derived.myOpenOffer model listing.id
     in
     Ui.card [ Attr.class "p-4 flex flex-col gap-3" ]
         [ Html.div [ Attr.class "flex items-baseline justify-between" ]
@@ -272,12 +264,12 @@ offerRow model listing isMine offer =
             , Html.div [ Attr.class "flex-1" ] []
             , if isMine && offer.status == OfferOpen && not listing.closed then
                 Html.div [ Attr.class "flex gap-2" ]
-                    [ Ui.button ("accept-" ++ String.fromInt offer.id) "rounded-lg bg-go hover:bg-gohi text-white text-xs font-bold tracking-wider px-3 py-1.5" (RespondToOfferClicked offer.id True) "ACCEPT"
-                    , Ui.button ("decline-" ++ String.fromInt offer.id) "rounded-lg bg-raised border border-rule text-soft text-xs font-semibold px-3 py-1.5" (RespondToOfferClicked offer.id False) "Decline"
+                    [ Ui.button Ui.Primary Ui.Compact ("accept-" ++ String.fromInt offer.id) (RespondToOfferClicked offer.id True) "Accept"
+                    , Ui.button Ui.Secondary Ui.Compact ("decline-" ++ String.fromInt offer.id) (RespondToOfferClicked offer.id False) "Decline"
                     ]
 
               else if isMyOffer && offer.status == OfferOpen then
-                Ui.button ("withdraw-" ++ String.fromInt offer.id) "rounded-lg bg-raised border border-rule text-soft text-xs font-semibold px-3 py-1.5" (WithdrawOfferClicked offer.id) "Withdraw"
+                Ui.button Ui.Secondary Ui.Compact ("withdraw-" ++ String.fromInt offer.id) (WithdrawOfferClicked offer.id) "Withdraw"
 
               else
                 Ui.empty
@@ -294,11 +286,11 @@ offerRow model listing isMine offer =
 offerForm : FrontendModel -> Listing -> Maybe Offer -> Html FrontendMsg
 offerForm model listing myOffer =
     if model.me == Nothing then
-        Html.a [ Attr.href "/signin", Attr.id "signin-to-offer", Attr.class "block text-center rounded-xl bg-go text-white hover:text-white no-underline font-bold tracking-wider py-3" ]
-            [ Html.text "SIGN IN TO MAKE AN OFFER" ]
+        Html.a [ Attr.href (Route.toString Route.SignIn), Attr.id "signin-to-offer", Ui.buttonStyle Ui.Primary Ui.Block ]
+            [ Html.text "Sign in to make an offer" ]
 
     else if not (Derived.isReady model) then
-        Html.a [ Attr.href "/welcome", Attr.class "block text-center rounded-xl bg-raised border border-rule text-soft no-underline font-semibold py-3" ]
+        Html.a [ Attr.href (Route.toString Route.Onboarding), Ui.buttonStyle Ui.Secondary Ui.Block ]
             [ Html.text "Link your WalkScape name to make offers" ]
 
     else
@@ -307,7 +299,7 @@ offerForm model listing myOffer =
                 model.offerForm
 
             preview =
-                case ( Derived.estimateFor model (Item.priceKey listing.itemId listing.variant), Ui.parseAmount form.price ) of
+                case ( Derived.estimateFor model (Item.priceKey listing.itemId listing.variant), Market.parseCoins form.price ) of
                     ( Just est, Just p ) ->
                         if form.counter then
                             let
@@ -326,20 +318,7 @@ offerForm model listing myOffer =
                                     )
                                 , Ui.testId "offer-check"
                                 ]
-                                [ Html.text
-                                    (String.fromInt (abs pct)
-                                        ++ "% "
-                                        ++ (if pct >= 0 then
-                                                "above"
-
-                                            else
-                                                "below"
-                                           )
-                                        ++ " the preview estimate of "
-                                        ++ Ui.formatInt est.median
-                                        ++ "."
-                                    )
-                                ]
+                                [ Html.text (Ui.percentAboveBelow pct ++ " the preview estimate of " ++ Ui.formatInt est.median ++ ".") ]
 
                         else
                             Ui.empty
@@ -372,14 +351,10 @@ offerForm model listing myOffer =
             , preview
             , Html.div []
                 [ Ui.label "Message (optional)"
-                , Html.textarea
-                    [ Attr.id "offer-message"
-                    , Attr.class "w-full rounded-xl bg-field border border-rule focus:border-gold outline-none px-4 py-3 text-ink placeholder:text-faint h-20"
-                    , Attr.placeholder "When you're usually online, which mailbox you use…"
-                    , Attr.value form.message
-                    , Events.onInput OfferMessageChanged
-                    ]
-                    []
+                , Ui.textArea
+                    [ Attr.id "offer-message", Attr.class "h-20", Attr.placeholder "When you're usually online, which mailbox you use…" ]
+                    form.message
+                    OfferMessageChanged
                 ]
             , case form.error of
                 Just err ->
@@ -387,7 +362,9 @@ offerForm model listing myOffer =
 
                 Nothing ->
                     Ui.empty
-            , Ui.primaryButton "send-offer"
+            , Ui.button Ui.Primary
+                Ui.Block
+                "send-offer"
                 (OfferSubmitted listing.id)
                 (if myOffer == Nothing then
                     "Send offer"
@@ -408,11 +385,6 @@ traderCard model name =
         trader =
             Dict.get name model.traders
 
-        stat value text =
-            Html.div [ Attr.class "rounded-[10px] bg-raised border border-edge px-3 py-2.5" ]
-                [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text value ]
-                , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text text ]
-                ]
     in
     Html.div [ Attr.class "flex flex-col gap-3", Ui.testId "trader-card" ]
         [ Html.a [ Attr.href ("/u/" ++ name), Attr.class "flex items-center gap-3.5 no-underline text-ink hover:text-ink" ]
@@ -421,44 +393,24 @@ traderCard model name =
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                 , Html.div [ Attr.class "flex items-center gap-2" ]
                     [ Ui.unverifiedTag
-                    , case trader |> Maybe.andThen .discord of
-                        Just handle ->
-                            Html.span [ Attr.class "flex items-center gap-1 text-[13px] text-muted" ]
-                                [ Ui.discordIcon "w-3.5 h-3.5", Html.text ("@" ++ handle) ]
-
-                        Nothing ->
-                            Ui.empty
+                    , trader |> Maybe.andThen .discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
                     ]
                 ]
             ]
         , Html.div [ Attr.class "grid grid-cols-2 gap-2" ]
-            [ stat (String.fromInt stats.activeListings) "active listings"
-            , stat (String.fromInt stats.partners) "unique partners"
-            , stat (String.fromInt stats.offersMade) "offers made"
-            , stat (pluralDays stats.days) "on Trailpost"
+            [ Ui.stat "text-ink" (String.fromInt stats.activeListings) "active listings"
+            , Ui.stat "text-ink" (String.fromInt stats.partners) "unique partners"
+            , Ui.stat "text-ink" (String.fromInt stats.offersMade) "offers made"
+            , Ui.stat "text-ink" (Ui.plural stats.days "day" "days") "on Trailpost"
             ]
-        , case trader |> Maybe.andThen .lookalikeOf of
-            Just original ->
-                Html.div [ Attr.class "rounded-lg border border-[#6a3530] bg-[#2a1412] px-3 py-2 text-[13px] text-warn" ]
-                    [ Html.text ("This name is one letter away from " ++ original ++ ", who joined earlier. Make sure you're trading with who you think.") ]
-
-            Nothing ->
-                Ui.empty
+        , trader |> Maybe.andThen .lookalikeOf |> Maybe.map Ui.lookalikeWarning |> Maybe.withDefault Ui.empty
         ]
-
-
-pluralDays : Int -> String
-pluralDays days =
-    if days == 1 then
-        "1 day"
-
-    else
-        String.fromInt days ++ " days"
 
 
 tricks : Html msg
 tricks =
-    Html.div [ Attr.class "rounded-xl border border-[#6b5520] bg-[#1d1708] p-4 flex flex-col gap-2.5 text-[13px] text-[#e9d9a6]" ]
+    Ui.callout Ui.Caution
+        [ Attr.class "p-4 flex flex-col gap-2.5 text-[13px]" ]
         [ Html.div [ Attr.class "font-display font-extrabold text-lg text-gold" ] [ Html.text "Common tricks" ]
         , Html.p [] [ Html.text "Same item at a lower quality: an Eternal pickaxe turns into a Normal one. Check the outline colour." ]
         , Html.p [] [ Html.text "\"Someone else is buying in 2 minutes.\" Real buyers wait." ]
