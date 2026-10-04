@@ -83,7 +83,9 @@ BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/seed-mark
 # 8 accounts, 10 listings, waits 16 min for go-live, then offers + screenshots
 ```
 
-Each `ctx` is its own headless Chrome and Lamdera session. Always open a
+Each `ctx` is its own headless Chrome and Lamdera session. Chrome is found by
+`scripts/find-chrome.js` (macOS Chrome, Playwright's Chromium in cloud
+sessions, or `CHROME_BIN`). Always open a
 `leader` ctx first that never navigates again: the dev backend lives in a tab,
 and reloading the only tab drops sessions. Don't edit `src/` mid-run (hot
 reload breaks open tabs), and give the first `goto` after a rebuild a long
@@ -109,15 +111,16 @@ falls back to the last saved BackendModel.
 
 ```bash
 lamdera backend --no-colors                                   # whole model
-lamdera backend --no-colors --eval='Dict.size model.someDict' # focused query
+lamdera backend --no-colors --import='import Dict' \
+  --eval='Dict.size model.someDict'                           # focused query
 lamdera backend --no-colors --import='import Set' \
   --eval='Set.size model.someSet'                             # extra imports
 lamdera backend --repl                                        # interactive
 ```
 
-- `model : Types.BackendModel` is in scope. `Dict` is imported by default;
-  anything else (`Set`, your own modules, …) needs `--import='import X'`
-  (repeatable).
+- `model : Types.BackendModel` is in scope. Nothing else is imported, not even
+  `Dict`: every module you use (`Dict`, `Set`, your own modules, …) needs
+  `--import='import X'` (repeatable).
 - Prefer a focused `--eval` over dumping the whole model — the full model can
   be large and wastes context.
 - This is the right tool to verify backend effects without racing the WebSocket

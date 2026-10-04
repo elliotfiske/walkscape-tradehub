@@ -543,6 +543,30 @@ tests =
                     )
                 ]
         ]
+    , start "A trader can have at most 20 active listings at once"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ List.concatMap (\_ -> postListing seller { item = "coal", price = "10", quantity = "1" }) (List.range 1 20)
+                    ++ [ seller.clickLink 100 "/market"
+                       , seller.clickLink 100 "/new"
+                       , seller.checkView 100 (seesText "20 of 20 active")
+                       , seller.input 100 (Dom.id "item-search") "coal"
+                       , seller.click 100 (Dom.id "item-pick-coal")
+                       , seller.input 100 (Dom.id "quantity") "1"
+                       , seller.input 100 (Dom.id "price") "10"
+                       , seller.click 100 (Dom.id "post-listing")
+                       , seller.checkView 300 (byTestId "toast" >> seesText "You can have up to 20 active listings")
+                       , Effect.Test.checkBackend 100
+                            (\backend ->
+                                if Dict.size backend.listings == 20 then
+                                    Ok ()
+
+                                else
+                                    Err ("expected 20 listings, got " ++ String.fromInt (Dict.size backend.listings))
+                            )
+                       ]
+        ]
     , start "Signing out returns to the guest view and keeps the account"
         [ connect "s1" "/" <|
             \user ->

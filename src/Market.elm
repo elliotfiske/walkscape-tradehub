@@ -25,7 +25,7 @@ import Types exposing (Listing, ListingDraft, Offer, OfferStatus(..), Payment(..
 
 maxActiveListings : Int
 maxActiveListings =
-    10
+    20
 
 
 maxPrice : Int

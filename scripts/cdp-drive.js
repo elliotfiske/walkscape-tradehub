@@ -24,6 +24,8 @@ const steps = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const base = process.env.BASE || 'http://localhost:8011';
 const out = process.env.OUT || require('path').join(__dirname, '..', '.context', 'shots');
 fs.mkdirSync(out, { recursive: true });
+const chromeBin = require('./find-chrome').findChrome();
+if (!chromeBin) { console.error('Chrome not found (set CHROME_BIN)'); process.exit(1); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const procs = [];
 const getJ = (port, p) => new Promise((res, rej) => http.get(`http://localhost:${port}${p}`, r => { let b=''; r.on('data',c=>b+=c); r.on('end',()=>res(JSON.parse(b))); }).on('error', rej));
@@ -32,8 +34,8 @@ const getJ = (port, p) => new Promise((res, rej) => http.get(`http://localhost:$
   async function useCtx(name) {
     if (!ctxs[name]) {
       const port = 9400 + (n++);
-      procs.push(spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        ['--headless=new','--disable-gpu','--hide-scrollbars',`--remote-debugging-port=${port}`,'--user-data-dir=/tmp/trailpost-drive-'+process.pid+'-'+name,'about:blank'],{stdio:'ignore'}));
+      procs.push(spawn(chromeBin,
+        ['--headless=new','--disable-gpu',...(process.platform === 'linux' ? ['--no-sandbox'] : []),'--hide-scrollbars',`--remote-debugging-port=${port}`,'--user-data-dir=/tmp/trailpost-drive-'+process.pid+'-'+name,'about:blank'],{stdio:'ignore'}));
       let tabs; for (let i=0;i<60;i++){ try { tabs = await getJ(port,'/json'); if (tabs.find(t=>t.type==='page')) break; } catch(e){} await sleep(200); }
       const tab = tabs.find(t=>t.type==='page');
       const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise(r=>ws.on('open',r));
