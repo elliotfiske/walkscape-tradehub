@@ -48,7 +48,11 @@ view model name =
                     , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "profile-name" ] [ Html.text trader.name ]
                     , Html.div [ Attr.class "flex items-center gap-2" ]
                         [ Ui.unverifiedTag
-                        , trader.discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+                        , if model.me /= Nothing then
+                            trader.discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+
+                          else
+                            Ui.empty
                         ]
                     ]
                 , trader.lookalikeOf |> Maybe.map Ui.lookalikeWarning |> Maybe.withDefault Ui.empty

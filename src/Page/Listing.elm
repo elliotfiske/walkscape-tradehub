@@ -384,7 +384,6 @@ traderCard model name =
 
         trader =
             Dict.get name model.traders
-
     in
     Html.div [ Attr.class "flex flex-col gap-3", Ui.testId "trader-card" ]
         [ Html.a [ Attr.href ("/u/" ++ name), Attr.class "flex items-center gap-3.5 no-underline text-ink hover:text-ink" ]
@@ -393,7 +392,11 @@ traderCard model name =
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                 , Html.div [ Attr.class "flex items-center gap-2" ]
                     [ Ui.unverifiedTag
-                    , trader |> Maybe.andThen .discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+                    , if model.me /= Nothing then
+                        trader |> Maybe.andThen .discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+
+                      else
+                        Ui.empty
                     ]
                 ]
             ]
