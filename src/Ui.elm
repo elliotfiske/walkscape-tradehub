@@ -10,6 +10,7 @@ module Ui exposing
     , card
     , coin
     , coinAmount
+    , countdown
     , colorChip
     , discordHandle
     , discordIcon
@@ -153,6 +154,20 @@ timeAgo now then_ =
 
     else
         String.fromInt (minutes // (60 * 24)) ++ "d ago"
+
+
+{-| "14:32" until `target`, or "0:00" once it has passed.
+-}
+countdown : Time.Posix -> Time.Posix -> String
+countdown now target =
+    let
+        seconds =
+            max 0 ((Time.posixToMillis target - Time.posixToMillis now + 999) // 1000)
+
+        pad n =
+            String.padLeft 2 '0' (String.fromInt n)
+    in
+    String.fromInt (seconds // 60) ++ ":" ++ pad (modBy 60 seconds)
 
 
 coin : String -> Html msg

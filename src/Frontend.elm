@@ -12,6 +12,7 @@ import Effect.Browser.Navigation
 import Effect.Command as Command exposing (Command, FrontendOnly)
 import Effect.Lamdera
 import Effect.Task
+import Effect.Subscription exposing (Subscription)
 import Effect.Time
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -72,9 +73,37 @@ app_ =
     , onUrlChange = UrlChanged
     , update = update
     , updateFromBackend = updateFromBackend
-    , subscriptions = \_ -> Effect.Time.every (Duration.seconds 10) Tick
+    , subscriptions = subscriptions
     , view = view
     }
+
+
+{-| Once a second while a listing's go-live countdown is on screen, otherwise
+every ten seconds.
+-}
+subscriptions : FrontendModel -> Subscription FrontendOnly FrontendMsg
+subscriptions model =
+    let
+        countingDown =
+            case model.route of
+                Route.ListingPage id ->
+                    Dict.get id model.listings
+                        |> Maybe.map (\l -> not l.closed && not (Market.isLive model.now l))
+                        |> Maybe.withDefault False
+
+                _ ->
+                    False
+    in
+    Effect.Time.every
+        (Duration.seconds
+            (if countingDown then
+                1
+
+             else
+                10
+            )
+        )
+        Tick
 
 
 emptyListingForm : ListingForm
@@ -747,7 +776,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=5ad3b3c2" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=60367dab" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"

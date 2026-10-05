@@ -140,7 +140,13 @@ termsCard model listing item =
           else
             Ui.callout Ui.Caution
                 [ Attr.class "px-3 py-2 text-[13px]", Ui.testId "pending-note" ]
-                [ Html.text "Only you can see this for now. Every listing waits 5 minutes before going live, so no deal appears and disappears in seconds." ]
+                [ Html.div [ Attr.class "flex items-baseline justify-between mb-1" ]
+                    [ Html.span [ Attr.class "font-semibold" ] [ Html.text "Goes live in" ]
+                    , Html.span [ Attr.class "font-display font-extrabold text-xl tabular-nums", Ui.testId "go-live-countdown" ]
+                        [ Html.text (Ui.countdown model.now listing.liveAt) ]
+                    ]
+                , Html.text "Only you can see this for now. Every listing waits 5 minutes before going live, so no deal appears and disappears in seconds."
+                ]
         ]
 
 
