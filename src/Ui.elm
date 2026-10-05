@@ -552,7 +552,7 @@ callout tone attrs children =
         children
 
 
-{-| A blue note with a bold lead-in, e.g. "Goes live in 15 minutes."
+{-| A blue note with a bold lead-in, e.g. "Goes live in 5 minutes."
 -}
 previewNote : String -> List (Html msg) -> Html msg
 previewNote title body =

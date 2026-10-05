@@ -145,7 +145,7 @@ termsCard model listing item =
                     , Html.span [ Attr.class "font-display font-extrabold text-xl tabular-nums", Ui.testId "go-live-countdown" ]
                         [ Html.text (Ui.countdown model.now listing.liveAt) ]
                     ]
-                , Html.text "Only you can see this for now. Every listing waits 15 minutes before going live, so no deal appears and disappears in seconds."
+                , Html.text "Only you can see this for now. Every listing waits 5 minutes before going live, so no deal appears and disappears in seconds."
                 ]
         ]
 

@@ -182,7 +182,7 @@ tests =
                                        ]
                        ]
         ]
-    , start "A new listing waits 15 minutes before other people can see it"
+    , start "A new listing waits 5 minutes before other people can see it"
         [ connect "seller" "/" <|
             \seller ->
                 onboard seller "Tallowmere"
@@ -193,9 +193,9 @@ tests =
                        , connect "buyer" "/market" <|
                             \buyer ->
                                 [ buyer.checkView 300 (hasTestId "empty-market")
-                                , buyer.checkView (minutes 10) (lacksTestId "listing-1")
-                                , seller.checkView 100 (byTestId "go-live-countdown" >> seesText "4:5")
-                                , buyer.checkView (minutes 6) (byTestId "listing-1" >> seesText "Steel-toe boots")
+                                , buyer.checkView (minutes 3) (lacksTestId "listing-1")
+                                , seller.checkView 100 (byTestId "go-live-countdown" >> seesText "1:5")
+                                , buyer.checkView (minutes 3) (byTestId "listing-1" >> seesText "Steel-toe boots")
                                 , buyer.checkView 100 (byTestId "listing-1" >> seesText "Tallowmere")
                                 , seller.checkView 100 (byTestId "listing-status" >> seesText "LIVE")
                                 ]
@@ -209,7 +209,7 @@ tests =
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
                                 onboard buyer "Wanderling"
-                                    ++ [ buyer.clickLink (minutes 16) "/market"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
                                        , buyer.clickLink 100 "/listing/1"
                                        , buyer.checkView 100 (byTestId "no-offers" >> seesText "No offers yet.")
                                        , buyer.checkView 100 (byTestId "fair-value" >> seesText "Right at the estimate")
@@ -263,7 +263,7 @@ tests =
                     ++ [ connect "b1" "/" <|
                             \b1 ->
                                 onboard b1 "Pikewalker"
-                                    ++ [ b1.clickLink (minutes 16) "/market"
+                                    ++ [ b1.clickLink (minutes 6) "/market"
                                        , b1.clickLink 100 "/listing/1"
                                        , b1.click 100 (Dom.id "offer-counter")
                                        , b1.input 100 (Dom.id "offer-price") "8800"
@@ -303,7 +303,7 @@ tests =
                        , seller.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
                        , connect "buyer" "/" <|
                             \buyer ->
-                                [ buyer.clickLink (minutes 16) "/market"
+                                [ buyer.clickLink (minutes 6) "/market"
                                 , buyer.checkView 100 (byTestId "listing-1" >> seesText "Iron bar")
                                 , buyer.checkView 100 (byTestId "listing-2" >> seesText "Iron bar")
                                 , buyer.checkView 100 (byTestId "listing-2" >> seesText "Fine")
@@ -338,7 +338,7 @@ tests =
                        , seller.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
                        , connect "buyer" "/" <|
                             \buyer ->
-                                [ buyer.clickLink (minutes 16) "/market"
+                                [ buyer.clickLink (minutes 6) "/market"
                                 , buyer.checkView 100 (byTestId "listing-2" >> seesText "Rare")
                                 , buyer.clickLink 100 "/prices"
                                 , buyer.checkView 100 (byTestId "price-row-camel_egg" >> seesText "100")
@@ -356,7 +356,7 @@ tests =
                             \fake ->
                                 onboard fake "Mosbeard_"
                                     ++ postListing fake { item = "copper_ore", price = "5", quantity = "100" }
-                                    ++ [ real.clickLink (minutes 16) "/market"
+                                    ++ [ real.clickLink (minutes 6) "/market"
                                        , real.checkView 100 (byTestId "listing-1" >> byTestId "lookalike-warning" >> seesText "very close to Mossbeard")
                                        , real.clickLink 100 "/listing/1"
                                        , real.clickLink 100 "/u/Mosbeard_"
@@ -395,7 +395,7 @@ tests =
                             \other ->
                                 onboard other "Hollowfen"
                                     ++ postListing other { item = "cooked_largemouth_bass", price = "38", quantity = "50" }
-                                    ++ [ victim.clickLink (minutes 16) "/market"
+                                    ++ [ victim.clickLink (minutes 6) "/market"
                                        , victim.clickLink 100 "/listing/1"
                                        , victim.clickLink 100 "/report/Hollowfen"
                                        , victim.click 100 (Dom.id "reason-0")
@@ -443,7 +443,7 @@ tests =
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
                                 onboard buyer "Wanderling"
-                                    ++ [ buyer.clickLink (minutes 16) "/market"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
                                        , buyer.clickLink 100 "/listing/1"
                                        , buyer.click 100 (Dom.id "send-offer")
                                        , buyer.checkView 300 (hasTestId "offer-2")
@@ -508,7 +508,7 @@ tests =
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
                                 onboard buyer "Pikewalker"
-                                    ++ [ buyer.clickLink (minutes 16) "/market"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
                                        , buyer.clickLink 100 "/listing/1"
                                        , buyer.click 100 (Dom.id "send-offer")
                                        ]
