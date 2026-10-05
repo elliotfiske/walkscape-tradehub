@@ -86,7 +86,7 @@ postButton model =
         [ Attr.href
             (Route.toString
                 (if Derived.isReady model then
-                    Route.NewListing
+                    Route.NewListing Nothing
 
                  else
                     Derived.onboardingRoute model

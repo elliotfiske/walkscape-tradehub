@@ -103,7 +103,7 @@ viewItem model itemId requested =
                         , Html.div [ Attr.class "flex gap-2.5" ]
                             [ Html.a [ Attr.href (Route.toString Route.Market), Ui.buttonStyle Ui.Secondary Ui.Small ]
                                 [ Html.text (Ui.plural listingCount "listing" "listings") ]
-                            , Html.a [ Attr.href (Route.toString Route.NewListing), Ui.buttonStyle Ui.Primary Ui.Small ] [ Html.text "Post a listing" ]
+                            , Html.a [ Attr.href (Route.toString (Route.NewListing (Just ( item.id, variant )))), Ui.buttonStyle Ui.Primary Ui.Small ] [ Html.text "Post a listing" ]
                             ]
                         ]
                     , if item.canBeFine then
