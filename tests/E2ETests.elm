@@ -346,6 +346,21 @@ tests =
                                 ]
                        ]
         ]
+    , start "Post a listing on an item's price page starts the form on that item"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ [ connect "seller" "/prices/camel_egg?rare=1" <|
+                            \tab ->
+                                [ tab.clickLink 100 "/new?item=camel_egg&rare=1"
+                                , tab.checkView 100 (byTestId "picked-item" >> seesText "Camel egg")
+                                , tab.checkView 100 (byTestId "picked-item" >> seesText "Rare")
+                                , tab.input 100 (Dom.id "price") "5000"
+                                , tab.click 100 (Dom.id "post-listing")
+                                , tab.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
+                                ]
+                       ]
+        ]
     , start "Look-alike names are flagged on their listings"
         [ connect "real" "/" <|
             \real ->

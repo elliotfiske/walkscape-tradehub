@@ -13,7 +13,7 @@ type Route
     | Prices
     | ItemPrice String Item.Variant
     | ListingPage Int
-    | NewListing
+    | NewListing (Maybe ( String, Item.Variant ))
     | MyTrades
     | Profile String
     | Report String
@@ -32,7 +32,8 @@ parser =
         , Parser.map (\id q fine rare -> ItemPrice id { fine = fine == Just "1", rare = rare == Just "1", quality = Maybe.andThen Item.qualityFromString q })
             (s "prices" </> Parser.string <?> Query.string "quality" <?> Query.string "fine" <?> Query.string "rare")
         , Parser.map ListingPage (s "listing" </> Parser.int)
-        , Parser.map NewListing (s "new")
+        , Parser.map (\item q fine rare -> NewListing (item |> Maybe.map (\id -> ( id, { fine = fine == Just "1", rare = rare == Just "1", quality = Maybe.andThen Item.qualityFromString q } ))))
+            (s "new" <?> Query.string "item" <?> Query.string "quality" <?> Query.string "fine" <?> Query.string "rare")
         , Parser.map MyTrades (s "trades")
         , Parser.map Profile (s "u" </> Parser.string)
         , Parser.map Report (s "report" </> Parser.string)
@@ -60,33 +61,16 @@ toString route =
             "/prices"
 
         ItemPrice id variant ->
-            Url.Builder.absolute [ "prices", id ]
-                ((if variant.fine then
-                    [ Url.Builder.string "fine" "1" ]
-
-                  else
-                    []
-                 )
-                    ++ (if variant.rare then
-                            [ Url.Builder.string "rare" "1" ]
-
-                        else
-                            []
-                       )
-                    ++ (case variant.quality of
-                            Just q ->
-                                [ Url.Builder.string "quality" (Item.qualityToString q) ]
-
-                            Nothing ->
-                                []
-                       )
-                )
+            Url.Builder.absolute [ "prices", id ] (variantQuery variant)
 
         ListingPage id ->
             "/listing/" ++ String.fromInt id
 
-        NewListing ->
+        NewListing Nothing ->
             "/new"
+
+        NewListing (Just ( id, variant )) ->
+            Url.Builder.absolute [ "new" ] (Url.Builder.string "item" id :: variantQuery variant)
 
         MyTrades ->
             "/trades"
@@ -108,3 +92,26 @@ toString route =
 
         NotFound ->
             "/"
+
+
+variantQuery : Item.Variant -> List Url.Builder.QueryParameter
+variantQuery variant =
+    (if variant.fine then
+        [ Url.Builder.string "fine" "1" ]
+
+     else
+        []
+    )
+        ++ (if variant.rare then
+                [ Url.Builder.string "rare" "1" ]
+
+            else
+                []
+           )
+        ++ (case variant.quality of
+                Just q ->
+                    [ Url.Builder.string "quality" (Item.qualityToString q) ]
+
+                Nothing ->
+                    []
+           )
