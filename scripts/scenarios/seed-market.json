@@ -550,7 +550,7 @@
   "full": true
  },
  {
-  "wait": 960000
+  "wait": 360000
  },
  {
   "ctx": "Wanderling"
