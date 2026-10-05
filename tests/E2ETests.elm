@@ -189,10 +189,12 @@ tests =
                     ++ postListing seller { item = "steel_toe_boots", price = "1,150", quantity = "2" }
                     ++ [ seller.checkView 100 (byTestId "listing-title" >> seesText "Selling 2x Steel-toe boots")
                        , seller.checkView 100 (hasTestId "pending-note")
+                       , seller.checkView 100 (hasTestId "go-live-countdown")
                        , connect "buyer" "/market" <|
                             \buyer ->
                                 [ buyer.checkView 300 (hasTestId "empty-market")
                                 , buyer.checkView (minutes 10) (lacksTestId "listing-1")
+                                , seller.checkView 100 (byTestId "go-live-countdown" >> seesText "4:5")
                                 , buyer.checkView (minutes 6) (byTestId "listing-1" >> seesText "Steel-toe boots")
                                 , buyer.checkView 100 (byTestId "listing-1" >> seesText "Tallowmere")
                                 , seller.checkView 100 (byTestId "listing-status" >> seesText "LIVE")
