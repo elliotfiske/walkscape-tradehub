@@ -181,7 +181,7 @@ viewForm model =
                 form.note
                 ListingNoteChanged
             ]
-        , Ui.previewNote "Goes live in 15 minutes."
+        , Ui.previewNote "Goes live in 5 minutes."
             [ Html.text "Every listing waits the same amount of time, so no deal ever disappears in seconds." ]
         , case form.error of
             Just err ->
