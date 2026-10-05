@@ -348,6 +348,21 @@ tests =
                                 ]
                        ]
         ]
+    , start "Post a listing on an item's price page starts the form on that item"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ [ connect "seller" "/prices/camel_egg?rare=1" <|
+                            \tab ->
+                                [ tab.clickLink 100 "/new?item=camel_egg&rare=1"
+                                , tab.checkView 100 (byTestId "picked-item" >> seesText "Camel egg")
+                                , tab.checkView 100 (byTestId "picked-item" >> seesText "Rare")
+                                , tab.input 100 (Dom.id "price") "5000"
+                                , tab.click 100 (Dom.id "post-listing")
+                                , tab.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
+                                ]
+                       ]
+        ]
     , start "Look-alike names are flagged on their listings"
         [ connect "real" "/" <|
             \real ->
@@ -602,6 +617,22 @@ tests =
                        , user.clickLink 100 "/signin"
                        , user.click 100 (Dom.id "signin-preview")
                        , user.checkView 300 (byTestId "done-heading" >> seesText "Pikewalker is linked")
+                       ]
+        ]
+    , start "The \"no timers\" notice stays dismissed across sign-ins"
+        [ connect "d1" "/" <|
+            \user ->
+                onboard user "Pikewalker"
+                    ++ [ user.clickLink 100 "/market"
+                       , user.checkView 100 (hasTestId "timers-notice")
+                       , user.click 100 (Dom.id "dismiss-notice")
+                       , user.checkView 300 (lacksTestId "timers-notice")
+                       , user.clickLink 100 "/u/Pikewalker"
+                       , user.click 100 (Dom.id "sign-out")
+                       , user.clickLink 100 "/signin"
+                       , user.click 100 (Dom.id "signin-preview")
+                       , user.clickLink 300 "/market"
+                       , user.checkView 300 (lacksTestId "timers-notice")
                        ]
         ]
     ]

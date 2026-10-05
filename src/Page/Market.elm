@@ -86,7 +86,7 @@ postButton model =
         [ Attr.href
             (Route.toString
                 (if Derived.isReady model then
-                    Route.NewListing
+                    Route.NewListing Nothing
 
                  else
                     Derived.onboardingRoute model
@@ -122,7 +122,7 @@ notices model =
             , Html.a [ Attr.href (Route.toString Route.SignIn), Ui.buttonStyle Ui.Primary Ui.Small ] [ Html.text "Sign in" ]
             ]
 
-    else if model.noticeDismissed then
+    else if model.me |> Maybe.map .timersNoticeDismissed |> Maybe.withDefault False then
         Ui.empty
 
     else

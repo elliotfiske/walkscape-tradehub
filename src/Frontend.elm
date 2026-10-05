@@ -122,6 +122,35 @@ emptyListingForm =
     }
 
 
+{-| `/new?item=dolphin_egg&rare=1` (the "Post a listing" button on a price
+page) starts the form on that item and variant. Unknown items are ignored.
+-}
+prefillListingForm : Route -> ListingForm -> ListingForm
+prefillListingForm route form =
+    case route of
+        Route.NewListing (Just ( itemId, variant )) ->
+            case Item.byId itemId of
+                Just item ->
+                    let
+                        normalized =
+                            Item.normalizeVariant item variant
+                    in
+                    { form
+                        | itemId = Just item.id
+                        , itemQuery = ""
+                        , fine = normalized.fine
+                        , rare = normalized.rare
+                        , quality = normalized.quality |> Maybe.withDefault Item.Normal
+                        , error = Nothing
+                    }
+
+                Nothing ->
+                    form
+
+        _ ->
+            form
+
+
 emptyOfferForm : OfferForm
 emptyOfferForm =
     { counter = False, price = "", message = "", error = Nothing }
@@ -175,11 +204,10 @@ init url key =
                 , hideOutliers = False
                 , search = ""
                 }
-            , noticeDismissed = False
             , filtersOpen = False
             , claimName = ""
             , claimError = Nothing
-            , listingForm = emptyListingForm
+            , listingForm = prefillListingForm (Route.fromUrl url) emptyListingForm
             , offerForm = emptyOfferForm
             , reportForm =
                 case Route.fromUrl url of
@@ -348,7 +376,13 @@ update msg model =
                         _ ->
                             emptyOfferForm
             in
-            ( { model | route = route, reportForm = reportForm, offerForm = offerForm, filtersOpen = False }
+            ( { model
+                | route = route
+                , reportForm = reportForm
+                , offerForm = offerForm
+                , listingForm = prefillListingForm route model.listingForm
+                , filtersOpen = False
+              }
             , if route == Route.Admin && route /= model.route then
                 loadAdmin model
 
@@ -421,7 +455,9 @@ update msg model =
             ( { model | filtersOpen = not model.filtersOpen }, Command.none )
 
         NoticeDismissed ->
-            ( { model | noticeDismissed = True }, Command.none )
+            ( { model | me = Maybe.map (\me -> { me | timersNoticeDismissed = True }) model.me }
+            , Effect.Lamdera.sendToBackend DismissTimersNotice
+            )
 
         ListingItemQueryChanged query ->
             updateListingForm (\f -> { f | itemQuery = query }) model
@@ -783,7 +819,7 @@ pageTitle route =
         Route.ListingPage _ ->
             suffix "Listing"
 
-        Route.NewListing ->
+        Route.NewListing _ ->
             suffix "New listing"
 
         Route.MyTrades ->
@@ -826,7 +862,7 @@ viewPage model =
         Route.ListingPage id ->
             Page.Listing.view model id
 
-        Route.NewListing ->
+        Route.NewListing _ ->
             Page.NewListing.view model
 
         Route.MyTrades ->
@@ -946,7 +982,7 @@ isActive current target =
         ( Route.ListingPage _, Route.Market ) ->
             True
 
-        ( Route.NewListing, Route.Market ) ->
+        ( Route.NewListing _, Route.Market ) ->
             True
 
         _ ->

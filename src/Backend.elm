@@ -296,6 +296,16 @@ handleRequest sessionId clientId now msg model =
             , Effect.Lamdera.sendToFrontends sessionId (YouAre Nothing)
             )
 
+        DismissTimersNotice ->
+            withUser
+                (\user ->
+                    let
+                        updated =
+                            { user | timersNoticeDismissed = True }
+                    in
+                    ( saveUser updated model, replyMe updated )
+                )
+
         ClaimName raw ->
             withUser
                 (\user ->
