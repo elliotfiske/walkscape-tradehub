@@ -1,10 +1,10 @@
-module Evergreen.V12.OAuth.AuthorizationCode exposing (..)
+module Evergreen.V13.OAuth.AuthorizationCode exposing (..)
 
-import Evergreen.V12.OAuth
+import Evergreen.V13.OAuth
 
 
 type alias AuthorizationError =
-    { error : Evergreen.V12.OAuth.ErrorCode
+    { error : Evergreen.V13.OAuth.ErrorCode
     , errorDescription : Maybe String
     , errorUri : Maybe String
     , state : Maybe String
@@ -12,7 +12,7 @@ type alias AuthorizationError =
 
 
 type alias AuthenticationError =
-    { error : Evergreen.V12.OAuth.ErrorCode
+    { error : Evergreen.V13.OAuth.ErrorCode
     , errorDescription : Maybe String
     , errorUri : Maybe String
     }
