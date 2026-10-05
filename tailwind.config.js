@@ -25,6 +25,7 @@ module.exports = {
         gold: '#e3b54c',
         goldhi: '#f3cf74',
         fine: '#c0f3f3',
+        rareegg: '#e0524c',
         leaf: '#7fd05f',
         go: '#3f9a35',
         gohi: '#4bb03f',

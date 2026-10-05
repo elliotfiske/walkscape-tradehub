@@ -150,7 +150,7 @@ offerCard model received offer =
                     [ Html.div [ Attr.class "flex items-center gap-3" ]
                         [ Ui.itemIcon "w-10 h-10" item listing.variant
                         , Html.div [ Attr.class "flex-1 min-w-0" ]
-                            [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.fineTag listing.variant ]
+                            [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
                             , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text ("with " ++ other ++ priceText) ]
                             ]
                         , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
@@ -187,7 +187,7 @@ listingCard model listing =
                     ]
                     [ Ui.itemIcon "w-10 h-10" item listing.variant
                     , Html.div [ Attr.class "flex-1 min-w-0" ]
-                        [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ Item.fullName item listing.variant), Html.text " ", Ui.fineTag listing.variant ]
+                        [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ Item.fullName item listing.variant), Html.text " ", Ui.variantTag listing.variant ]
                         , Html.div [ Attr.class "text-[13px] font-semibold" ] [ status ]
                         ]
                     , Ui.priceText listing

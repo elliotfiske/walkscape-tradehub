@@ -30,9 +30,10 @@ Loot items have a fixed rarity. Crafted items come in a quality that the
 lister picks, and prices are tracked separately for each quality. Everything
 else (materials, food, collectibles…) is `Plain`, labelled by its category.
 
-Most items can also be "fine", which the game treats as a better version of
-the item. A fine item is priced as its own item, so a listing's `Variant` is
-whether it's fine plus, for crafted items, its quality.
+Materials and consumables can also be "fine", which the game treats as a better
+version of the item, and pet eggs can be "rare". Fine and rare items are priced
+as their own items, so a listing's `Variant` is whether it's fine or rare plus,
+for crafted items, its quality.
 
 The data is generated into `ItemData` by `scripts/import-items.py` from the
 WalkScape Tools API (only items the game lets you trade), and icons by
@@ -74,21 +75,23 @@ type alias Item =
     , name : String
     , kind : Kind
     , canBeFine : Bool
+    , canBeRare : Bool
     , icon : String
     }
 
 
 type alias Variant =
     { fine : Bool
+    , rare : Bool
     , quality : Maybe Quality
     }
 
 
-{-| Not fine, no quality: a loot or plain item as it usually comes.
+{-| Not fine or rare, no quality: a loot or plain item as it usually comes.
 -}
 plain : Variant
 plain =
-    { fine = False, quality = Nothing }
+    { fine = False, rare = False, quality = Nothing }
 
 
 all : List Item
@@ -126,6 +129,7 @@ fromRaw ( id, name, ( kind, rarity, canBeFine ) ) =
             other ->
                 Plain (String.toUpper (String.left 1 other) ++ String.dropLeft 1 other)
     , canBeFine = canBeFine
+    , canBeRare = kind == "egg"
     , icon = "/icons/" ++ id ++ ".png"
     }
 
@@ -142,7 +146,7 @@ byId id =
 
 {-| Items whose name contains the query, names starting with it first.
 An empty query matches nothing; there are too many items to list them all.
-A leading "fine" is ignored, so "fine iron" finds the iron items.
+A leading "fine" or "rare" is ignored, so "fine iron" finds the iron items.
 -}
 search : String -> List Item
 search query =
@@ -154,7 +158,7 @@ search query =
             normalize (String.trim query)
 
         q =
-            if String.startsWith "fine " trimmed then
+            if String.startsWith "fine " trimmed || String.startsWith "rare " trimmed then
                 String.trim (String.dropLeft 5 trimmed)
 
             else
@@ -173,12 +177,13 @@ search query =
         starts ++ rest
 
 
-{-| The variant this item can actually come in: fine only if the item can be
-fine, and a quality for crafted items only (`Normal` if none was picked).
+{-| The variant this item can actually come in: fine or rare only if the item
+can be, and a quality for crafted items only (`Normal` if none was picked).
 -}
 normalizeVariant : Item -> Variant -> Variant
 normalizeVariant item variant =
     { fine = variant.fine && item.canBeFine
+    , rare = variant.rare && item.canBeRare
     , quality =
         case item.kind of
             Crafted ->
@@ -196,9 +201,9 @@ fullName item variant =
     item.name ++ (variant.quality |> Maybe.map (\q -> " · " ++ qualityLabel q) |> Maybe.withDefault "")
 
 
-{-| Identifies a price series: one per item, with fine items and each crafted
-quality tracked separately, e.g. "iron_bar", "iron_bar/fine",
-"iron_pickaxe/fine/perfect".
+{-| Identifies a price series: one per item, with fine and rare items and each
+crafted quality tracked separately, e.g. "iron_bar", "iron_bar/fine",
+"camel_egg/rare", "iron_pickaxe/perfect".
 -}
 priceKey : String -> Variant -> String
 priceKey itemId variant =
@@ -206,6 +211,12 @@ priceKey itemId variant =
         (itemId
             :: (if variant.fine then
                     [ "fine" ]
+
+                else
+                    []
+               )
+            ++ (if variant.rare then
+                    [ "rare" ]
 
                 else
                     []
@@ -334,10 +345,27 @@ qualityColor quality =
             rarityColor Ethereal
 
 
-{-| Colour for a listed item: its quality if crafted, otherwise its rarity.
+{-| The red the game uses for rare pet eggs. It's not the loot Rare blue.
+-}
+rareEggColor : String
+rareEggColor =
+    "#e0524c"
+
+
+{-| Colour for a listed item: its quality if crafted, red for a rare egg,
+otherwise its rarity.
 -}
 gradeColor : Item -> Variant -> String
 gradeColor item variant =
+    if variant.rare then
+        rareEggColor
+
+    else
+        baseGradeColor item variant
+
+
+baseGradeColor : Item -> Variant -> String
+baseGradeColor item variant =
     case ( item.kind, variant.quality ) of
         ( _, Just q ) ->
             qualityColor q
@@ -352,12 +380,16 @@ gradeColor item variant =
             rarityColor Common
 
 
-{-| "Legendary", "Perfect", "Material"…, with "Fine · " in front for fine items.
+{-| "Legendary", "Perfect", "Material"…, with "Fine · " or "Rare · " in front
+for fine and rare items.
 -}
 gradeLabel : Item -> Variant -> String
 gradeLabel item variant =
     (if variant.fine then
         "Fine · "
+
+     else if variant.rare then
+        "Rare · "
 
      else
         ""

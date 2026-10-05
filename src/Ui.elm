@@ -15,7 +15,6 @@ module Ui exposing
     , discordIcon
     , empty
     , feedbackThreadUrl
-    , fineTag
     , formatInt
     , gradeTag
     , itemIcon
@@ -39,6 +38,7 @@ module Ui exposing
     , timeAgo
     , unverifiedTag
     , valueMeter
+    , variantTag
     )
 
 {-| Shared building blocks styled after the Trailpost design.
@@ -202,23 +202,31 @@ itemIcon size item variant =
         ]
 
 
-{-| A small teal "FINE" tag, or nothing for a regular item. Fine is a tag on
-the item, not part of its name.
+{-| A small teal "FINE" or red "RARE" tag, or nothing for a regular item. These
+are tags on the item, not part of its name.
 -}
-fineTag : Item.Variant -> Html msg
-fineTag variant =
+variantTag : Item.Variant -> Html msg
+variantTag variant =
+    let
+        tag name colors =
+            Html.span
+                [ Attr.class ("inline-block flex-none align-middle font-bold text-[10px] tracking-widest border rounded px-1.5 py-0.5 leading-none " ++ colors)
+                , Attr.title name
+                ]
+                [ Html.text (String.toUpper name) ]
+    in
     if variant.fine then
-        Html.span
-            [ Attr.class "inline-block flex-none align-middle font-bold text-[10px] tracking-widest text-fine border border-fine/40 rounded px-1.5 py-0.5 leading-none"
-            , Attr.title "Fine"
-            ]
-            [ Html.text "FINE" ]
+        tag "Fine" "text-fine border-fine/40"
+
+    else if variant.rare then
+        tag "Rare" "text-rareegg border-rareegg/50"
 
     else
         empty
 
 
-{-| "FINE MATERIAL", "LEGENDARY"… in the grade's colour, with FINE in teal.
+{-| "FINE MATERIAL", "RARE EGG", "LEGENDARY"… in the grade's colour, with FINE
+in teal.
 -}
 gradeTag : Item -> Item.Variant -> Html msg
 gradeTag item variant =

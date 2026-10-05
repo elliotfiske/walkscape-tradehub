@@ -16,6 +16,9 @@ from walkscape_api import ROOT, call
 # The search endpoint needs at least one filter, so ask for each type in turn.
 TYPES = ["loot", "crafted", "material", "consumable", "collectible", "container", "currency", "egg", "lore"]
 OUT = os.path.join(ROOT, "src", "ItemData.elm")
+# The API says most items can be fine, but in the game only materials and
+# consumables come in a fine version.
+FINE_TYPES = {"material", "consumable"}
 
 
 def elm_string(s):
@@ -28,7 +31,7 @@ def main():
     for kind in TYPES:
         for item in call(f"/items/search?type={kind}&detailed=true"):
             if item.get("canBeTraded"):
-                items.append((item["id"], item["name"], item["type"], item.get("quality") or "common", bool(item.get("canBeFine"))))
+                items.append((item["id"], item["name"], item["type"], item.get("quality") or "common", bool(item.get("canBeFine")) and item["type"] in FINE_TYPES))
             else:
                 skipped += 1
     if len(items) < 100:
@@ -44,7 +47,8 @@ edit by hand.
 
 Each entry is (id, name, (type, rarity, canBeFine)), for every item the game
 allows to be traded. Type is the game's: loot, crafted, material, consumable,
-collectible, container, currency or egg.
+collectible, container, currency or egg. Only materials and consumables can be
+fine.
 
 -}}
 

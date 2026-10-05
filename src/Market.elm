@@ -60,7 +60,8 @@ item listing =
     Item.byId listing.itemId
 
 
-{-| "Selling 2x fine Iron bar", for logs and admin lists.
+{-| "Selling 2x fine Iron bar" or "Buying 1x rare Camel egg", for logs and
+admin lists.
 -}
 describe : Listing -> String
 describe listing =
@@ -75,6 +76,9 @@ describe listing =
         ++ "x "
         ++ (if listing.variant.fine then
                 "fine "
+
+            else if listing.variant.rare then
+                "rare "
 
             else
                 ""

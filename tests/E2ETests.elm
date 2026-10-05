@@ -319,6 +319,33 @@ tests =
                                 ]
                        ]
         ]
+    , start "Rare pet eggs are listed and priced separately from common ones"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno_Trek"
+                    ++ postListing seller { item = "camel_egg", price = "100", quantity = "1" }
+                    ++ [ seller.clickLink 100 "/market"
+                       , seller.clickLink 100 "/new"
+                       , seller.input 100 (Dom.id "item-search") "camel egg"
+                       , seller.click 100 (Dom.id "item-pick-camel_egg")
+                       , seller.checkView 100 (Query.hasNot [ Selector.id "variant-fine" ])
+                       , seller.click 100 (Dom.id "variant-rare")
+                       , seller.checkView 100 (byTestId "picked-item" >> seesText "Rare")
+                       , seller.input 100 (Dom.id "price") "5000"
+                       , seller.click 100 (Dom.id "post-listing")
+                       , seller.checkView 300 (byTestId "listing-status" >> seesText "WAITING TO GO LIVE")
+                       , connect "buyer" "/" <|
+                            \buyer ->
+                                [ buyer.clickLink (minutes 16) "/market"
+                                , buyer.checkView 100 (byTestId "listing-2" >> seesText "Rare")
+                                , buyer.clickLink 100 "/prices"
+                                , buyer.checkView 100 (byTestId "price-row-camel_egg" >> seesText "100")
+                                , buyer.checkView 100 (byTestId "price-row-camel_egg/rare" >> seesText "5,000")
+                                , buyer.clickLink 100 "/prices/camel_egg?rare=1"
+                                , buyer.checkView 100 (byTestId "price-stats" >> seesText "5,000")
+                                ]
+                       ]
+        ]
     , start "Look-alike names are flagged on their listings"
         [ connect "real" "/" <|
             \real ->

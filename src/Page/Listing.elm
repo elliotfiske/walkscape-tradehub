@@ -52,7 +52,7 @@ viewListing model listing item =
             [ Html.div [ Attr.class "flex items-center gap-3 flex-wrap" ]
                 [ Ui.backLink Route.Market
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] md:text-[28px]", Ui.testId "listing-title" ]
-                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.fineTag listing.variant ]
+                    [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
                 , statusTag model listing
                 ]
             , Html.div [ Attr.class "grid md:grid-cols-2 gap-4" ]

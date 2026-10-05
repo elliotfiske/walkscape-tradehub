@@ -83,6 +83,7 @@ emptyListingForm =
     , itemId = Nothing
     , quality = Item.Normal
     , fine = False
+    , rare = False
     , side = Selling
     , quantity = "1"
     , price = ""
@@ -397,13 +398,15 @@ update msg model =
             updateListingForm (\f -> { f | itemQuery = query }) model
 
         ListingItemPicked itemId ->
-            -- Searching "fine iron bar" and picking Iron bar means the fine one.
+            -- Searching "fine iron bar" and picking Iron bar means the fine one
+            -- (and "rare camel egg" the rare egg).
             updateListingForm
                 (\f ->
                     { f
                         | itemId = Just itemId
                         , itemQuery = ""
                         , fine = String.startsWith "fine " (String.toLower (String.trim f.itemQuery))
+                        , rare = String.startsWith "rare " (String.toLower (String.trim f.itemQuery))
                         , error = Nothing
                     }
                 )
@@ -417,6 +420,9 @@ update msg model =
 
         ListingFineToggled fine ->
             updateListingForm (\f -> { f | fine = fine }) model
+
+        ListingRareToggled rare ->
+            updateListingForm (\f -> { f | rare = rare }) model
 
         ListingSidePicked side ->
             updateListingForm (\f -> { f | side = side }) model
@@ -705,7 +711,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=13ef969f" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=5ad3b3c2" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
