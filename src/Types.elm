@@ -77,6 +77,7 @@ type alias Me =
     , claim : Maybe Claim
     , isAdmin : Bool
     , ban : Maybe Ban
+    , timersNoticeDismissed : Bool
     }
 
 
@@ -308,7 +309,6 @@ type alias FrontendModel =
     , offers : Dict Int Offer
     , traders : Dict String Trader
     , filters : MarketFilters
-    , noticeDismissed : Bool
     , filtersOpen : Bool
     , claimName : String
     , claimError : Maybe String
@@ -409,6 +409,7 @@ type alias User =
     , claim : Maybe Claim
     , joinedAt : Time.Posix
     , ban : Maybe Ban
+    , timersNoticeDismissed : Bool
     }
 
 
@@ -432,6 +433,7 @@ type ToBackend
     | PreviewAdminSignIn
     | SignOut
     | ClaimName String
+    | DismissTimersNotice
     | CreateListing ListingDraft
     | CloseListing Int
     | MakeOffer Int (Maybe Int) String

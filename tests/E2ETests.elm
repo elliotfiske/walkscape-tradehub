@@ -617,6 +617,22 @@ tests =
                        , user.checkView 300 (byTestId "done-heading" >> seesText "Pikewalker is linked")
                        ]
         ]
+    , start "The \"no timers\" notice stays dismissed across sign-ins"
+        [ connect "d1" "/" <|
+            \user ->
+                onboard user "Pikewalker"
+                    ++ [ user.clickLink 100 "/market"
+                       , user.checkView 100 (hasTestId "timers-notice")
+                       , user.click 100 (Dom.id "dismiss-notice")
+                       , user.checkView 300 (lacksTestId "timers-notice")
+                       , user.clickLink 100 "/u/Pikewalker"
+                       , user.click 100 (Dom.id "sign-out")
+                       , user.clickLink 100 "/signin"
+                       , user.click 100 (Dom.id "signin-preview")
+                       , user.clickLink 300 "/market"
+                       , user.checkView 300 (lacksTestId "timers-notice")
+                       ]
+        ]
     ]
 
 

@@ -33,6 +33,7 @@ signIn info sessionId now model =
                     , claim = Nothing
                     , joinedAt = now
                     , ban = Nothing
+                    , timersNoticeDismissed = False
                     }
     in
     ( { model
@@ -50,6 +51,7 @@ toMe user =
     , claim = user.claim
     , isAdmin = isAdmin user
     , ban = user.ban
+    , timersNoticeDismissed = user.timersNoticeDismissed
     }
 
 

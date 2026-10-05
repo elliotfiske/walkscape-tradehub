@@ -175,7 +175,6 @@ init url key =
                 , hideOutliers = False
                 , search = ""
                 }
-            , noticeDismissed = False
             , filtersOpen = False
             , claimName = ""
             , claimError = Nothing
@@ -427,7 +426,9 @@ update msg model =
             ( { model | filtersOpen = not model.filtersOpen }, Command.none )
 
         NoticeDismissed ->
-            ( { model | noticeDismissed = True }, Command.none )
+            ( { model | me = Maybe.map (\me -> { me | timersNoticeDismissed = True }) model.me }
+            , Effect.Lamdera.sendToBackend DismissTimersNotice
+            )
 
         ListingItemQueryChanged query ->
             updateListingForm (\f -> { f | itemQuery = query }) model
