@@ -79,8 +79,7 @@ lacksTestId testId =
     Query.hasNot [ Selector.attribute (Html.Attributes.attribute "data-testid" testId) ]
 
 
-{-| Sign in with a placeholder preview account and claim a WalkScape name,
-stopping at the verification step.
+{-| Sign in with a placeholder preview account and claim a WalkScape name.
 -}
 signInAndClaim : Actions -> String -> List Action
 signInAndClaim actions name =
@@ -91,13 +90,12 @@ signInAndClaim actions name =
     ]
 
 
-{-| The whole onboarding: sign in, claim a name, skip the (not yet live) verification.
+{-| The whole onboarding: sign in, claim a name.
 -}
 onboard : Actions -> String -> List Action
 onboard actions name =
     signInAndClaim actions name
-        ++ [ actions.click 300 (Dom.id "skip-verify")
-           , actions.checkView 300 (byTestId "done-heading" >> seesText (name ++ " is linked"))
+        ++ [ actions.checkView 300 (byTestId "done-heading" >> seesText (name ++ " is linked"))
            ]
 
 
@@ -141,7 +139,7 @@ tests =
                 , guest.checkView 100 (byTestId "empty-market" >> seesText "No listings yet")
                 ]
         ]
-    , start "Signing up: preview sign-in, claim a name, see where verification would go, finish"
+    , start "Signing up: preview sign-in, claim a name, finish"
         [ connect "s1" "/" <|
             \user ->
                 [ user.clickLink 100 "/signin"
@@ -149,10 +147,6 @@ tests =
                 , user.checkView 300 (byTestId "signed-in-with" >> seesText "Signed in with a preview account")
                 , user.input 100 (Dom.id "claim-name") "Wanderling"
                 , user.click 100 (Dom.id "claim-submit")
-                , user.checkView 300 (byTestId "claimed-name" >> seesText "Wanderling")
-                , user.checkView 100 (seesText "This is where you'd verify your account.")
-                , user.checkView 100 (hasTestId "coin-amount")
-                , user.click 100 (Dom.id "skip-verify")
                 , user.checkView 300 (byTestId "done-heading" >> seesText "Wanderling is linked")
                 , user.clickLink 100 "/market"
                 , user.checkView 100 (byTestId "user-chip" >> seesText "Wanderling")
@@ -184,7 +178,7 @@ tests =
                                        , second.checkView 300 (byTestId "claim-error" >> seesText "already claimed")
                                        , second.input 100 (Dom.id "claim-name") "Juno_Trek"
                                        , second.click 100 (Dom.id "claim-submit")
-                                       , second.checkView 300 (byTestId "claimed-name" >> seesText "Juno_Trek")
+                                       , second.checkView 300 (byTestId "done-heading" >> seesText "Juno_Trek is linked")
                                        ]
                        ]
         ]

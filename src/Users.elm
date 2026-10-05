@@ -114,7 +114,7 @@ toAdminUser user =
         |> Maybe.map
             (\name ->
                 { name = name
-                , ready = Account.readyName user /= Nothing
+                , ready = Account.claimedName user /= Nothing
                 , discord = user.oauthUsername
                 , isPreviewLogin = user.isPreviewLogin
                 , joinedAt = user.joinedAt
@@ -129,7 +129,7 @@ names are checked against traders who joined earlier.
 -}
 toTrader : BackendModel -> User -> Maybe Trader
 toTrader model user =
-    Account.readyName user
+    Account.claimedName user
         |> Maybe.map
             (\name ->
                 let
@@ -137,7 +137,7 @@ toTrader model user =
                         model.users
                             |> Dict.values
                             |> List.filter (\u -> Time.posixToMillis u.joinedAt < Time.posixToMillis user.joinedAt)
-                            |> List.filterMap Account.readyName
+                            |> List.filterMap Account.claimedName
                 in
                 { name = name
                 , joinedAt = user.joinedAt
