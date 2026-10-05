@@ -75,13 +75,10 @@ testId id =
 
 
 {-| Elliot's Trailpost feedback thread on the WalkScape Discord.
-
-TODO: placeholder until the thread exists.
-
 -}
 feedbackThreadUrl : String
 feedbackThreadUrl =
-    "https://discord.gg/TODO"
+    "https://discord.com/channels/1037510064333926402/1556463172691689472"
 
 
 empty : Html msg
