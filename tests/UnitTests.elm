@@ -89,7 +89,9 @@ suite =
                             , Route.ItemPrice "camel_egg" { fine = False, rare = True, quality = Nothing }
                             , Route.ItemPrice "shovel_axe" Item.plain
                             , Route.ListingPage 42
-                            , Route.NewListing
+                            , Route.NewListing Nothing
+                            , Route.NewListing (Just ( "dolphin_egg", { fine = False, rare = True, quality = Nothing } ))
+                            , Route.NewListing (Just ( "iron_pickaxe", { fine = False, rare = False, quality = Just Item.Perfect } ))
                             , Route.MyTrades
                             , Route.Profile "Juno_Trek"
                             , Route.Report "Mosbeard_"
