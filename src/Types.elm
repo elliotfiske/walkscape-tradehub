@@ -270,6 +270,7 @@ type alias ListingForm =
     , itemId : Maybe String
     , quality : Item.Quality
     , fine : Bool
+    , rare : Bool
     , side : Side
     , quantity : String
     , price : String
@@ -347,6 +348,7 @@ type FrontendMsg
     | ListingItemCleared
     | ListingQualityPicked Item.Quality
     | ListingFineToggled Bool
+    | ListingRareToggled Bool
     | ListingSidePicked Side
     | ListingQuantityChanged String
     | ListingPriceChanged String

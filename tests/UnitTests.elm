@@ -84,9 +84,9 @@ suite =
                             [ Route.Home
                             , Route.Market
                             , Route.Prices
-                            , Route.ItemPrice "iron_pickaxe" { fine = False, quality = Just Item.Eternal }
-                            , Route.ItemPrice "iron_pickaxe" { fine = True, quality = Just Item.Good }
-                            , Route.ItemPrice "iron_bar" { fine = True, quality = Nothing }
+                            , Route.ItemPrice "iron_pickaxe" { fine = False, rare = False, quality = Just Item.Eternal }
+                            , Route.ItemPrice "iron_bar" { fine = True, rare = False, quality = Nothing }
+                            , Route.ItemPrice "camel_egg" { fine = False, rare = True, quality = Nothing }
                             , Route.ItemPrice "shovel_axe" Item.plain
                             , Route.ListingPage 42
                             , Route.NewListing
@@ -110,31 +110,43 @@ suite =
                     , [ "gold_ring", "copper_ore" ] |> List.filterMap Item.byId |> List.map (\i -> Item.gradeLabel i Item.plain)
                     )
                         |> Expect.equal ( True, Just "Legendary", [ "Crafted item", "Material" ] )
-            , test "search puts names that start with the query first, ignoring a leading \"fine\"" <|
+            , test "search puts names that start with the query first, ignoring a leading \"fine\" or \"rare\"" <|
                 \_ ->
-                    [ "iron pick", "Fine iron pick" ]
+                    [ "iron pick", "Fine iron pick", "rare camel" ]
                         |> List.map (Item.search >> List.map .id >> List.head)
-                        |> Expect.equal [ Just "iron_pickaxe", Just "iron_pickaxe" ]
+                        |> Expect.equal [ Just "iron_pickaxe", Just "iron_pickaxe", Just "camel_egg" ]
             ]
         , describe "Fine items"
             [ test "are a separate price series from regular ones, and from each crafted quality" <|
                 \_ ->
                     [ Item.priceKey "iron_bar" Item.plain
-                    , Item.priceKey "iron_bar" { fine = True, quality = Nothing }
-                    , Item.priceKey "iron_pickaxe" { fine = True, quality = Just Item.Perfect }
+                    , Item.priceKey "iron_bar" { fine = True, rare = False, quality = Nothing }
+                    , Item.priceKey "iron_pickaxe" { fine = False, rare = False, quality = Just Item.Perfect }
                     ]
-                        |> Expect.equal [ "iron_bar", "iron_bar/fine", "iron_pickaxe/fine/perfect" ]
+                        |> Expect.equal [ "iron_bar", "iron_bar/fine", "iron_pickaxe/perfect" ]
             , test "keep the plain item name and are labelled as fine" <|
                 \_ ->
-                    ( Item.byId "iron_bar" |> Maybe.map (\i -> Item.fullName i { fine = True, quality = Just Item.Perfect })
-                    , Item.byId "iron_bar" |> Maybe.map (\i -> Item.gradeLabel i { fine = True, quality = Nothing })
-                    )
-                        |> Expect.equal ( Just "Iron bar · Perfect", Just "Fine · Material" )
-            , test "a fine choice is dropped for items that can't be fine" <|
+                    Item.byId "iron_bar"
+                        |> Maybe.map (\i -> Item.gradeLabel i { fine = True, rare = False, quality = Nothing })
+                        |> Expect.equal (Just "Fine · Material")
+            , test "only materials and consumables can be fine" <|
                 \_ ->
-                    [ "iron_bar", "agility_chip" ]
+                    [ "iron_bar", "cooked_shrimp", "iron_pickaxe", "shovel_axe", "camel_egg", "agility_chip" ]
                         |> List.map (\id -> Page.NewListing.toDraft { form | itemId = Just id, fine = True, price = "50" } |> Result.map (.variant >> .fine))
-                        |> Expect.equal [ Ok True, Ok False ]
+                        |> Expect.equal [ Ok True, Ok True, Ok False, Ok False, Ok False, Ok False ]
+            ]
+        , describe "Rare pet eggs"
+            [ test "only pet eggs can be rare" <|
+                \_ ->
+                    [ "camel_egg", "egg", "iron_bar", "shovel_axe" ]
+                        |> List.map (\id -> Page.NewListing.toDraft { form | itemId = Just id, rare = True, price = "50" } |> Result.map (.variant >> .rare))
+                        |> Expect.equal [ Ok True, Ok False, Ok False, Ok False ]
+            , test "are their own price series and are labelled as rare" <|
+                \_ ->
+                    ( Item.priceKey "camel_egg" { fine = False, rare = True, quality = Nothing }
+                    , Item.byId "camel_egg" |> Maybe.map (\i -> ( Item.gradeLabel i Item.plain, Item.gradeLabel i { fine = False, rare = True, quality = Nothing } ))
+                    )
+                        |> Expect.equal ( "camel_egg/rare", Just ( "Egg", "Rare · Egg" ) )
             ]
         , describe "Page.NewListing.toDraft"
             [ test "accepts 1.2k style prices and sets quality for crafted items" <|
@@ -161,15 +173,15 @@ suite =
                         |> Expect.equal (Err "Keep your note under 280 characters.")
             ]
         , describe "Item.normalizeVariant"
-            [ test "drops fine and quality where the item can't have them, and defaults crafted quality to Normal" <|
+            [ test "drops fine, rare and quality where the item can't have them, and defaults crafted quality to Normal" <|
                 \_ ->
-                    [ ( "agility_chip", { fine = True, quality = Just Item.Perfect } )
-                    , ( "iron_pickaxe", { fine = True, quality = Nothing } )
+                    [ ( "agility_chip", { fine = True, rare = True, quality = Just Item.Perfect } )
+                    , ( "iron_pickaxe", { fine = True, rare = False, quality = Nothing } )
                     ]
                         |> List.filterMap (\( id, v ) -> Item.byId id |> Maybe.map (\i -> Item.normalizeVariant i v))
                         |> Expect.equal
-                            [ { fine = False, quality = Nothing }
-                            , { fine = True, quality = Just Item.Normal }
+                            [ { fine = False, rare = False, quality = Nothing }
+                            , { fine = False, rare = False, quality = Just Item.Normal }
                             ]
             ]
         , describe "Market.validateDraft"
@@ -177,7 +189,7 @@ suite =
                 \_ ->
                     Market.validateDraft
                         { itemId = "shovel_axe"
-                        , variant = { fine = False, quality = Just Item.Good }
+                        , variant = { fine = False, rare = False, quality = Just Item.Good }
                         , side = Selling
                         , payment = Coins 10
                         , quantity = 1
@@ -205,6 +217,7 @@ form =
     , itemId = Nothing
     , quality = Item.Normal
     , fine = False
+    , rare = False
     , side = Selling
     , quantity = "1"
     , price = ""

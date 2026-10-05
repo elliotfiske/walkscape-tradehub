@@ -112,6 +112,12 @@ viewItem model itemId requested =
                             , variantLink "price-fine" (itemUrl item.id { variant | fine = True }) variant.fine "✦ Fine"
                             ]
 
+                      else if item.canBeRare then
+                        Html.div [ Attr.class "flex gap-1.5", Ui.testId "rare-switch" ]
+                            [ variantLink "price-common" (itemUrl item.id { variant | rare = False }) (not variant.rare) "Common"
+                            , variantLink "price-rare" (itemUrl item.id { variant | rare = True }) variant.rare "Rare"
+                            ]
+
                       else
                         Ui.empty
                     , case item.kind of

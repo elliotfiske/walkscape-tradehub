@@ -13,12 +13,12 @@ import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm
 import Ui
 
 
-{-| The fine flag and quality the form describes for this item. A fine
-choice left over from another item is dropped if this one can't be fine.
+{-| The fine/rare flags and quality the form describes for this item. A fine
+or rare choice left over from another item is dropped if this one can't be.
 -}
 variantFor : Item.Item -> ListingForm -> Item.Variant
 variantFor item form =
-    Item.normalizeVariant item { fine = form.fine, quality = Just form.quality }
+    Item.normalizeVariant item { fine = form.fine, rare = form.rare, quality = Just form.quality }
 
 
 {-| Check the form and turn it into what the backend expects.
@@ -89,11 +89,15 @@ viewForm model =
             [ Ui.label "Item"
             , case selected of
                 Just item ->
+                    let
+                        variant =
+                            variantFor item form
+                    in
                     Ui.card [ Attr.class "flex items-center gap-3 p-3", Ui.testId "picked-item" ]
-                        [ Ui.itemIcon "w-11 h-11" item (variantFor item form)
+                        [ Ui.itemIcon "w-11 h-11" item variant
                         , Html.div [ Attr.class "flex-1" ]
                             [ Html.div [ Attr.class "font-bold text-lg" ] [ Html.text item.name ]
-                            , Ui.gradeTag item { fine = (variantFor item form).fine, quality = Nothing }
+                            , Ui.gradeTag item { variant | quality = Nothing }
                             ]
                         , Html.button [ Attr.id "change-item", Events.onClick ListingItemCleared, Attr.class "text-soft text-sm" ] [ Html.text "Change" ]
                         ]
@@ -110,6 +114,15 @@ viewForm model =
                             , { id = "variant-fine", label = "✦ Fine", active = form.fine, msg = ListingFineToggled True }
                             ]
                         , Html.p [ Attr.class "text-xs text-faint mt-1.5" ] [ Html.text "Fine items are priced separately from regular ones." ]
+                        ]
+
+                else if item.canBeRare then
+                    Html.div []
+                        [ Ui.segmented
+                            [ { id = "variant-common", label = "Common", active = not form.rare, msg = ListingRareToggled False }
+                            , { id = "variant-rare", label = "Rare", active = form.rare, msg = ListingRareToggled True }
+                            ]
+                        , Html.p [ Attr.class "text-xs text-faint mt-1.5" ] [ Html.text "Rare eggs are priced separately from common ones." ]
                         ]
 
                 else
@@ -234,6 +247,9 @@ medianCheck model form =
                     (variant.quality |> Maybe.map Item.qualityLabel |> Maybe.withDefault item.name)
                         ++ (if variant.fine then
                                 " (fine)"
+
+                            else if variant.rare then
+                                " (rare)"
 
                             else
                                 ""

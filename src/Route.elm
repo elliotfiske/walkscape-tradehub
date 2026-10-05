@@ -29,8 +29,8 @@ parser =
         [ Parser.map Home Parser.top
         , Parser.map Market (s "market")
         , Parser.map Prices (s "prices")
-        , Parser.map (\id q fine -> ItemPrice id { fine = fine == Just "1", quality = Maybe.andThen Item.qualityFromString q })
-            (s "prices" </> Parser.string <?> Query.string "quality" <?> Query.string "fine")
+        , Parser.map (\id q fine rare -> ItemPrice id { fine = fine == Just "1", rare = rare == Just "1", quality = Maybe.andThen Item.qualityFromString q })
+            (s "prices" </> Parser.string <?> Query.string "quality" <?> Query.string "fine" <?> Query.string "rare")
         , Parser.map ListingPage (s "listing" </> Parser.int)
         , Parser.map NewListing (s "new")
         , Parser.map MyTrades (s "trades")
@@ -67,6 +67,12 @@ toString route =
                   else
                     []
                  )
+                    ++ (if variant.rare then
+                            [ Url.Builder.string "rare" "1" ]
+
+                        else
+                            []
+                       )
                     ++ (case variant.quality of
                             Just q ->
                                 [ Url.Builder.string "quality" (Item.qualityToString q) ]

@@ -1412,6 +1412,10 @@ a:hover {
   border-color: rgb(30 44 51 / var(--tw-border-opacity, 1));
 }
 
+.border-rareegg\/50 {
+  border-color: rgb(224 82 76 / 0.5);
+}
+
 .border-rule {
   --tw-border-opacity: 1;
   border-color: rgb(42 58 66 / var(--tw-border-opacity, 1));
@@ -2044,6 +2048,11 @@ a:hover {
 .text-muted {
   --tw-text-opacity: 1;
   color: rgb(139 155 163 / var(--tw-text-opacity, 1));
+}
+
+.text-rareegg {
+  --tw-text-opacity: 1;
+  color: rgb(224 82 76 / var(--tw-text-opacity, 1));
 }
 
 .text-soft {
