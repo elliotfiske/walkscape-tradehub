@@ -1,15 +1,15 @@
-module Evergreen.V16.Route exposing (..)
+module Evergreen.V17.Route exposing (..)
 
-import Evergreen.V16.Item
+import Evergreen.V17.Item
 
 
 type Route
     = Home
     | Market
     | Prices
-    | ItemPrice String Evergreen.V16.Item.Variant
+    | ItemPrice String Evergreen.V17.Item.Variant
     | ListingPage Int
-    | NewListing (Maybe ( String, Evergreen.V16.Item.Variant ))
+    | NewListing (Maybe ( String, Evergreen.V17.Item.Variant ))
     | MyTrades
     | Profile String
     | Report String
