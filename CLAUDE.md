@@ -11,7 +11,7 @@ changes hands, and there are no trade rooms yet.
 | Module | What lives there |
 |---|---|
 | `Types.elm` | All models/messages. Public identity of a trader is their claimed WalkScape name. |
-| `Backend.elm` | Every `ToBackend` is re-dispatched with a timestamp (`FromFrontendAt`). A 15s `BackendTick` broadcasts listings whose 15-minute go-live delay has passed; until then a listing is only sent to its owner. |
+| `Backend.elm` | Every `ToBackend` is re-dispatched with a timestamp (`FromFrontendAt`). A 15s `BackendTick` broadcasts listings whose 5-minute go-live delay has passed; until then a listing is only sent to its owner. |
 | `Frontend.elm` | Routing, update, the app shell (header, preview banner, mobile tab bar, toast). |
 | `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
@@ -91,7 +91,7 @@ journey and read the PNGs back:
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/smoke.json
 # → ./.context/shots/{home-desktop,market-desktop,home-mobile,signin-preview,claim,done}.png
 BASE=http://localhost:8011 node scripts/cdp-drive.js scripts/scenarios/seed-market.json
-# 8 accounts, 10 listings, waits 16 min for go-live, then offers + screenshots
+# 8 accounts, 10 listings, waits 6 min for go-live, then offers + screenshots
 ```
 
 Each `ctx` is its own headless Chrome and Lamdera session. Chrome is found by
@@ -105,7 +105,7 @@ reload breaks open tabs), and give the first `goto` after a rebuild a long
 ## Testing
 
 `npm test` runs `tests/E2ETests.elm` (lamdera/program-test user journeys:
-onboarding, claim errors, 15-minute go-live, offers + accept, estimates, look-alikes,
+onboarding, claim errors, 5-minute go-live, offers + accept, estimates, look-alikes,
 validation, reports, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
 listing form). In program-test, `clickLink` needs a matching `href` in the
 current view, and `pushUrl` must be given a path (not an absolute URL) or the

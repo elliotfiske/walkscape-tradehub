@@ -140,7 +140,7 @@ termsCard model listing item =
           else
             Ui.callout Ui.Caution
                 [ Attr.class "px-3 py-2 text-[13px]", Ui.testId "pending-note" ]
-                [ Html.text "Only you can see this for now. Every listing waits 15 minutes before going live, so no deal appears and disappears in seconds." ]
+                [ Html.text "Only you can see this for now. Every listing waits 5 minutes before going live, so no deal appears and disappears in seconds." ]
         ]
 
 

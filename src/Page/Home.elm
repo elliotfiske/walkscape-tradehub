@@ -41,7 +41,7 @@ view model =
             [ feature "Why post if nothing trades?" "Every listing and offer is a vote in an item's price. More votes means a better guess for everyone. Listings reset when trading launches, but your account and name stay."
             , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of everyone's prices, one vote per trader per day, with outliers cut."
             , feature "Safe to try" "Discord only shares your username with Trailpost, and nothing here touches your WalkScape account."
-            , feature "No pressure tactics" "No countdowns anywhere. New listings wait 15 minutes before going live, so no deal appears and disappears before you can check it."
+            , feature "No pressure tactics" "No countdowns anywhere. New listings wait 5 minutes before going live, so no deal appears and disappears before you can check it."
             ]
         , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line" ]
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]
