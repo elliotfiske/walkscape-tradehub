@@ -647,7 +647,7 @@ migrate_Types_Listing old =
     { id = old.id
     , trader = old.trader
     , itemId = old.itemId
-    , variant = old.variant |> migrate_Item_Variant |> dropFineUnlessMaterial old.itemId
+    , variant = old.variant |> migrate_Item_Variant |> migrateFine old.itemId
     , side = old.side |> migrate_Types_Side
     , payment = old.payment |> migrate_Types_Payment
     , quantity = old.quantity
@@ -915,9 +915,17 @@ migrate_Types_User old =
 
 
 {-| Until V15 every item could be listed as fine, but in the game only
-materials and consumables come in a fine version. Those other "fine" listings
-become regular ones.
+materials and consumables come in a fine version. A "fine" pet egg was meant
+to be a rare one, and any other "fine" listing becomes a regular one.
 -}
-dropFineUnlessMaterial : String -> Evergreen.V15.Item.Variant -> Evergreen.V15.Item.Variant
-dropFineUnlessMaterial itemId variant =
-    { variant | fine = variant.fine && (Item.byId itemId |> Maybe.map .canBeFine |> Maybe.withDefault False) }
+migrateFine : String -> Evergreen.V15.Item.Variant -> Evergreen.V15.Item.Variant
+migrateFine itemId variant =
+    case Item.byId itemId of
+        Just item ->
+            { variant
+                | fine = variant.fine && item.canBeFine
+                , rare = variant.rare || (variant.fine && item.canBeRare)
+            }
+
+        Nothing ->
+            { variant | fine = False }
