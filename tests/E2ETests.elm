@@ -1,5 +1,6 @@
 module E2ETests exposing (appTests, main)
 
+import Analytics
 import Backend
 import Derived
 import Dict
@@ -10,6 +11,8 @@ import Effect.Time
 import Expect
 import Frontend
 import Html.Attributes
+import Json.Decode
+import Json.Encode
 import Test exposing (describe)
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
@@ -127,6 +130,42 @@ signInAsAdmin actions =
     ]
 
 
+{-| Every analytics event sent so far, oldest first, as `name` or
+`name {"side":"sell",...}` when it carries metadata.
+-}
+trackedEvents : Effect.Test.Data FrontendModel BackendModel -> List String
+trackedEvents data =
+    data.portRequests
+        |> List.filter (\request -> request.portName == "analyticsEvent")
+        |> List.reverse
+        |> List.filterMap
+            (\request ->
+                Json.Decode.decodeValue
+                    (Json.Decode.map2
+                        (\name metadata ->
+                            if metadata == "{}" then
+                                name
+
+                            else
+                                name ++ " " ++ metadata
+                        )
+                        (Json.Decode.field "name" Json.Decode.string)
+                        (Json.Decode.field "metadata" Json.Decode.value |> Json.Decode.map (Json.Encode.encode 0))
+                    )
+                    request.value
+                    |> Result.toMaybe
+            )
+
+
+expectTracked : List String -> Effect.Test.Data FrontendModel BackendModel -> Result String ()
+expectTracked expected data =
+    if trackedEvents data == expected then
+        Ok ()
+
+    else
+        Err ("expected events " ++ String.join ", " expected ++ " but got " ++ String.join ", " (trackedEvents data))
+
+
 tests : List EndToEndTest
 tests =
     [ start "A guest can browse the homepage and an empty market"
@@ -165,6 +204,32 @@ tests =
                     )
                 ]
         ]
+    , start "Onboarding sends analytics events, and reloading as a signed-in user doesn't repeat them"
+        [ connect "s1" "/" <|
+            \user ->
+                onboard user "Wanderling"
+                    ++ [ Effect.Test.checkState 100
+                            (expectTracked
+                                [ "signin_preview_confirmed"
+                                , "signed_in"
+                                , "claim_name_submitted"
+                                , "onboarding_completed"
+                                ]
+                            )
+                       , connect "s1" "/market" <|
+                            \again ->
+                                [ again.checkView 300 (byTestId "user-chip" >> seesText "Wanderling")
+                                , Effect.Test.checkState 100
+                                    (expectTracked
+                                        [ "signin_preview_confirmed"
+                                        , "signed_in"
+                                        , "claim_name_submitted"
+                                        , "onboarding_completed"
+                                        ]
+                                    )
+                                ]
+                       ]
+        ]
     , start "Claiming a name that's invalid or already taken shows an error"
         [ connect "s1" "/" <|
             \first ->
@@ -179,6 +244,14 @@ tests =
                                        , second.input 100 (Dom.id "claim-name") "Juno_Trek"
                                        , second.click 100 (Dom.id "claim-submit")
                                        , second.checkView 300 (byTestId "done-heading" >> seesText "Juno_Trek is linked")
+                                       , Effect.Test.checkState 100
+                                            (\data ->
+                                                if List.length (List.filter ((==) "claim_name_rejected") (trackedEvents data)) == 2 then
+                                                    Ok ()
+
+                                                else
+                                                    Err "expected two claim_name_rejected events"
+                                            )
                                        ]
                        ]
         ]
@@ -199,6 +272,25 @@ tests =
                                 , buyer.checkView 100 (byTestId "listing-1" >> seesText "Tallowmere")
                                 , seller.checkView 100 (byTestId "listing-status" >> seesText "LIVE")
                                 ]
+                       ]
+        ]
+    , start "Posting a listing sends analytics events with its side and item"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Tallowmere"
+                    ++ postListing seller { item = "steel_toe_boots", price = "1,150", quantity = "2" }
+                    ++ [ Effect.Test.checkState 100
+                            (\data ->
+                                expectTracked
+                                    [ "signin_preview_confirmed"
+                                    , "signed_in"
+                                    , "claim_name_submitted"
+                                    , "onboarding_completed"
+                                    , "listing_submitted {\"side\":\"sell\",\"itemId\":\"steel_toe_boots\"}"
+                                    , "listing_created"
+                                    ]
+                                    data
+                            )
                        ]
         ]
     , start "Making an offer, getting a badge, and accepting it"
