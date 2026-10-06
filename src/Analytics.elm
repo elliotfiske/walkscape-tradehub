@@ -1,4 +1,4 @@
-port module Analytics exposing (Event(..), encode, name, track)
+port module Analytics exposing (Event(..), track)
 
 {-| Custom events for Simple Analytics.
 

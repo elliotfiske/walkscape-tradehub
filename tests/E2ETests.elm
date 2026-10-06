@@ -1,6 +1,5 @@
 module E2ETests exposing (appTests, main)
 
-import Analytics
 import Backend
 import Derived
 import Dict
