@@ -1,5 +1,6 @@
 module Frontend exposing (app, app_)
 
+import Analytics
 import AuthProviders
 import Auth.Common
 import Auth.Flow
@@ -397,28 +398,55 @@ update msg model =
             case ( AuthProviders.isConfigured provider, AuthProviders.methodIdFor provider ) of
                 ( True, Just methodId ) ->
                     Auth.Flow.signInRequested methodId model Nothing
-                        |> Tuple.mapSecond (AuthToBackend >> Effect.Lamdera.sendToBackend)
+                        |> Tuple.mapSecond
+                            (\toBackend ->
+                                Command.batch
+                                    [ Analytics.track Analytics.SigninDiscordClicked
+                                    , Effect.Lamdera.sendToBackend (AuthToBackend toBackend)
+                                    ]
+                            )
 
                 _ ->
                     ( { model | previewSignInFor = Just provider }, Command.none )
 
         PreviewSignInConfirmed provider ->
-            ( { model | previewSignInFor = Nothing }, Effect.Lamdera.sendToBackend (PreviewSignIn provider) )
+            ( { model | previewSignInFor = Nothing }
+            , Command.batch
+                [ Analytics.track Analytics.SigninPreviewConfirmed
+                , Effect.Lamdera.sendToBackend (PreviewSignIn provider)
+                ]
+            )
 
         PreviewAdminSignInClicked ->
-            ( model, Effect.Lamdera.sendToBackend PreviewAdminSignIn )
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.SigninPreviewConfirmed
+                , Effect.Lamdera.sendToBackend PreviewAdminSignIn
+                ]
+            )
 
         PreviewSignInCancelled ->
             ( { model | previewSignInFor = Nothing }, Command.none )
 
         SignOutClicked ->
-            ( model, Command.batch [ Effect.Lamdera.sendToBackend SignOut, navigate model Route.Home ] )
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.SignedOut
+                , Effect.Lamdera.sendToBackend SignOut
+                , navigate model Route.Home
+                ]
+            )
 
         ClaimNameChanged name ->
             ( { model | claimName = name, claimError = Nothing }, Command.none )
 
         ClaimNameSubmitted ->
-            ( model, Effect.Lamdera.sendToBackend (ClaimName model.claimName) )
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.ClaimNameSubmitted
+                , Effect.Lamdera.sendToBackend (ClaimName model.claimName)
+                ]
+            )
 
         SearchChanged search ->
             let
@@ -509,14 +537,23 @@ update msg model =
                             model.listingForm
                     in
                     ( { model | listingForm = { form | submitting = True, error = Nothing } }
-                    , Effect.Lamdera.sendToBackend (CreateListing draft)
+                    , Command.batch
+                        [ Analytics.track (Analytics.ListingSubmitted { side = draft.side, itemId = draft.itemId })
+                        , Effect.Lamdera.sendToBackend (CreateListing draft)
+                        ]
                     )
 
                 Err err ->
                     updateListingForm (\f -> { f | error = Just err }) model
+                        |> Tuple.mapSecond (\cmd -> Command.batch [ Analytics.track Analytics.ListingSubmitRejected, cmd ])
 
         CloseListingClicked listingId ->
-            ( model, Effect.Lamdera.sendToBackend (CloseListing listingId) )
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.ListingClosed
+                , Effect.Lamdera.sendToBackend (CloseListing listingId)
+                ]
+            )
 
         OfferCounterToggled counter ->
             updateOfferForm (\f -> { f | counter = counter, error = Nothing }) model
@@ -542,7 +579,10 @@ update msg model =
             case price |> Result.andThen (\p -> Market.validateOffer p form.message) of
                 Ok offer ->
                     ( { model | offerForm = emptyOfferForm }
-                    , Effect.Lamdera.sendToBackend (MakeOffer listingId offer.price offer.message)
+                    , Command.batch
+                        [ Analytics.track Analytics.OfferSubmitted
+                        , Effect.Lamdera.sendToBackend (MakeOffer listingId offer.price offer.message)
+                        ]
                     )
 
                 Err err ->
@@ -573,7 +613,12 @@ update msg model =
                 form =
                     model.reportForm
             in
-            ( model, Effect.Lamdera.sendToBackend (SubmitReport form.about (List.reverse form.reasons) form.details) )
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.ReportSubmitted
+                , Effect.Lamdera.sendToBackend (SubmitReport form.about (List.reverse form.reasons) form.details)
+                ]
+            )
 
         ToastDismissed ->
             ( { model | toast = Nothing }, Command.none )
@@ -686,23 +731,47 @@ updateFromBackend msg model =
 
                         Nothing ->
                             False
+
+                -- `YouAre` also lands on every page load and reconnect, so a
+                -- sign-in only counts when the visitor was on the sign-in
+                -- page or coming back from Discord.
+                justSignedIn =
+                    model.me == Nothing && me /= Nothing && (model.route == Route.SignIn || isAuthorized model.authFlow)
+
+                -- Claiming has no `ToFrontend` of its own: the backend answers
+                -- with a `YouAre` that now carries the claim.
+                justClaimed =
+                    (model.me |> Maybe.map (\m -> m.claim == Nothing)) == Just True
+                        && (me |> Maybe.andThen .claim) /= Nothing
             in
             ( if Maybe.map .isAdmin me == Just True then
                 newModel
 
               else
                 { newModel | admin = Nothing }
-            , if model.route == Route.SignIn && me /= Nothing then
-                navigate model Route.Onboarding
+            , Command.batch
+                [ if justSignedIn then
+                    Analytics.track Analytics.SignedIn
 
-              else if onboarding && model.route == Route.Home then
-                navigate model Route.Onboarding
+                  else
+                    Command.none
+                , if justClaimed then
+                    Analytics.track Analytics.OnboardingCompleted
 
-              else if model.route == Route.Admin && model.admin == Nothing then
-                loadAdmin newModel
+                  else
+                    Command.none
+                , if model.route == Route.SignIn && me /= Nothing then
+                    navigate model Route.Onboarding
 
-              else
-                Command.none
+                  else if onboarding && model.route == Route.Home then
+                    navigate model Route.Onboarding
+
+                  else if model.route == Route.Admin && model.admin == Nothing then
+                    loadAdmin newModel
+
+                  else
+                    Command.none
+                ]
             )
 
         ListingUpserted listing ->
@@ -742,10 +811,15 @@ updateFromBackend msg model =
             ( { model | traders = Dict.insert trader.name trader model.traders }, Command.none )
 
         ClaimRejected err ->
-            ( { model | claimError = Just err }, Command.none )
+            ( { model | claimError = Just err }, Analytics.track Analytics.ClaimNameRejected )
 
         ListingCreated listingId ->
-            ( { model | listingForm = emptyListingForm }, navigate model (Route.ListingPage listingId) )
+            ( { model | listingForm = emptyListingForm }
+            , Command.batch
+                [ Analytics.track Analytics.ListingCreated
+                , navigate model (Route.ListingPage listingId)
+                ]
+            )
 
         ReportReceived ->
             let
@@ -759,7 +833,13 @@ updateFromBackend msg model =
                 form =
                     model.listingForm
             in
-            ( { model | toast = Just err, listingForm = { form | submitting = False } }, Command.none )
+            ( { model | toast = Just err, listingForm = { form | submitting = False } }
+            , if form.submitting then
+                Analytics.track Analytics.ListingCreateFailed
+
+              else
+                Command.none
+            )
 
 
 
@@ -776,7 +856,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=60367dab" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=79a68ddc" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"

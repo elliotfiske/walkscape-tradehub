@@ -18,6 +18,7 @@ changes hands, and there are no trade rooms yet.
 | `Pricing.elm` | Pure price-estimate rules: median, one vote per trader per day, outliers > 2.5× spread cut. |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides, and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
+| `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
 | `Name.elm` | WalkScape-name validation and look-alike detection. |
 | `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`, who's an admin). |
 | `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Discord OAuth (on the vendored lamdera/auth). Discord is the only sign-in. |
@@ -48,6 +49,33 @@ changes hands, and there are no trade rooms yet.
 Lamdera: description, Open Graph tags for Discord/social embeds, favicon, and a
 dark background so the page doesn't flash white while loading. The images are
 `public/og.png` (1200×630), `public/favicon.svg` and `public/apple-touch-icon.png`.
+
+## Analytics events
+
+`head.html` loads Simple Analytics and a `sa_event` queue stub (so early events
+aren't lost). Custom events go through `Analytics.track`, a
+`Command.sendToJs` on the `analyticsEvent` port (so program-test records it in
+`portRequests`). Lamdera's elm-pkg-js mechanism (`elm-pkg-js-includes.js` →
+`elm-pkg-js/analytics.js`) subscribes to the port and calls `sa_event(name,
+metadata)`; it does nothing if an ad blocker removed `sa_event`. To add an
+event: add a constructor and its name in `Analytics.elm`, then `Analytics.track`
+it in `Frontend.elm`. Names are lowercase + underscores, and metadata must never
+identify a trader.
+
+| Event | When |
+|---|---|
+| `signin_discord_clicked` | Discord sign-in button pressed |
+| `signin_preview_confirmed` | Preview account chosen (dev and preview apps) |
+| `signed_in` | `YouAre` arrives for a visitor on `/signin` or back from Discord (not on every page load) |
+| `signed_out` | Sign out pressed |
+| `claim_name_submitted` / `claim_name_rejected` | Claim form sent / backend refused the name |
+| `onboarding_completed` | `YouAre` shows a claim where there was none (there's no dedicated claim response) |
+| `listing_submit_rejected` | Listing form failed client validation |
+| `listing_submitted` | Valid listing sent. Metadata: `side` (`sell`/`buy`), `itemId` |
+| `listing_created` / `listing_create_failed` | Backend confirmed / refused it |
+| `listing_closed`, `offer_submitted`, `report_submitted` | Those buttons pressed |
+
+The E2E tests assert the event sequence with `trackedEvents`.
 
 ## Admin screen (`/admin`)
 
