@@ -50,7 +50,7 @@ view model =
                             orEmpty "You haven't posted anything yet." (List.filterMap (listingCard model) myListings)
                     )
                 , Html.p [ Attr.class "text-[13px] text-faint" ]
-                    [ Html.text "In the preview, accepting an offer just records that you'd trade. Once trading is live, it opens a trade room with locked terms and an in-game checklist." ]
+                    [ Html.text "Accepting an offer doesn't move anything. You still trade in WalkScape, and the listing shows what each of you puts in." ]
                 ]
 
         _ ->
@@ -115,7 +115,7 @@ offerCard model received offer =
                                     ( 1, "#5aa2e6", "Offer sent · waiting for " ++ other )
 
                             OfferAccepted ->
-                                ( 2, "#57b34a", "Accepted · trade room opens when trading is live" )
+                                ( 2, "#57b34a", "Accepted · trade with " ++ other ++ " in WalkScape" )
 
                             OfferDeclined ->
                                 ( 3, "#c0453b", "Declined" )

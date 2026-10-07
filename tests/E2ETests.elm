@@ -170,7 +170,7 @@ tests =
     [ start "A guest can browse the homepage and an empty market"
         [ connect "guest" "/" <|
             \guest ->
-                [ guest.checkView 100 (byTestId "preview-banner" >> seesText "I'm still getting Trailpost ready for real trading")
+                [ guest.checkView 100 (byTestId "trading-banner" >> seesText "TRADING IS LIVE")
                 , guest.checkView 100 (byTestId "featured-price" >> seesText "No prices yet")
                 , guest.clickLink 100 "/market"
                 , guest.checkView 100 (byTestId "guest-notice" >> seesText "You're browsing as a guest.")
@@ -309,7 +309,7 @@ tests =
                                        , buyer.click 100 (Dom.id "send-offer")
                                        , buyer.checkView 100 (byTestId "offer-error" >> seesText "Enter a price in coins")
                                        , buyer.input 100 (Dom.id "offer-price") "9.4k"
-                                       , buyer.checkView 100 (byTestId "offer-check" >> seesText "4% below the preview estimate of 9,800")
+                                       , buyer.checkView 100 (byTestId "offer-check" >> seesText "4% below the estimate of 9,800")
                                        , buyer.input 100 (Dom.id "offer-message") "Can pick up at the Kallaheim mailbox"
                                        , buyer.click 100 (Dom.id "send-offer")
                                        , buyer.checkView 300 (byTestId "offer-2" >> seesText "9,400")
@@ -331,10 +331,16 @@ tests =
                                        , seller.checkView 100 (byTestId "trade-offer-2" >> seesText "Your turn: accept or decline this offer")
                                        , seller.clickLink 100 "/listing/1"
                                        , seller.click 100 (Dom.id "accept-2")
-                                       , buyer.checkView 300 (byTestId "offer-2" >> seesText "When trading goes live, this opens a trade room")
+                                       , buyer.checkView 300 (byTestId "offer-2" >> seesText "Accepted")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "Trade with Juno Trek in WalkScape")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "9400")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "1 × Shovel axe")
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.id "send-offer" ])
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> seesText "Trade with Wanderling in WalkScape")
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> seesText "count the digits: 9400 is 9,400.")
                                        , buyer.clickLink 100 "/trades"
                                        , buyer.click 100 (Dom.id "trades-sent")
-                                       , buyer.checkView 100 (byTestId "trade-offer-2" >> seesText "Accepted")
+                                       , buyer.checkView 100 (byTestId "trade-offer-2" >> seesText "Accepted · trade with Juno Trek in WalkScape")
                                        , Effect.Test.checkBackend 100
                                             (\backend ->
                                                 if Dict.get 2 backend.offers |> Maybe.map (\o -> o.status == OfferAccepted && o.price == Just 9400) |> Maybe.withDefault False then

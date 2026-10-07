@@ -378,7 +378,7 @@ mostActive model =
         series =
             Derived.activeSeries model |> List.take 6
     in
-    Html.div [ Attr.class "font-bold text-[11px] tracking-[0.14em] text-muted mb-1" ] [ Html.text "MOST ACTIVE · PREVIEW" ]
+    Html.div [ Attr.class "font-bold text-[11px] tracking-[0.14em] text-muted mb-1" ] [ Html.text "MOST ACTIVE" ]
         :: (if List.isEmpty series then
                 [ Html.p [ Attr.class "text-[13px] text-faint" ] [ Html.text "Items with the most listings and offers will show here." ] ]
 

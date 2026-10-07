@@ -56,8 +56,8 @@ type Provider
 
 
 type ClaimStatus
-    = -- Trading isn't live yet, so nobody can actually verify a name. Every
-      -- claim is shown as unverified.
+    = -- There's no way to verify a name yet, so every claim is shown as
+      -- unverified.
       PreviewUnverified
 
 
