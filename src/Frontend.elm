@@ -210,6 +210,7 @@ init url key =
             , claimError = Nothing
             , listingForm = prefillListingForm (Route.fromUrl url) emptyListingForm
             , offerForm = emptyOfferForm
+            , fellThroughForm = Nothing
             , reportForm =
                 case Route.fromUrl url of
                     Route.Report name ->
@@ -381,6 +382,12 @@ update msg model =
                 | route = route
                 , reportForm = reportForm
                 , offerForm = offerForm
+                , fellThroughForm =
+                    if route == model.route then
+                        model.fellThroughForm
+
+                    else
+                        Nothing
                 , listingForm = prefillListingForm route model.listingForm
                 , filtersOpen = False
               }
@@ -604,7 +611,69 @@ update msg model =
             ( model, Effect.Lamdera.sendToBackend (WithdrawOffer offerId) )
 
         RespondToOfferClicked offerId accept ->
-            ( model, Effect.Lamdera.sendToBackend (RespondToOffer offerId accept) )
+            ( model
+            , Command.batch
+                [ if accept then
+                    Analytics.track Analytics.OfferAccepted
+
+                  else
+                    Command.none
+                , Effect.Lamdera.sendToBackend (RespondToOffer offerId accept)
+                ]
+            )
+
+        TradeConfirmClicked offerId ->
+            let
+                -- The other side already confirmed, so this one completes the trade.
+                completes =
+                    case ( Dict.get offerId model.offers, Derived.myName model ) of
+                        ( Just offer, Just me ) ->
+                            if me == offer.from then
+                                offer.listerConfirmed
+
+                            else
+                                offer.offererConfirmed
+
+                        _ ->
+                            False
+            in
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.TradeConfirmed
+                , if completes then
+                    Analytics.track Analytics.TradeCompleted
+
+                  else
+                    Command.none
+                , Effect.Lamdera.sendToBackend (ConfirmTrade offerId)
+                ]
+            )
+
+        FellThroughClicked offerId ->
+            ( { model | fellThroughForm = Just { offerId = offerId, reason = "", error = Nothing } }, Command.none )
+
+        FellThroughReasonChanged reason ->
+            ( { model | fellThroughForm = model.fellThroughForm |> Maybe.map (\f -> { f | reason = reason, error = Nothing }) }, Command.none )
+
+        FellThroughSubmitted ->
+            case model.fellThroughForm of
+                Just form ->
+                    if String.isEmpty (String.trim form.reason) then
+                        ( { model | fellThroughForm = Just { form | error = Just "Say what happened, in a few words." } }, Command.none )
+
+                    else
+                        ( { model | fellThroughForm = Nothing }
+                        , Command.batch
+                            [ Analytics.track Analytics.TradeFellThrough
+                            , Effect.Lamdera.sendToBackend (MarkFellThrough form.offerId form.reason)
+                            ]
+                        )
+
+                Nothing ->
+                    ( model, Command.none )
+
+        FellThroughCancelled ->
+            ( { model | fellThroughForm = Nothing }, Command.none )
 
         ReportReasonToggled reason ->
             let
@@ -868,7 +937,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=bbbe7c80" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=de4c04e4" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -996,23 +1065,23 @@ appShell : Model -> Html FrontendMsg -> Html FrontendMsg
 appShell model content =
     Html.div [ Attr.class "min-h-screen bg-shell flex flex-col" ]
         [ viewHeader model
-        , previewBanner
+        , tradingBanner
         , viewBanNotice model
         , Html.main_ [ Attr.class "flex-1 flex flex-col pb-20 md:pb-0" ] [ content ]
         , viewTabBar model
         ]
 
 
-previewBanner : Html msg
-previewBanner =
-    Html.div [ Attr.class "border-b border-[#6b5520] bg-[#1a1608] text-[13px] text-[#e9d9a6] px-4 md:px-7 py-2 flex gap-2 items-baseline", Ui.testId "preview-banner" ]
-        [ Html.span [ Attr.class "font-bold tracking-widest text-[11px] text-gold flex-none" ] [ Html.text "HEADS UP" ]
+tradingBanner : Html msg
+tradingBanner =
+    Html.div [ Attr.class "border-b border-[#6b5520] bg-[#1a1608] text-[13px] text-[#e9d9a6] px-4 md:px-7 py-2 flex gap-2 items-baseline", Ui.testId "trading-banner" ]
+        [ Html.span [ Attr.class "font-bold tracking-widest text-[11px] text-gold flex-none" ] [ Html.text "TRADING IS LIVE" ]
         , Html.span [ Attr.class "hidden sm:inline" ]
-            [ Html.text "Trading is live in WalkScape! I'm still getting Trailpost ready for real trading, which should take an hour or two (about 11:30am PT). Until then, listings and offers here just build up price estimates, and nothing changes hands. "
+            [ Html.text "Agree on a price here, then trade in WalkScape. Once an offer's accepted, its listing shows what each of you puts in the trade window. "
             , feedbackLink
             ]
         , Html.span [ Attr.class "sm:hidden" ]
-            [ Html.text "Trading is live! I'm getting Trailpost ready for it, about 11:30am PT. Until then, nothing changes hands. "
+            [ Html.text "Agree on a price here, then trade in WalkScape. "
             , feedbackLink
             ]
         ]

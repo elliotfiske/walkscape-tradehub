@@ -171,7 +171,7 @@ tests =
     [ start "A guest can browse the homepage and an empty market"
         [ connect "guest" "/" <|
             \guest ->
-                [ guest.checkView 100 (byTestId "preview-banner" >> seesText "I'm still getting Trailpost ready for real trading")
+                [ guest.checkView 100 (byTestId "trading-banner" >> seesText "TRADING IS LIVE")
                 , guest.checkView 100 (byTestId "featured-price" >> seesText "No prices yet")
                 , guest.clickLink 100 "/market"
                 , guest.checkView 100 (byTestId "guest-notice" >> seesText "You're browsing as a guest.")
@@ -323,7 +323,7 @@ tests =
                                        , buyer.click 100 (Dom.id "send-offer")
                                        , buyer.checkView 100 (byTestId "offer-error" >> seesText "Enter a price in coins")
                                        , buyer.input 100 (Dom.id "offer-price") "9.4k"
-                                       , buyer.checkView 100 (byTestId "offer-check" >> seesText "4% below the preview estimate of 9,800")
+                                       , buyer.checkView 100 (byTestId "offer-check" >> seesText "4% below the estimate of 9,800")
                                        , buyer.input 100 (Dom.id "offer-message") "Can pick up at the Kallaheim mailbox"
                                        , buyer.click 100 (Dom.id "send-offer")
                                        , buyer.checkView 300 (byTestId "offer-2" >> seesText "9,400")
@@ -345,10 +345,16 @@ tests =
                                        , seller.checkView 100 (byTestId "trade-offer-2" >> seesText "Your turn: accept or decline this offer")
                                        , seller.clickLink 100 "/listing/1"
                                        , seller.click 100 (Dom.id "accept-2")
-                                       , buyer.checkView 300 (byTestId "offer-2" >> seesText "When trading goes live, this opens a trade room")
+                                       , buyer.checkView 300 (byTestId "offer-2" >> seesText "Accepted")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "Trade with Juno Trek in WalkScape")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "9400")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "1 × Shovel axe")
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.id "send-offer" ])
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> seesText "Trade with Wanderling in WalkScape")
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> seesText "count the digits: 9400 is 9,400.")
                                        , buyer.clickLink 100 "/trades"
                                        , buyer.click 100 (Dom.id "trades-sent")
-                                       , buyer.checkView 100 (byTestId "trade-offer-2" >> seesText "Accepted")
+                                       , buyer.checkView 100 (byTestId "trade-offer-2" >> seesText "Accepted · trade with Juno Trek in WalkScape")
                                        , Effect.Test.checkBackend 100
                                             (\backend ->
                                                 if Dict.get 2 backend.offers |> Maybe.map (\o -> o.status == OfferAccepted && o.price == Just 9400) |> Maybe.withDefault False then
@@ -357,6 +363,129 @@ tests =
                                                 else
                                                     Err "offer 2 should be accepted at 9400"
                                             )
+                                       ]
+                       ]
+        ]
+    , start "A trade goes through once both traders confirm it"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.click 300 (Dom.id "accept-2")
+                                       , seller.checkView 300 (byTestId "listing-status" >> seesText "TRADE PENDING")
+                                       , connect "guest" "/listing/1" <|
+                                            \guest ->
+                                                [ guest.checkView 300 (byTestId "trade-pending" >> seesText "A trade is pending")
+                                                , guest.checkView 100 (Query.hasNot [ Selector.id "signin-to-offer" ])
+                                                , guest.clickLink 100 "/market"
+                                                , guest.checkView 100 (lacksTestId "listing-1")
+                                                ]
+                                       , seller.click 100 (Dom.id "trade-confirm-2")
+                                       , seller.checkView 300 (byTestId "trade-status-2" >> seesText "Waiting for Wanderling to confirm")
+                                       , buyer.checkView 100 (byTestId "trade-status-2" >> seesText "Juno Trek says it went through")
+                                       , buyer.clickLink 100 "/trades"
+                                       , buyer.click 100 (Dom.id "trades-sent")
+                                       , buyer.checkView 100 (byTestId "trade-offer-2" >> seesText "TRADE PENDING")
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "trade-confirm-2")
+                                       , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , seller.checkView 100 (byTestId "listing-status" >> seesText "TRADED")
+                                       , seller.checkView 100 (lacksTestId "trade-checklist-2")
+                                       , seller.checkView 100 (Query.hasNot [ Selector.id "close-listing" ])
+                                       , seller.clickLink 100 "/trades"
+                                       , seller.checkView 100 (byTestId "trade-offer-2" >> seesText "Traded with Wanderling")
+                                       , seller.checkView 100 (byTestId "trade-offer-2" >> seesText "TRADED")
+                                       , seller.click 100 (Dom.id "trades-listings")
+                                       , seller.checkView 100 (byTestId "my-listing-1" >> seesText "TRADED")
+                                       , Effect.Test.checkBackend 100
+                                            (\backend ->
+                                                case ( Dict.get 2 backend.offers |> Maybe.map .status, Dict.get 1 backend.listings |> Maybe.map .closed ) of
+                                                    ( Just (OfferCompleted _), Just True ) ->
+                                                        Ok ()
+
+                                                    _ ->
+                                                        Err "offer 2 should be completed and listing 1 closed"
+                                            )
+                                       , Effect.Test.checkState 100
+                                            (\data ->
+                                                let
+                                                    tail =
+                                                        trackedEvents data |> List.filter (\e -> String.startsWith "offer_accepted" e || String.startsWith "trade_" e)
+                                                in
+                                                if List.sort tail == List.sort [ "offer_accepted", "trade_confirmed", "trade_confirmed", "trade_completed" ] then
+                                                    Ok ()
+
+                                                else
+                                                    Err ("unexpected trade events: " ++ String.join ", " tail)
+                                            )
+                                       ]
+                       ]
+        ]
+    , start "A trade that falls through puts the listing back up, and another offer can be accepted"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ [ connect "b1" "/" <|
+                            \b1 ->
+                                onboard b1 "Wanderling"
+                                    ++ [ b1.clickLink (minutes 6) "/market"
+                                       , b1.clickLink 100 "/listing/1"
+                                       , b1.click 100 (Dom.id "send-offer")
+                                       , connect "b2" "/" <|
+                                            \b2 ->
+                                                onboard b2 "Hollowfen"
+                                                    ++ [ b2.clickLink 100 "/market"
+                                                       , b2.clickLink 100 "/listing/1"
+                                                       , b2.click 100 (Dom.id "send-offer")
+                                                       , seller.click 300 (Dom.id "accept-2")
+                                                       , seller.checkView 300 (Query.hasNot [ Selector.id "accept-3" ])
+                                                       , seller.checkView 100 (hasTestId "trade-checklist-2")
+                                                       , seller.click 100 (Dom.id "close-listing")
+                                                       , seller.checkView 300 (byTestId "toast" >> seesText "You can't close this listing while a trade is pending.")
+                                                       , b2.checkView 100 (byTestId "trade-pending" >> seesText "A trade is pending")
+                                                       , b1.click 100 (Dom.id "trade-fell-through-2")
+                                                       , b1.click 100 (Dom.id "fell-through-submit")
+                                                       , b1.checkView 100 (byTestId "fell-through-error" >> seesText "Say what happened")
+                                                       , b1.input 100 (Dom.id "fell-through-reason") "They went offline"
+                                                       , b1.click 100 (Dom.id "fell-through-submit")
+                                                       , seller.checkView 300 (byTestId "listing-status" >> seesText "LIVE")
+                                                       , seller.checkView 100 (byTestId "offer-2" >> seesText "Fell through: They went offline")
+                                                       , b2.checkView 100 (lacksTestId "trade-pending")
+                                                       , b1.clickLink 100 "/trades"
+                                                       , b1.click 100 (Dom.id "trades-sent")
+                                                       , b1.checkView 100 (byTestId "trade-offer-2" >> seesText "Fell through")
+                                                       , seller.click 100 (Dom.id "accept-3")
+                                                       , seller.checkView 300 (hasTestId "trade-checklist-3")
+                                                       , b2.checkView 100 (byTestId "trade-checklist-3" >> seesText "Trade with Juno Trek in WalkScape")
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                case ( Dict.get 2 backend.offers |> Maybe.map .status, Dict.get 3 backend.offers |> Maybe.map .status ) of
+                                                                    ( Just (OfferFellThrough fell), Just OfferAccepted ) ->
+                                                                        if fell.by == "Wanderling" && fell.reason == "They went offline" then
+                                                                            Ok ()
+
+                                                                        else
+                                                                            Err "offer 2 should have fallen through by Wanderling"
+
+                                                                    _ ->
+                                                                        Err "offer 2 should have fallen through and offer 3 be accepted"
+                                                            )
+                                                       , Effect.Test.checkState 100
+                                                            (\data ->
+                                                                if List.member "trade_fell_through" (trackedEvents data) then
+                                                                    Ok ()
+
+                                                                else
+                                                                    Err "trade_fell_through should be tracked"
+                                                            )
+                                                       ]
                                        ]
                        ]
         ]

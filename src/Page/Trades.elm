@@ -50,7 +50,7 @@ view model =
                             orEmpty "You haven't posted anything yet." (List.filterMap (listingCard model) myListings)
                     )
                 , Html.p [ Attr.class "text-[13px] text-faint" ]
-                    [ Html.text "In the preview, accepting an offer just records that you'd trade. Once trading is live, it opens a trade room with locked terms and an in-game checklist." ]
+                    [ Html.text "Accepting an offer doesn't move anything. You still trade in WalkScape, and the listing shows what each of you puts in. Afterwards, you both say whether it went through." ]
                 ]
 
         _ ->
@@ -102,11 +102,15 @@ offerCard model received offer =
                         else
                             listing.trader
 
+                    -- The steps: offer made, accepted (trade pending), traded.
                     ( filled, color, status ) =
                         case offer.status of
                             OfferOpen ->
                                 if listing.closed then
                                     ( 0, "#6d7d85", "Listing closed" )
+
+                                else if Derived.tradePending model listing.id then
+                                    ( 1, "#6d7d85", "A trade is pending on this listing" )
 
                                 else if received then
                                     ( 1, "#e3b54c", "Your turn: accept or decline this offer" )
@@ -115,13 +119,45 @@ offerCard model received offer =
                                     ( 1, "#5aa2e6", "Offer sent · waiting for " ++ other )
 
                             OfferAccepted ->
-                                ( 2, "#57b34a", "Accepted · trade room opens when trading is live" )
+                                let
+                                    ( iConfirmed, theyConfirmed ) =
+                                        if received then
+                                            ( offer.listerConfirmed, offer.offererConfirmed )
+
+                                        else
+                                            ( offer.offererConfirmed, offer.listerConfirmed )
+                                in
+                                if iConfirmed then
+                                    ( 2, "#57b34a", "Waiting for " ++ other ++ " to confirm" )
+
+                                else if theyConfirmed then
+                                    ( 2, "#e3b54c", other ++ " says it went through · confirm it on the listing" )
+
+                                else
+                                    ( 2, "#57b34a", "Accepted · trade with " ++ other ++ " in WalkScape" )
+
+                            OfferCompleted _ ->
+                                ( 3, "#57b34a", "Traded with " ++ other )
+
+                            OfferFellThrough fell ->
+                                ( 3, "#c0453b", "Fell through: " ++ fell.reason )
 
                             OfferDeclined ->
                                 ( 3, "#c0453b", "Declined" )
 
                             OfferWithdrawn ->
                                 ( 0, "#6d7d85", "Withdrawn" )
+
+                    tag =
+                        case offer.status of
+                            OfferAccepted ->
+                                Ui.tradePendingTag
+
+                            OfferCompleted _ ->
+                                Ui.tradedTag
+
+                            _ ->
+                                Ui.empty
 
                     priceText =
                         case offer.price of
@@ -153,7 +189,10 @@ offerCard model received offer =
                             [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
                             , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text ("with " ++ other ++ priceText) ]
                             ]
-                        , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
+                        , Html.div [ Attr.class "flex flex-col items-end gap-1" ]
+                            [ tag
+                            , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
+                            ]
                         ]
                     , progress filled color
                     , Html.div [ Attr.class "text-[13px] font-semibold", Attr.style "color" color ] [ Html.text status ]
@@ -171,7 +210,13 @@ listingCard model listing =
                         Derived.offersFor model listing.id |> List.filter (\o -> o.status == OfferOpen) |> List.length
 
                     status =
-                        if listing.closed then
+                        if Derived.traded model listing.id then
+                            Html.span [ Attr.class "inline-flex items-center gap-2 text-leaf" ] [ Ui.tradedTag, Html.text "Traded" ]
+
+                        else if Derived.tradePending model listing.id then
+                            Html.span [ Attr.class "inline-flex items-center gap-2 text-gold" ] [ Ui.tradePendingTag, Html.text "Confirm on the listing once you've traded" ]
+
+                        else if listing.closed then
                             Html.span [ Attr.class "text-muted" ] [ Html.text "Closed" ]
 
                         else if not (Market.isLive model.now listing) then

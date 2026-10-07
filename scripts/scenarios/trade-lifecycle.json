@@ -1,0 +1,277 @@
+[
+ {
+  "ctx": "leader"
+ },
+ {
+  "goto": "/",
+  "delay": 8000
+ },
+ {
+  "ctx": "Juno Trek"
+ },
+ {
+  "goto": "/signin",
+  "delay": 4000
+ },
+ {
+  "click": "#signin-preview",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Juno Trek"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "click": "a[href='/market']",
+  "delay": 1500
+ },
+ {
+  "click": "a[href='/new']",
+  "delay": 1200
+ },
+ {
+  "type": [
+   "#item-search",
+   "shovel axe"
+  ]
+ },
+ {
+  "click": "#item-pick-shovel_axe"
+ },
+ {
+  "type": [
+   "#quantity",
+   "1"
+  ]
+ },
+ {
+  "type": [
+   "#price",
+   "9800"
+  ]
+ },
+ {
+  "click": "#post-listing",
+  "delay": 1500
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "goto": "/signin",
+  "delay": 4000
+ },
+ {
+  "click": "#signin-preview",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Wanderling"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "goto": "/signin",
+  "delay": 4000
+ },
+ {
+  "click": "#signin-preview",
+  "delay": 1500
+ },
+ {
+  "type": [
+   "#claim-name",
+   "Hollowfen"
+  ]
+ },
+ {
+  "click": "#claim-submit",
+  "delay": 1500
+ },
+ {
+  "wait": 330000
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "click": "a[href='/market']",
+  "delay": 2000
+ },
+ {
+  "click": "a[href='/listing/1']",
+  "delay": 1500
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1500
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "click": "a[href='/market']",
+  "delay": 2000
+ },
+ {
+  "click": "a[href='/listing/1']",
+  "delay": 1500
+ },
+ {
+  "click": "#send-offer",
+  "delay": 1500
+ },
+ {
+  "ctx": "Juno Trek"
+ },
+ {
+  "click": "a[href='/market']",
+  "delay": 1500
+ },
+ {
+  "click": "a[href='/listing/1']",
+  "delay": 1500
+ },
+ {
+  "click": "#accept-2",
+  "delay": 1500
+ },
+ {
+  "shot": "pr1-lister-pending",
+  "full": true
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "pr1-other-buyer-pending",
+  "full": true
+ },
+ {
+  "ctx": "Juno Trek"
+ },
+ {
+  "click": "#trade-confirm-2",
+  "delay": 1500
+ },
+ {
+  "shot": "pr1-lister-waiting",
+  "full": true
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "pr1-buyer-asked-to-confirm",
+  "full": true
+ },
+ {
+  "click": "#trade-fell-through-2",
+  "delay": 800
+ },
+ {
+  "type": [
+   "#fell-through-reason",
+   "They went offline"
+  ]
+ },
+ {
+  "shot": "pr1-fell-through-form",
+  "full": true
+ },
+ {
+  "click": "#fell-through-submit",
+  "delay": 1500
+ },
+ {
+  "shot": "pr1-after-fell-through",
+  "full": true
+ },
+ {
+  "ctx": "Juno Trek"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "click": "#accept-3",
+  "delay": 1500
+ },
+ {
+  "click": "#trade-confirm-3",
+  "delay": 1500
+ },
+ {
+  "ctx": "Hollowfen"
+ },
+ {
+  "click": "#trade-confirm-3",
+  "delay": 1500
+ },
+ {
+  "shot": "pr1-traded",
+  "full": true
+ },
+ {
+  "click": "a[href='/trades']",
+  "delay": 1500
+ },
+ {
+  "click": "#trades-sent",
+  "delay": 800
+ },
+ {
+  "shot": "pr1-trades-sent",
+  "full": true
+ },
+ {
+  "ctx": "Wanderling"
+ },
+ {
+  "click": "a[href='/trades']",
+  "delay": 1500
+ },
+ {
+  "click": "#trades-sent",
+  "delay": 800
+ },
+ {
+  "shot": "pr1-trades-fell-through",
+  "full": true
+ },
+ {
+  "ctx": "Juno Trek"
+ },
+ {
+  "click": "a[href='/trades']",
+  "delay": 1500
+ },
+ {
+  "click": "#trades-listings",
+  "delay": 800
+ },
+ {
+  "shot": "pr1-my-listings",
+  "full": true
+ }
+]

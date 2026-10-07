@@ -1,13 +1,8 @@
 # Trailpost — To-Do
 
-Things the preview leaves for later. The original starter checklist is done
-(see git history).
+The backlog. The original starter checklist is done (see git history).
 
 ## Needs input from Elliot
-
-- **Discord credentials in production.** Set `discordClientId` /
-  `discordClientSecret` in Lamdera's env vars and add the production callback
-  URL in the Discord Developer Portal.
 
 - **Discord sign-in on PR previews.** Each PR deploys to
   `trailpost-pr-<N>.lamdera.app` (`.github/workflows/preview.yml`), and Discord
@@ -19,16 +14,66 @@ Things the preview leaves for later. The original starter checklist is done
   per-app `discordClientId`/`discordClientSecret` values in the Lamdera
   dashboard ("MISSING PRODUCTION CONFIG" is what killed the starter's previews).
 
-## When trading goes live
+## Live trading
 
-- TrailpostBot verification: bring back a claim step where the player offers a
-  random coin amount to the bot, add a verified `ClaimStatus`, and let a
-  verified owner take a name over from a squatter.
-- WalkScape API lookups on the claim step and profiles.
-- Trade rooms (design 1d/1e): locked terms, in-game checklist, both-confirm,
-  chat. Accepted offers are the natural entry point.
-- Estimates from confirmed trades instead of asks/offers; half weight for new names.
-- Escrow (design 1m), screenshot uploads on reports, Discord linking for
+Trading went live in WalkScape on 2026-10-07. How it works in the game:
+Social → Find (or Leaderboards) → a character → **Invite to trade**. Once the
+other person accepts the invite, each side puts in coins and items, presses
+**Update** to send their changes (Accept is greyed out while you have unsent
+edits), and then both press **Accept**. The swap happens all at once and shows
+up under "Previous trades" as Completed or Rejected. There's no in-game market
+or price history. The official Discord has a "Grand Emporium" forum where the
+Helpful Herbert bot posts listings and people use `/offer`. Lots of those trades
+are item-for-item.
+
+Because the game swaps both sides at once, nobody can just take coins and run.
+The scams that are left all come down to accepting the wrong window:
+
+- **Last-minute swap:** the other side changes their offer just before you accept.
+  An Update resets Accept, so this only catches people who accept again
+  without re-reading.
+- **Fine vs. normal:** the only difference in the trade window is the text
+  color. Fine items are teal, normal items are white.
+- **Coin digits:** the other side's coins aren't formatted (`37500`), so `3750`
+  is easy to misread.
+- **Look-alike names** when inviting (Bel / Bell / Belkanis). Character names
+  are unique and case-insensitive.
+
+### Phase 1: wording and the trade checklist (done)
+Preview wording is gone, and accepted offers show both traders a checklist on
+the listing page.
+
+### Phase 2: real trades (done)
+- Offers are all-or-nothing: always for the listing's full quantity.
+- Accepting an offer reserves the listing ("trade pending", worked out from the
+  offers): it leaves the market list, takes no new offers, can't accept a
+  second offer or be closed. Other open offers stay open as a fallback.
+- Both sides confirm "It went through" (`OfferCompleted`, which closes the
+  listing), or either side marks it "Fell through" with a reason
+  (`OfferFellThrough`, final), which puts the listing back up straight away.
+- No listing expiry yet. Maybe later: listings expire after N days, with a
+  "Still available?" bump.
+
+### Phase 3: trust (no verification yet)
+- Completed-trade count on profiles ("12 trades · 0 fell through").
+- Show the Discord account's age next to the handle.
+- A "Didn't match what we agreed" report reason tied to a trade, with
+  screenshot uploads (the in-game "Previous trades" screen is good evidence).
+- Name verification is less urgent now that trades swap both sides at once.
+  Ideas: the coin-to-bot flow from #15 (recover from `885e9d5`), checked by hand
+  in `/admin` instead of by a bot; or Helpful Herbert already knows each
+  Discord user's game name (its listings show "Seller: Noggg" for @Nogisto), so
+  ask the WalkScape devs whether that link is exposed anywhere.
+
+### Phase 4: data and notifications
+- Estimates from completed trades first, then asks and bids.
+- Notifications when an offer gets a response (Discord DM from a bot, or browser
+  push). People are out walking, not watching the site.
+- Item-for-item payment (`Payment` already has room for it). Coin-only
+  estimates would ignore these.
+
+### Later
+- Chat on an accepted trade, escrow (design 1m), Discord linking for
   non-Discord sign-ins.
 
 ## Preview polish

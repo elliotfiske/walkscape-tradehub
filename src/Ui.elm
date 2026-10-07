@@ -36,6 +36,8 @@ module Ui exposing
     , textArea
     , textInput
     , timeAgo
+    , tradePendingTag
+    , tradedTag
     , unverifiedTag
     , valueMeter
     , variantTag
@@ -300,7 +302,7 @@ unverifiedTag : Html msg
 unverifiedTag =
     Html.span
         [ Attr.class "font-bold text-[10px] tracking-widest text-gold border border-gold/40 rounded px-1.5 py-0.5"
-        , Attr.title "Verification isn't live yet, so nobody has proved they own this WalkScape name."
+        , Attr.title "Trailpost can't verify names yet, so nobody has proved they own this WalkScape name."
         ]
         [ Html.text "UNVERIFIED" ]
 
@@ -312,6 +314,22 @@ bannedTag =
         , testId "banned-tag"
         ]
         [ Html.text "BANNED" ]
+
+
+{-| On a listing or offer whose trade was accepted but not resolved yet.
+-}
+tradePendingTag : Html msg
+tradePendingTag =
+    Html.span [ Attr.class "font-bold text-[10px] tracking-widest text-gold border border-gold/40 rounded px-1.5 py-0.5 whitespace-nowrap" ]
+        [ Html.text "TRADE PENDING" ]
+
+
+{-| On a listing or offer whose trade both sides confirmed.
+-}
+tradedTag : Html msg
+tradedTag =
+    Html.span [ Attr.class "font-bold text-[10px] tracking-widest text-leaf border border-leaf/50 rounded px-1.5 py-0.5 whitespace-nowrap" ]
+        [ Html.text "TRADED" ]
 
 
 card : List (Html.Attribute msg) -> List (Html msg) -> Html msg

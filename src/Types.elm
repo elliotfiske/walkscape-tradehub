@@ -10,6 +10,8 @@ module Types exposing
     , Ban
     , Claim
     , ClaimStatus(..)
+    , FellThrough
+    , FellThroughForm
     , FrontendModel
     , FrontendMsg(..)
     , InitialData
@@ -56,8 +58,8 @@ type Provider
 
 
 type ClaimStatus
-    = -- Trading isn't live yet, so nobody can actually verify a name. Every
-      -- claim is shown as unverified.
+    = -- There's no way to verify a name yet, so every claim is shown as
+      -- unverified.
       PreviewUnverified
 
 
@@ -125,14 +127,31 @@ type alias Listing =
     }
 
 
+{-| An accepted offer is a pending trade until both traders confirm it went
+through (`OfferCompleted`, when the second one confirmed) or either one says it
+fell through.
+-}
 type OfferStatus
     = OfferOpen
     | OfferAccepted
     | OfferDeclined
     | OfferWithdrawn
+    | OfferCompleted Time.Posix
+    | OfferFellThrough FellThrough
+
+
+{-| Who said a trade fell through, when, and why.
+-}
+type alias FellThrough =
+    { by : String
+    , at : Time.Posix
+    , reason : String
+    }
 
 
 {-| Interest in a listing. `price` is coins each; `Nothing` means "at your price".
+`listerConfirmed` and `offererConfirmed` say which side has confirmed an
+accepted offer's trade went through.
 -}
 type alias Offer =
     { id : Int
@@ -142,6 +161,8 @@ type alias Offer =
     , message : String
     , at : Time.Posix
     , status : OfferStatus
+    , listerConfirmed : Bool
+    , offererConfirmed : Bool
     }
 
 
@@ -289,6 +310,15 @@ type alias OfferForm =
     }
 
 
+{-| The "It fell through" form, open for one offer at a time.
+-}
+type alias FellThroughForm =
+    { offerId : Int
+    , reason : String
+    , error : Maybe String
+    }
+
+
 type alias ReportForm =
     { about : String
     , reasons : List String
@@ -314,6 +344,7 @@ type alias FrontendModel =
     , claimError : Maybe String
     , listingForm : ListingForm
     , offerForm : OfferForm
+    , fellThroughForm : Maybe FellThroughForm
     , reportForm : ReportForm
     , previewSignInFor : Maybe Provider
     , toast : Maybe String
@@ -361,6 +392,11 @@ type FrontendMsg
     | OfferSubmitted Int
     | WithdrawOfferClicked Int
     | RespondToOfferClicked Int Bool
+    | TradeConfirmClicked Int
+    | FellThroughClicked Int
+    | FellThroughReasonChanged String
+    | FellThroughSubmitted
+    | FellThroughCancelled
     | ReportReasonToggled String
     | ReportDetailsChanged String
     | ReportSubmitted
@@ -442,6 +478,8 @@ type ToBackend
     | MakeOffer Int (Maybe Int) String
     | WithdrawOffer Int
     | RespondToOffer Int Bool
+    | ConfirmTrade Int
+    | MarkFellThrough Int String
     | SubmitReport String (List String) String
     | AdminLoad
     | AdminRequest AdminAction

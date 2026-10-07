@@ -17,9 +17,9 @@ view model =
             [ Html.div []
                 [ Html.div [ Attr.class "font-bold text-[11px] tracking-[0.16em] text-gold mb-4" ] [ Html.text "A FAN-MADE MARKET FOR WALKSCAPE" ]
                 , Html.h1 [ Attr.class "font-display font-extrabold text-[38px] md:text-[60px] leading-[1.02] tracking-tight mb-5" ]
-                    [ Html.text "Know the fair price", Html.br [] [], Html.text "before trading opens." ]
+                    [ Html.text "Know the fair price", Html.br [] [], Html.text "before you trade." ]
                 , Html.p [ Attr.class "text-body text-lg leading-relaxed max-w-lg mb-7" ]
-                    [ Html.text "Post what you'd sell or buy, and make offers on other people's listings. Nothing changes hands yet, but every price goes into an estimate anyone can check." ]
+                    [ Html.text "Post what you'd sell or buy, make offers on other people's listings, then trade in WalkScape. Every price goes into an estimate anyone can check." ]
                 , Html.div [ Attr.class "flex flex-col sm:flex-row gap-3" ]
                     (if model.me == Nothing then
                         [ Html.a [ Attr.href "/signin", Attr.id "hero-signin", Ui.buttonStyle Ui.Primary Ui.Large ] [ Html.text "Sign in to post" ]
@@ -38,7 +38,7 @@ view model =
             , featuredCard model
             ]
         , Html.section [ Attr.class "grid sm:grid-cols-2 lg:grid-cols-4 gap-7 px-4 md:px-[72px] py-10 border-b border-line" ]
-            [ feature "Why post if nothing trades?" "Every listing and offer is a vote in an item's price. More votes means a better guess for everyone. Listings reset when trading launches, but your account and name stay."
+            [ feature "Find someone to trade with" "Post a listing and take offers. When you accept one, Trailpost shows you both exactly what goes in the trade window, and what to check before you press Accept."
             , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of everyone's prices, one vote per trader per day, with outliers cut."
             , feature "Safe to try" "Discord only shares your username with Trailpost, and nothing here touches your WalkScape account."
             , feature "No pressure tactics" "No countdowns anywhere. New listings wait 5 minutes before going live, so no deal appears and disappears before you can check it."
@@ -47,22 +47,22 @@ view model =
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]
             , Html.div [ Attr.class "grid md:grid-cols-3 gap-6" ]
                 [ startStep 1 "Sign in" "With Discord."
-                , startStep 2 "Claim your name" "Type the name you play under. Names are first-come for now. If someone else grabbed yours, you can verify it once trading opens and it moves to you."
-                , startStep 3 "Post and offer" "List what you'd sell or buy, and make offers on other people's listings."
+                , startStep 2 "Claim your name" "Type the name you play under. Names are first-come for now. If someone else grabbed yours, tell me in the feedback thread."
+                , startStep 3 "Post, offer, trade" "List what you'd sell or buy, make offers, then do the trade in WalkScape."
                 ]
             ]
         , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line", Ui.testId "about" ]
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-4" ] [ Html.text "Who made this" ]
             , Html.div [ Attr.class "flex flex-col gap-3 text-body leading-relaxed max-w-2xl" ]
-                [ Html.p [] [ Html.text "I'm Elliot, a WalkScape player. I built this so we'd have prices figured out before trading opens." ]
+                [ Html.p [] [ Html.text "I'm Elliot, a WalkScape player. I built this so there's one place to find trades and check what things are worth." ]
                 , Html.p []
-                    [ Html.text "It's a preview, so I'm still working out how it should work. If something's confusing or missing, tell me in the "
+                    [ Html.text "It's new, so I'm still working out how it should work. If something's confusing or missing, tell me in the "
                     , Html.a [ Attr.href Ui.feedbackThreadUrl, Attr.target "_blank", Attr.rel "noopener" ] [ Html.text "Trailpost thread on the WalkScape Discord" ]
                     , Html.text "."
                     ]
                 , Html.p []
                     [ Html.b [ Attr.class "text-ink" ] [ Html.text "Moderation: " ]
-                    , Html.text "Nothing trades here yet, so there isn't much to moderate. The only problem I can think of is offensive names, and verification fixes that once trading opens. For real trades I'm weighing a few options: reviewing reports myself (slow, but I know the context), recruiting community volunteers as moderators (faster, but more people to trust), or no reports at all and just showing each trader's history (no ban hammer, but new players look sketchy). If you have opinions, the thread's the place."
+                    , Html.text "WalkScape's trade window swaps both sides at once, so nobody can take your coins and run. The tricks left are changing their side right before you accept, and look-alike names. For reports I'm weighing a few options: reviewing them myself (slow, but I know the context), recruiting community volunteers as moderators (faster, but more people to trust), or no reports at all and just showing each trader's history (no ban hammer, but new players look sketchy). If you have opinions, the thread's the place."
                     ]
                 ]
             ]
@@ -110,7 +110,7 @@ featuredCard model =
                         , Html.div [ Attr.class "text-right" ]
                             [ Html.div [ Attr.class "flex items-center gap-2 justify-end" ]
                                 [ Ui.coin "w-5 h-5", Html.span [ Attr.class "font-bold text-2xl text-gold" ] [ Html.text (Ui.formatInt estimate.median) ] ]
-                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "preview estimate" ]
+                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "estimate" ]
                             ]
                         ]
                     , Html.div [ Attr.class "my-5" ] [ Chart.sparkline points ]

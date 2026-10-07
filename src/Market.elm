@@ -1,13 +1,21 @@
 module Market exposing
     ( activeListingCount
+    , checkAccept
+    , checkClose
+    , checkNewOffer
+    , confirmTrade
     , describe
     , isLive
     , item
+    , markFellThrough
     , maxActiveListings
     , openOfferFrom
     , parseCoins
     , parsePrice
     , pricePoints
+    , tradePending
+    , tradeTerms
+    , wasAccepted
     , unitPrice
     , validateDraft
     , validateOffer
@@ -93,6 +101,32 @@ unitPrice listing =
             Just price
 
 
+{-| What changes hands if `offer` on `listing` is traded: who hands over the
+items, who pays, and the total coins (the offer's price each, or the listed
+price for an offer "at your price").
+-}
+tradeTerms : Listing -> Offer -> { seller : String, buyer : String, coins : Int }
+tradeTerms listing offer =
+    let
+        each =
+            case ( offer.price, listing.payment ) of
+                ( Just price, _ ) ->
+                    price
+
+                ( Nothing, Coins price ) ->
+                    price
+
+        coins =
+            each * listing.quantity
+    in
+    case listing.side of
+        Selling ->
+            { seller = listing.trader, buyer = offer.from, coins = coins }
+
+        Buying ->
+            { seller = offer.from, buyer = listing.trader, coins = coins }
+
+
 {-| `trader`'s open offer on a listing, if they have one. A trader has at
 most one; making another offer updates it.
 -}
@@ -101,6 +135,116 @@ openOfferFrom trader listingId offers =
     offers
         |> List.filter (\o -> o.listingId == listingId && o.from == trader && o.status == OfferOpen)
         |> List.head
+
+
+
+-- TRADES
+
+
+{-| Accepted at some point: pending, completed or fell through.
+-}
+wasAccepted : OfferStatus -> Bool
+wasAccepted status =
+    case status of
+        OfferAccepted ->
+            True
+
+        OfferCompleted _ ->
+            True
+
+        OfferFellThrough _ ->
+            True
+
+        _ ->
+            False
+
+
+{-| An accepted offer on the listing that nobody has resolved yet. While there
+is one, the listing is reserved for that trade.
+-}
+tradePending : Int -> List Offer -> Bool
+tradePending listingId offers =
+    List.any (\o -> o.listingId == listingId && o.status == OfferAccepted) offers
+
+
+whenNoTradePending : String -> Listing -> List Offer -> Result String ()
+whenNoTradePending err listing offers =
+    if tradePending listing.id offers then
+        Err err
+
+    else
+        Ok ()
+
+
+checkAccept : Listing -> List Offer -> Result String ()
+checkAccept =
+    whenNoTradePending "Finish the pending trade on this listing before you accept another offer."
+
+
+checkNewOffer : Listing -> List Offer -> Result String ()
+checkNewOffer =
+    whenNoTradePending "A trade is pending on this listing, so it isn't taking offers right now."
+
+
+checkClose : Listing -> List Offer -> Result String ()
+checkClose =
+    whenNoTradePending "You can't close this listing while a trade is pending. Mark the trade as gone through or fallen through first."
+
+
+{-| A pending trade that `trader` is one side of.
+-}
+pendingTradeFor : String -> Listing -> Offer -> Result String Offer
+pendingTradeFor trader listing offer =
+    if trader /= listing.trader && trader /= offer.from then
+        Err "Only the two traders can do that."
+
+    else if offer.status /= OfferAccepted then
+        Err "That trade isn't pending."
+
+    else
+        Ok offer
+
+
+{-| `trader` says the trade went through. Once both sides have, it's completed.
+-}
+confirmTrade : String -> Time.Posix -> Listing -> Offer -> Result String Offer
+confirmTrade trader now listing offer =
+    pendingTradeFor trader listing offer
+        |> Result.map
+            (\o ->
+                let
+                    confirmed =
+                        if trader == listing.trader then
+                            { o | listerConfirmed = True }
+
+                        else
+                            { o | offererConfirmed = True }
+                in
+                if confirmed.listerConfirmed && confirmed.offererConfirmed then
+                    { confirmed | status = OfferCompleted now }
+
+                else
+                    confirmed
+            )
+
+
+{-| `trader` says the trade fell through. Either side can, and it's final.
+-}
+markFellThrough : String -> String -> Time.Posix -> Listing -> Offer -> Result String Offer
+markFellThrough trader reason now listing offer =
+    pendingTradeFor trader listing offer
+        |> Result.andThen
+            (\o ->
+                checkText "reason" reason
+                    |> Result.andThen
+                        (\trimmed ->
+                            if String.isEmpty trimmed then
+                                Err "Say what happened, in a few words."
+
+                            else
+                                Ok { o | status = OfferFellThrough { by = trader, at = now, reason = trimmed } }
+                        )
+            )
 
 
 

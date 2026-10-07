@@ -77,8 +77,8 @@ view model name =
                         form.details
                         ReportDetailsChanged
                     ]
-                , Html.div [ Attr.class "hatch rounded-xl border border-dashed border-rule p-6 text-center font-mono text-xs text-muted" ]
-                    [ Html.text "screenshot uploads arrive with trading" ]
+                , Html.p [ Attr.class "text-[13px] text-faint" ]
+                    [ Html.text "You can't upload screenshots yet. If it was a trade, keep a screenshot of it from Trades → Previous trades in WalkScape in case I ask." ]
                 , Html.div [ Attr.class "rounded-xl border border-edge bg-card p-4 flex flex-col gap-2 text-sm text-body" ]
                     [ Ui.sectionLabel "What happens next"
                     , Html.p [] [ Html.text "I read every report. If someone's breaking the rules, I can take their listings down or ban them." ]

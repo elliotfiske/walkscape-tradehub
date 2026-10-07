@@ -10,10 +10,11 @@ module Pricing exposing
     , warnPercent
     )
 
-{-| Preview price estimates.
+{-| Price estimates.
 
-Trading isn't live yet, so there are no confirmed trades to take a median of.
-Instead each estimate comes from the coin prices people post: asking prices on
+Trades happen in WalkScape, where Trailpost can't see them, so there are no
+confirmed trade prices to take a median of. Instead each estimate comes from
+the coin prices people post: asking prices on
 sell listings, bids on buy listings, and offers made on listings.
 
 The rules follow the design's "How this price is made" panel:

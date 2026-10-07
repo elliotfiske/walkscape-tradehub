@@ -771,6 +771,10 @@ a:hover {
   margin-right: 0.25rem;
 }
 
+.mt-0\.5 {
+  margin-top: 0.125rem;
+}
+
 .mt-1 {
   margin-top: 0.25rem;
 }
@@ -1096,6 +1100,10 @@ a:hover {
   grid-template-columns: 110px 1fr;
 }
 
+.grid-cols-\[88px_1fr\] {
+  grid-template-columns: 88px 1fr;
+}
+
 .grid-cols-\[minmax\(0\2c 2\.2fr\)_0\.8fr_1\.6fr_1fr_1\.7fr_0\.7fr\] {
   grid-template-columns: minmax(0,2.2fr) 0.8fr 1.6fr 1fr 1.7fr 0.7fr;
 }
@@ -1122,6 +1130,10 @@ a:hover {
 
 .items-start {
   align-items: flex-start;
+}
+
+.items-end {
+  align-items: flex-end;
 }
 
 .items-center {
@@ -1391,6 +1403,11 @@ a:hover {
 
 .border-white\/10 {
   border-color: rgb(255 255 255 / 0.1);
+}
+
+.bg-\[\#0b1611\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(11 22 17 / var(--tw-bg-opacity, 1));
 }
 
 .bg-\[\#0f1d17\] {
@@ -1728,6 +1745,10 @@ a:hover {
   padding-top: 0.25rem;
 }
 
+.pt-3 {
+  padding-top: 0.75rem;
+}
+
 .pt-4 {
   padding-top: 1rem;
 }
@@ -1750,6 +1771,10 @@ a:hover {
 
 .align-middle {
   vertical-align: middle;
+}
+
+.align-\[-2px\] {
+  vertical-align: -2px;
 }
 
 .font-display {
@@ -2098,10 +2123,6 @@ a:hover {
 .placeholder\:text-faint::placeholder {
   --tw-text-opacity: 1;
   color: rgb(109 125 133 / var(--tw-text-opacity, 1));
-}
-
-.last\:border-b-0:last-child {
-  border-bottom-width: 0px;
 }
 
 .hover\:bg-\[\#1a2a24\]:hover {

@@ -31,6 +31,10 @@ type Event
     | ListingCreateFailed
     | ListingClosed
     | OfferSubmitted
+    | OfferAccepted
+    | TradeConfirmed
+    | TradeCompleted
+    | TradeFellThrough
     | ReportSubmitted
 
 
@@ -80,6 +84,18 @@ name event =
 
         OfferSubmitted ->
             "offer_submitted"
+
+        OfferAccepted ->
+            "offer_accepted"
+
+        TradeConfirmed ->
+            "trade_confirmed"
+
+        TradeCompleted ->
+            "trade_completed"
+
+        TradeFellThrough ->
+            "trade_fell_through"
 
         ReportSubmitted ->
             "report_submitted"

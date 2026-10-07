@@ -141,7 +141,7 @@ viewItem model itemId requested =
                     , case est of
                         Just e ->
                             Html.div [ Attr.class "grid grid-cols-2 md:grid-cols-4 gap-2.5", Ui.testId "price-stats" ]
-                                [ tile "Preview estimate" (Ui.formatInt e.median) "median of counted prices" "text-gold"
+                                [ tile "Estimate" (Ui.formatInt e.median) "median of counted prices" "text-gold"
                                 , tile "Typical range" (Ui.formatInt e.low ++ "–" ++ Ui.formatInt e.high) "middle 50% of prices" "text-ink"
                                 , tile "Prices counted" (String.fromInt e.counted) ("from " ++ String.fromInt e.traders ++ " unique traders") "text-ink"
                                 , tile "Excluded" (String.fromInt e.excluded) "outliers + same-day repeats" "text-warn"

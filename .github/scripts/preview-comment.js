@@ -21,7 +21,7 @@ module.exports = async ({ github, context }) => {
   } else if (env.SHOTS_RESULT === 'success' && env.SHOTS_COMMIT) {
     const base = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/blob/${env.SHOTS_COMMIT}/pr-${pr.number}/${sha}`;
     const files = env.SHOTS_FILES.split(',').filter(Boolean);
-    lines.push('<details open><summary>Screenshots (local <code>lamdera live</code>)</summary>', '');
+    lines.push('<details><summary>Screenshots (local <code>lamdera live</code>)</summary>', '');
     for (const f of files) lines.push(`**${f.replace(/\.png$/, '')}**`, '', `<img src="${base}/${f}?raw=true" width="400">`, '');
     lines.push('</details>');
   } else {
