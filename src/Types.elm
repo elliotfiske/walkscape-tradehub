@@ -15,6 +15,7 @@ module Types exposing
     , FrontendModel
     , FrontendMsg(..)
     , InitialData
+    , ItemLine
     , Listing
     , ListingDraft
     , ListingForm
@@ -23,9 +24,12 @@ module Types exposing
     , MarketTab(..)
     , Me
     , Offer
+    , OfferDraft
     , OfferForm
+    , OfferLineForm
     , OfferStatus(..)
     , Payment(..)
+    , PaymentChoice(..)
     , Provider(..)
     , Report
     , ReportDraft
@@ -112,8 +116,23 @@ type Side
     | Buying
 
 
+{-| What the side paying for the items will take: coins each, items only (the
+offers say which), or either, with an optional coin price each.
+-}
 type Payment
     = Coins Int
+    | ItemsOnly
+    | CoinsOrItems (Maybe Int)
+
+
+{-| One item in an item-for-item offer. `quantity` is the total for the whole
+trade, not per unit of the listing.
+-}
+type alias ItemLine =
+    { itemId : String
+    , variant : Item.Variant
+    , quantity : Int
+    }
 
 
 type alias Listing =
@@ -153,8 +172,9 @@ type alias FellThrough =
     }
 
 
-{-| Interest in a listing. `price` is coins each; `Nothing` means "at your price".
-`listerConfirmed` and `offererConfirmed` say which side has confirmed an
+{-| Interest in a listing. `price` is coins each, and `items` are paid on top
+(see `Market.offerCoinsEach`): with no items, a `Nothing` price means "at your
+price"; with items, it means no coins. `listerConfirmed` and `offererConfirmed` say which side has confirmed an
 accepted offer's trade went through.
 -}
 type alias Offer =
@@ -162,11 +182,21 @@ type alias Offer =
     , listingId : Int
     , from : String
     , price : Maybe Int
+    , items : List ItemLine
     , message : String
     , at : Time.Posix
     , status : OfferStatus
     , listerConfirmed : Bool
     , offererConfirmed : Bool
+    }
+
+
+{-| An offer as the frontend sends it (see `Market.validateOffer`).
+-}
+type alias OfferDraft =
+    { price : Maybe Int
+    , items : List ItemLine
+    , message : String
     }
 
 
@@ -321,6 +351,7 @@ type alias ListingForm =
     , rare : Bool
     , side : Side
     , quantity : String
+    , paymentChoice : PaymentChoice
     , price : String
     , note : String
     , error : Maybe String
@@ -328,11 +359,29 @@ type alias ListingForm =
     }
 
 
+type PaymentChoice
+    = PayCoins
+    | PayItems
+    | PayEither
+
+
+{-| `counter` is off for "at their price". `itemQuery` is the search for
+adding another item line.
+-}
 type alias OfferForm =
     { counter : Bool
     , price : String
+    , items : List OfferLineForm
+    , itemQuery : String
     , message : String
     , error : Maybe String
+    }
+
+
+type alias OfferLineForm =
+    { itemId : String
+    , variant : Item.Variant
+    , quantity : String
     }
 
 
@@ -413,6 +462,7 @@ type FrontendMsg
     | ListingRareToggled Bool
     | ListingSidePicked Side
     | ListingQuantityChanged String
+    | ListingPaymentPicked PaymentChoice
     | ListingPriceChanged String
     | ListingNoteChanged String
     | ListingSubmitted
@@ -420,6 +470,11 @@ type FrontendMsg
     | OfferCounterToggled Bool
     | OfferPriceChanged String
     | OfferMessageChanged String
+    | OfferItemQueryChanged String
+    | OfferItemPicked String
+    | OfferLineQuantityChanged Int String
+    | OfferLineVariantPicked Int Item.Variant
+    | OfferLineRemoved Int
     | OfferSubmitted Int
     | WithdrawOfferClicked Int
     | RespondToOfferClicked Int Bool
@@ -514,7 +569,7 @@ type ToBackend
     | DismissTimersNotice
     | CreateListing ListingDraft
     | CloseListing Int
-    | MakeOffer Int (Maybe Int) String
+    | MakeOffer Int OfferDraft
     | WithdrawOffer Int
     | RespondToOffer Int Bool
     | ConfirmTrade Int

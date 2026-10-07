@@ -331,26 +331,135 @@ suite =
         , describe "Market.validateOffer"
             [ test "checks the price and trims the message" <|
                 \_ ->
-                    [ Market.validateOffer (Just 0) "hi"
-                    , Market.validateOffer Nothing "  hi  "
+                    [ Market.validateOffer selling { coinOffer | price = Just 0 }
+                    , Market.validateOffer selling { coinOffer | message = "  hi  " }
                     ]
                         |> Expect.equal
                             [ Err "Enter a price above zero."
-                            , Ok { price = Nothing, message = "hi" }
+                            , Ok { coinOffer | message = "hi" }
                             ]
+            , test "a coin listing only takes coins" <|
+                \_ ->
+                    Market.validateOffer selling { coinOffer | items = [ line "coal" 2 ] }
+                        |> Expect.equal (Err "This listing only takes coins.")
+            , test "an items-only listing takes item lines and no coins" <|
+                \_ ->
+                    [ Market.validateOffer itemsOnly { coinOffer | items = [ line "coal" 2 ] }
+                    , Market.validateOffer itemsOnly { coinOffer | price = Just 500, items = [ line "coal" 2 ] }
+                    , Market.validateOffer itemsOnly coinOffer
+                    ]
+                        |> Expect.equal
+                            [ Ok { coinOffer | items = [ line "coal" 2 ] }
+                            , Err "This listing only takes items."
+                            , Err "Add at least one item."
+                            ]
+            , test "a coins-or-items listing with no price needs coins, items or both" <|
+                \_ ->
+                    [ Market.validateOffer either coinOffer
+                    , Market.validateOffer either { coinOffer | price = Just 500 }
+                    , Market.validateOffer either { coinOffer | price = Just 500, items = [ line "coal" 2 ] }
+                    ]
+                        |> Expect.equal
+                            [ Err "Add coins, items or both."
+                            , Ok { coinOffer | price = Just 500 }
+                            , Ok { coinOffer | price = Just 500, items = [ line "coal" 2 ] }
+                            ]
+            , test "checks each item line like a listing, and allows at most 5" <|
+                \_ ->
+                    [ [ line "not_an_item" 1 ]
+                    , [ { itemId = "shovel_axe", variant = { fine = False, rare = False, quality = Just Item.Good }, quantity = 1 } ]
+                    , [ line "coal" 0 ]
+                    , List.repeat 6 (line "coal" 1)
+                    ]
+                        |> List.map (\items -> Market.validateOffer itemsOnly { coinOffer | items = items })
+                        |> Expect.equal
+                            [ Err "Pick an item from the list."
+                            , Err "Shovel axe doesn't come in that version."
+                            , Err "Enter a quantity above zero for Coal."
+                            , Err "Offer at most 5 items."
+                            ]
+            ]
+        , describe "Market.validateDraft payment"
+            [ test "items only and coins or items need no price, but a price given must be valid" <|
+                \_ ->
+                    [ ItemsOnly, CoinsOrItems Nothing, CoinsOrItems (Just 0), CoinsOrItems (Just 900) ]
+                        |> List.map (\payment -> Market.validateDraft { draft | payment = payment } |> Result.map .payment)
+                        |> Expect.equal [ Ok ItemsOnly, Ok (CoinsOrItems Nothing), Err "Enter a price above zero.", Ok (CoinsOrItems (Just 900)) ]
+            , test "the listing form maps the payment choice and only reads the price when it's needed" <|
+                \_ ->
+                    [ { form | itemId = Just "coal", paymentChoice = Types.PayItems, price = "junk" }
+                    , { form | itemId = Just "coal", paymentChoice = Types.PayEither, price = "" }
+                    , { form | itemId = Just "coal", paymentChoice = Types.PayEither, price = "1.5k" }
+                    , { form | itemId = Just "coal", paymentChoice = Types.PayEither, price = "junk" }
+                    ]
+                        |> List.map (Page.NewListing.toDraft >> Result.map .payment)
+                        |> Expect.equal
+                            [ Ok ItemsOnly
+                            , Ok (CoinsOrItems Nothing)
+                            , Ok (CoinsOrItems (Just 1500))
+                            , Err "Enter a price in coins, like 1200 or 1.2k."
+                            ]
+            ]
+        , describe "Market.sortByPrice"
+            [ test "listings with no coin price sort last both ways" <|
+                \_ ->
+                    let
+                        listings =
+                            [ { selling | id = 1, payment = ItemsOnly }
+                            , { selling | id = 2, payment = Coins 300 }
+                            , { selling | id = 3, payment = CoinsOrItems Nothing }
+                            , { selling | id = 4, payment = CoinsOrItems (Just 100) }
+                            ]
+                    in
+                    [ Market.sortByPrice False listings, Market.sortByPrice True listings ]
+                        |> List.map (List.map .id)
+                        |> Expect.equal [ [ 4, 2, 1, 3 ], [ 2, 4, 1, 3 ] ]
             ]
         , describe "Market.tradeTerms"
             [ test "an offer on a sell listing: the lister hands over the items, the offerer pays its price for all of them" <|
                 \_ ->
                     Market.tradeTerms (listing Selling) (offer (Just 7500))
-                        |> Expect.equal { seller = "Vimes", buyer = "Belkarama", coins = 37500 }
+                        |> Expect.equal { seller = "Vimes", buyer = "Belkarama", coins = 37500, items = [] }
             , test "an offer at the listed price on a buy listing: the offerer hands over the items" <|
                 \_ ->
                     Market.tradeTerms (listing Buying) (offer Nothing)
-                        |> Expect.equal { seller = "Belkarama", buyer = "Vimes", coins = 40000 }
+                        |> Expect.equal { seller = "Belkarama", buyer = "Vimes", coins = 40000, items = [] }
+            , test "an item offer pays its items, plus its coins each if it has any" <|
+                \_ ->
+                    [ Market.tradeTerms { selling | payment = CoinsOrItems (Just 8000) } { accepted | items = [ line "coal" 2 ] }
+                    , Market.tradeTerms { selling | payment = CoinsOrItems Nothing } { accepted | price = Just 100, items = [ line "coal" 2 ] }
+                    ]
+                        |> Expect.equal
+                            [ { seller = "Vimes", buyer = "Belkarama", coins = 0, items = [ line "coal" 2 ] }
+                            , { seller = "Vimes", buyer = "Belkarama", coins = 500, items = [ line "coal" 2 ] }
+                            ]
+            , test "describes an item trade line by line" <|
+                \_ ->
+                    [ Market.describeTrade selling { accepted | items = [ line "coal" 2, { itemId = "iron_bar", variant = { fine = True, rare = False, quality = Nothing }, quantity = 1 } ] }
+                    , Market.describeTrade selling { accepted | price = Just 100, items = [ line "coal" 2 ] }
+                    ]
+                        |> Expect.equal
+                            [ "Vimes sells 5x fine Salty hops to Belkarama for 2x Coal and 1x fine Iron bar"
+                            , "Vimes sells 5x fine Salty hops to Belkarama for 500 coins and 2x Coal"
+                            ]
             ]
         , describe "Market.pricePoints"
-            [ test "a completed trade is a Trade point at its price, dated when it went through, even on a closed listing" <|
+            [ test "only coins feed estimates: item offers and item trades don't, nor do listings with no coin price" <|
+                \_ ->
+                    let
+                        itemTrade =
+                            { accepted | items = [ line "coal" 2 ], status = OfferCompleted (Time.millisToPosix (3 * day)) }
+
+                        coinOffer_ =
+                            { openOffer | id = 4, price = Just 7000 }
+                    in
+                    [ Market.pricePoints now (Dict.singleton 1 { selling | payment = CoinsOrItems (Just 8000) }) (Dict.fromList [ ( 2, itemTrade ), ( 4, coinOffer_ ) ]) "salty_hops/fine"
+                    , Market.pricePoints now (Dict.singleton 1 { selling | payment = CoinsOrItems Nothing }) (Dict.fromList [ ( 2, itemTrade ), ( 4, coinOffer_ ) ]) "salty_hops/fine"
+                    , Market.pricePoints now (Dict.singleton 1 itemsOnly) (Dict.singleton 2 itemTrade) "salty_hops/fine"
+                    ]
+                        |> List.map (List.map (\p -> ( p.source, p.price )))
+                        |> Expect.equal [ [ ( Ask, 8000 ), ( Offer, 7000 ) ], [ ( Offer, 7000 ) ], [] ]
+            , test "a completed trade is a Trade point at its price, dated when it went through, even on a closed listing" <|
                 \_ ->
                     let
                         sold =
@@ -448,6 +557,7 @@ offer price =
     , listingId = 1
     , from = "Belkarama"
     , price = price
+    , items = []
     , message = ""
     , at = Time.millisToPosix 0
     , status = OfferAccepted
@@ -480,8 +590,34 @@ form =
     , rare = False
     , side = Selling
     , quantity = "1"
+    , paymentChoice = Types.PayCoins
     , price = ""
     , note = ""
     , error = Nothing
     , submitting = False
     }
+
+
+itemsOnly : Types.Listing
+itemsOnly =
+    { selling | payment = ItemsOnly }
+
+
+either : Types.Listing
+either =
+    { selling | payment = CoinsOrItems Nothing }
+
+
+coinOffer : Types.OfferDraft
+coinOffer =
+    { price = Nothing, items = [], message = "" }
+
+
+line : String -> Int -> Types.ItemLine
+line itemId quantity =
+    { itemId = itemId, variant = Item.plain, quantity = quantity }
+
+
+draft : Types.ListingDraft
+draft =
+    { itemId = "coal", variant = Item.plain, side = Selling, payment = Coins 10, quantity = 1, note = "" }

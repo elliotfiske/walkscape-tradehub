@@ -378,6 +378,73 @@ tests =
                                        ]
                        ]
         ]
+    , start "An items-only listing gets an item offer, which is accepted and goes through"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ [ seller.clickLink 100 "/market"
+                       , seller.clickLink 100 "/new"
+                       , seller.input 100 (Dom.id "item-search") "shovel axe"
+                       , seller.click 100 (Dom.id "item-pick-shovel_axe")
+                       , seller.click 100 (Dom.id "payment-items")
+                       , seller.checkView 100 (Query.hasNot [ Selector.id "price" ])
+                       , seller.click 100 (Dom.id "post-listing")
+                       , seller.checkView 300 (byTestId "listing-price" >> seesText "Items only")
+                       , connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.checkView 100 (byTestId "listing-1" >> seesText "Items only")
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.id "offer-at-price" ])
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.id "offer-price" ])
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , buyer.checkView 100 (byTestId "offer-error" >> seesText "Add at least one item.")
+                                       , buyer.input 100 (Dom.id "offer-item-search") "fine iron bar"
+                                       , buyer.click 100 (Dom.id "offer-item-pick-iron_bar")
+                                       , buyer.input 100 (Dom.id "offer-line-0-quantity") "2"
+                                       , buyer.input 100 (Dom.id "offer-item-search") "coal"
+                                       , buyer.click 100 (Dom.id "offer-item-pick-coal")
+                                       , buyer.input 100 (Dom.id "offer-line-1-quantity") "five"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , buyer.checkView 100 (byTestId "offer-error" >> seesText "Enter a quantity for Coal, like 1 or 50.")
+                                       , buyer.input 100 (Dom.id "offer-line-1-quantity") "5"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.checkView 300 (byTestId "offer-items-2" >> seesText "2 × Iron bar")
+                                       , seller.checkView 100 (byTestId "offer-items-2" >> seesText "5 × Coal")
+                                       , seller.click 100 (Dom.id "accept-2")
+                                       , seller.checkView 300 (byTestId "trade-checklist-2" >> seesText "Iron bar: fine items have teal text in the trade window. White text is the normal version.")
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> seesText "Coal: check the item and the amount.")
+                                       , seller.checkView 100 (byTestId "trade-checklist-2" >> Query.hasNot [ Selector.text " coins" ])
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "1 × Shovel axe")
+                                       , buyer.checkView 100 (byTestId "trade-checklist-2" >> seesText "2 × Iron bar")
+                                       , seller.click 100 (Dom.id "trade-confirm-2")
+                                       , buyer.click 300 (Dom.id "trade-confirm-2")
+                                       , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , Effect.Test.checkBackend 100
+                                            (\backend ->
+                                                case Dict.get 2 backend.offers of
+                                                    Just offer ->
+                                                        if offer.price == Nothing && List.map (\l -> ( l.itemId, l.variant.fine, l.quantity )) offer.items == [ ( "iron_bar", True, 2 ), ( "coal", False, 5 ) ] then
+                                                            Ok ()
+
+                                                        else
+                                                            Err "offer 2 should be 2 fine iron bars and 5 coal, with no coins"
+
+                                                    Nothing ->
+                                                        Err "offer 2 is missing"
+                                            )
+                                       , buyer.checkModel 100
+                                            (\model ->
+                                                if Derived.estimateFor model "shovel_axe" == Nothing then
+                                                    Ok ()
+
+                                                else
+                                                    Err "an item trade shouldn't make an estimate"
+                                            )
+                                       ]
+                       ]
+        ]
     , start "A trade goes through once both traders confirm it"
         [ connect "seller" "/" <|
             \seller ->

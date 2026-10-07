@@ -1,4 +1,4 @@
-module Page.NewListing exposing (toDraft, view)
+module Page.NewListing exposing (itemPicker, toDraft, view)
 
 import Derived
 import Dict
@@ -9,7 +9,7 @@ import Item
 import Market
 import Pricing
 import Route
-import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm, Payment(..), Side(..))
+import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm, Payment(..), PaymentChoice(..), Side(..))
 import Ui
 
 
@@ -35,18 +35,38 @@ toDraft form =
                     Err "Enter a quantity, like 1 or 50."
 
                 Just quantity ->
-                    Market.parsePrice form.price
+                    paymentFor form
                         |> Result.andThen
-                            (\price ->
+                            (\payment ->
                                 Market.validateDraft
                                     { itemId = item.id
                                     , variant = variantFor item form
                                     , side = form.side
-                                    , payment = Coins price
+                                    , payment = payment
                                     , quantity = quantity
                                     , note = form.note
                                     }
                             )
+
+
+{-| The price is only read when the payment needs one, and is optional for
+"coins or items".
+-}
+paymentFor : ListingForm -> Result String Payment
+paymentFor form =
+    case form.paymentChoice of
+        PayCoins ->
+            Market.parsePrice form.price |> Result.map Coins
+
+        PayItems ->
+            Ok ItemsOnly
+
+        PayEither ->
+            if String.isEmpty (String.trim form.price) then
+                Ok (CoinsOrItems Nothing)
+
+            else
+                Market.parsePrice form.price |> Result.map (Just >> CoinsOrItems)
 
 
 view : FrontendModel -> Html FrontendMsg
@@ -157,21 +177,57 @@ viewForm model =
             [ { id = "side-sell", label = "Sell", active = form.side == Selling, msg = ListingSidePicked Selling }
             , { id = "side-buy", label = "Buy", active = form.side == Buying, msg = ListingSidePicked Buying }
             ]
+        , Html.div []
+            [ Ui.label "Payment"
+            , Ui.segmented
+                [ { id = "payment-coins", label = "Coins", active = form.paymentChoice == PayCoins, msg = ListingPaymentPicked PayCoins }
+                , { id = "payment-items", label = "Items only", active = form.paymentChoice == PayItems, msg = ListingPaymentPicked PayItems }
+                , { id = "payment-either", label = "Coins or items", active = form.paymentChoice == PayEither, msg = ListingPaymentPicked PayEither }
+                ]
+            , if form.paymentChoice == PayCoins then
+                Ui.empty
+
+              else
+                Html.p [ Attr.class "text-xs text-faint mt-1.5" ]
+                    [ Html.text
+                        ((case form.side of
+                            Selling ->
+                                "Offers list the items they'd give you"
+
+                            Buying ->
+                                "Offers list the items they want from you"
+                         )
+                            ++ ", up to "
+                            ++ String.fromInt Market.maxOfferItems
+                            ++ " kinds. Item offers don't count towards price estimates."
+                        )
+                    ]
+            ]
         , Html.div [ Attr.class "grid grid-cols-[110px_1fr] gap-3" ]
             [ Html.div []
                 [ Ui.label "Quantity"
                 , Ui.textInput [ Attr.id "quantity", Attr.attribute "inputmode" "numeric", Attr.class "text-leaf font-bold" ] form.quantity ListingQuantityChanged
                 ]
-            , Html.div []
-                [ Ui.label "Price each"
-                , Ui.textInput
-                    [ Attr.id "price"
-                    , Attr.attribute "inputmode" "numeric"
-                    , Attr.placeholder "48,000"
+            , if form.paymentChoice == PayItems then
+                Ui.empty
+
+              else
+                Html.div []
+                    [ Ui.label
+                        (if form.paymentChoice == PayEither then
+                            "Price each (optional)"
+
+                         else
+                            "Price each"
+                        )
+                    , Ui.textInput
+                        [ Attr.id "price"
+                        , Attr.attribute "inputmode" "numeric"
+                        , Attr.placeholder "48,000"
+                        ]
+                        form.price
+                        ListingPriceChanged
                     ]
-                    form.price
-                    ListingPriceChanged
-                ]
             ]
         , medianCheck model form
         , Html.div []
@@ -237,7 +293,7 @@ itemPicker prefix query onQuery onPick =
 
 medianCheck : FrontendModel -> ListingForm -> Html msg
 medianCheck model form =
-    case ( form.itemId |> Maybe.andThen Item.byId, Market.parseCoins form.price ) of
+    case ( form.itemId |> Maybe.andThen Item.byId, if form.paymentChoice == PayItems then Nothing else Market.parseCoins form.price ) of
         ( Just item, Just price ) ->
             let
                 variant =

@@ -21,9 +21,11 @@ module Ui exposing
     , formatInt
     , gradeTag
     , itemIcon
+    , itemLine
     , label
     , lookalikeWarning
     , nameGate
+    , offerSummary
     , pageMessage
     , percentAboveBelow
     , plural
@@ -54,11 +56,12 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Item exposing (Item)
+import Market
 import Route exposing (Route)
 import Svg
 import Svg.Attributes as SA
 import Time
-import Types exposing (Listing, Payment(..), Side(..))
+import Types exposing (ItemLine, Listing, Offer, Payment(..), Side(..))
 
 
 {-| "1 price", "3 prices".
@@ -188,20 +191,76 @@ coinAmount amount =
         ]
 
 
-{-| "1,150 ea" or "for 4x Iron bar".
+{-| "1,150 ea", "1,150 ea or items", "Items only" or "Coins or items".
 -}
 priceText : Listing -> Html msg
 priceText listing =
-    case listing.payment of
-        Coins price ->
-            Html.span [ Attr.class "inline-flex items-center gap-1.5 whitespace-nowrap" ]
-                [ coinAmount price
-                , if listing.quantity > 1 then
-                    Html.span [ Attr.class "text-faint text-xs" ] [ Html.text "ea" ]
+    let
+        coins price =
+            [ coinAmount price
+            , if listing.quantity > 1 then
+                Html.span [ Attr.class "text-faint text-xs" ] [ Html.text "ea" ]
 
-                  else
-                    empty
+              else
+                empty
+            ]
+
+        words text =
+            Html.span [ Attr.class "font-semibold text-soft" ] [ Html.text text ]
+    in
+    Html.span [ Attr.class "inline-flex items-center gap-1.5 whitespace-nowrap" ]
+        (case listing.payment of
+            Coins price ->
+                coins price
+
+            ItemsOnly ->
+                [ words "Items only" ]
+
+            CoinsOrItems (Just price) ->
+                coins price ++ [ Html.span [ Attr.class "text-faint text-xs" ] [ Html.text "or items" ] ]
+
+            CoinsOrItems Nothing ->
+                [ words "Coins or items" ]
+        )
+
+
+{-| "9,400 ea", "at the listed price", "2x Coal, 1x fine Iron bar" or "500 ea
+plus 2x Coal".
+-}
+offerSummary : Offer -> String
+offerSummary offer =
+    let
+        items =
+            offer.items |> List.map Market.describeLine |> String.join ", "
+    in
+    case ( offer.price, offer.items ) of
+        ( Just p, [] ) ->
+            formatInt p ++ " ea"
+
+        ( Just p, _ ) ->
+            formatInt p ++ " ea plus " ++ items
+
+        ( Nothing, [] ) ->
+            "at the listed price"
+
+        ( Nothing, _ ) ->
+            items
+
+
+{-| "2 × Coal" with its icon and fine/rare tag, for an item line in an offer.
+-}
+itemLine : ItemLine -> Html msg
+itemLine line =
+    case Item.byId line.itemId of
+        Just lineItem ->
+            Html.span [ Attr.class "inline-flex items-center gap-1.5" ]
+                [ itemIcon "w-5 h-5 rounded" lineItem line.variant
+                , Html.span [ Attr.class "font-semibold" ] [ Html.text (String.fromInt line.quantity ++ " × " ++ Item.fullName lineItem line.variant) ]
+                , variantTag line.variant
                 ]
+
+        Nothing ->
+            Html.text (String.fromInt line.quantity ++ " × " ++ line.itemId)
 
 
 {-| An item's icon, framed in its rarity/quality colour. Fine items get a

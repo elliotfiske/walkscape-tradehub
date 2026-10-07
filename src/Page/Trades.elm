@@ -160,12 +160,7 @@ offerCard model received offer =
                                 Ui.empty
 
                     priceText =
-                        case offer.price of
-                            Just p ->
-                                " · " ++ Ui.formatInt p ++ " ea"
-
-                            Nothing ->
-                                " · at listed price"
+                        " · " ++ Ui.offerSummary offer
 
                     highlight =
                         received && Derived.awaitsResponse model offer

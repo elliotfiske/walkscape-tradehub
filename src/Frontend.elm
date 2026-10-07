@@ -123,6 +123,7 @@ emptyListingForm =
     , rare = False
     , side = Selling
     , quantity = "1"
+    , paymentChoice = Types.PayCoins
     , price = ""
     , note = ""
     , error = Nothing
@@ -161,7 +162,7 @@ prefillListingForm route form =
 
 emptyOfferForm : OfferForm
 emptyOfferForm =
-    { counter = False, price = "", message = "", error = Nothing }
+    { counter = False, price = "", items = [], itemQuery = "", message = "", error = Nothing }
 
 
 {-| Start the offer form from my open offer on this listing, so "Update offer"
@@ -172,8 +173,9 @@ offerFormFor model listingId =
     case Derived.myOpenOffer model listingId of
         Just offer ->
             { emptyOfferForm
-                | counter = offer.price /= Nothing
+                | counter = offer.price /= Nothing || not (List.isEmpty offer.items)
                 , price = offer.price |> Maybe.map String.fromInt |> Maybe.withDefault ""
+                , items = offer.items |> List.map (\line -> { itemId = line.itemId, variant = line.variant, quantity = String.fromInt line.quantity })
                 , message = offer.message
             }
 
@@ -321,6 +323,18 @@ updateFilters f model =
 updateListingForm : (ListingForm -> ListingForm) -> Model -> ( Model, Cmd_ )
 updateListingForm f model =
     ( { model | listingForm = f model.listingForm }, Command.none )
+
+
+updateAt : Int -> (a -> a) -> List a -> List a
+updateAt index f =
+    List.indexedMap
+        (\i x ->
+            if i == index then
+                f x
+
+            else
+                x
+        )
 
 
 updateOfferForm : (OfferForm -> OfferForm) -> Model -> ( Model, Cmd_ )
@@ -558,6 +572,9 @@ update msg model =
         ListingQuantityChanged quantity ->
             updateListingForm (\f -> { f | quantity = quantity }) model
 
+        ListingPaymentPicked choice ->
+            updateListingForm (\f -> { f | paymentChoice = choice, error = Nothing }) model
+
         ListingPriceChanged price ->
             updateListingForm (\f -> { f | price = price }) model
 
@@ -599,24 +616,48 @@ update msg model =
         OfferMessageChanged message ->
             updateOfferForm (\f -> { f | message = message }) model
 
+        OfferItemQueryChanged query ->
+            updateOfferForm (\f -> { f | itemQuery = query }) model
+
+        OfferItemPicked itemId ->
+            case Item.byId itemId of
+                Just item ->
+                    let
+                        query =
+                            String.toLower (String.trim model.offerForm.itemQuery)
+
+                        variant =
+                            Item.normalizeVariant item { fine = String.startsWith "fine " query, rare = String.startsWith "rare " query, quality = Nothing }
+                    in
+                    updateOfferForm
+                        (\f ->
+                            if List.length f.items >= Market.maxOfferItems then
+                                f
+
+                            else
+                                { f | items = f.items ++ [ { itemId = item.id, variant = variant, quantity = "1" } ], itemQuery = "", error = Nothing }
+                        )
+                        model
+
+                Nothing ->
+                    ( model, Command.none )
+
+        OfferLineQuantityChanged index quantity ->
+            updateOfferForm (\f -> { f | items = updateAt index (\line -> { line | quantity = quantity }) f.items, error = Nothing }) model
+
+        OfferLineVariantPicked index variant ->
+            updateOfferForm (\f -> { f | items = updateAt index (\line -> { line | variant = variant }) f.items, error = Nothing }) model
+
+        OfferLineRemoved index ->
+            updateOfferForm (\f -> { f | items = List.take index f.items ++ List.drop (index + 1) f.items, error = Nothing }) model
+
         OfferSubmitted listingId ->
-            let
-                form =
-                    model.offerForm
-
-                price =
-                    if form.counter then
-                        Market.parsePrice form.price |> Result.map Just
-
-                    else
-                        Ok Nothing
-            in
-            case price |> Result.andThen (\p -> Market.validateOffer p form.message) of
+            case Dict.get listingId model.listings |> Result.fromMaybe "That listing doesn't exist." |> Result.andThen (\listing -> Page.Listing.toOfferDraft listing model.offerForm) of
                 Ok offer ->
                     ( { model | offerForm = emptyOfferForm }
                     , Command.batch
                         [ Analytics.track Analytics.OfferSubmitted
-                        , Effect.Lamdera.sendToBackend (MakeOffer listingId offer.price offer.message)
+                        , Effect.Lamdera.sendToBackend (MakeOffer listingId offer)
                         ]
                     )
 
@@ -1032,7 +1073,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=0ac19983" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=c89d97bb" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"

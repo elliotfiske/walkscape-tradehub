@@ -317,10 +317,10 @@ marketListings model =
                     List.sortBy (.createdAt >> Time.posixToMillis >> negate)
 
                 PriceLow ->
-                    List.sortBy (Market.unitPrice >> Maybe.withDefault 999999999999)
+                    Market.sortByPrice False
 
                 PriceHigh ->
-                    List.sortBy (Market.unitPrice >> Maybe.withDefault -1 >> negate)
+                    Market.sortByPrice True
     in
     model.listings
         |> Dict.values
