@@ -93,16 +93,7 @@ update : BackendMsg -> Model -> ( Model, Cmd_ )
 update msg model =
     case msg of
         ClientConnected sessionId clientId ->
-            let
-                user =
-                    userForSession sessionId model
-            in
-            ( model
-            , Command.batch
-                [ Effect.Lamdera.sendToFrontend clientId (InitialDataSent (initialData user model))
-                , Effect.Lamdera.sendToFrontend clientId (YouAre (Maybe.map Users.toMe user))
-                ]
-            )
+            ( model, sendState sessionId clientId model )
 
         ClientDisconnected _ _ ->
             ( model, Command.none )
@@ -146,6 +137,21 @@ updateFromFrontend sessionId clientId msg model =
         _ ->
             -- Everything else needs an accurate timestamp, so grab one first.
             ( model, Effect.Time.now |> Effect.Task.perform (FromFrontendAt sessionId clientId msg) )
+
+
+{-| Everything a client needs to start: the market and who it is. Sent when it
+connects and again on `RequestState`.
+-}
+sendState : SessionId -> ClientId -> Model -> Cmd_
+sendState sessionId clientId model =
+    let
+        user =
+            userForSession sessionId model
+    in
+    Command.batch
+        [ Effect.Lamdera.sendToFrontend clientId (InitialDataSent (initialData user model))
+        , Effect.Lamdera.sendToFrontend clientId (YouAre (Maybe.map Users.toMe user))
+        ]
 
 
 userForSession : SessionId -> Model -> Maybe User
@@ -274,6 +280,9 @@ handleRequest sessionId clientId now msg model =
     case msg of
         AuthToBackend _ ->
             ( model, Command.none )
+
+        RequestState ->
+            ( model, sendState sessionId clientId model )
 
         PreviewSignIn provider ->
             -- Once real Discord sign-in is set up, preview accounts would be a

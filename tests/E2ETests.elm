@@ -3,6 +3,7 @@ module E2ETests exposing (appTests, main)
 import Backend
 import Derived
 import Dict
+import Effect.Command as Command
 import Effect.Browser.Dom as Dom
 import Effect.Lamdera
 import Effect.Test exposing (HttpResponse(..))
@@ -15,7 +16,7 @@ import Json.Encode
 import Test exposing (describe)
 import Test.Html.Query as Query
 import Test.Html.Selector as Selector
-import Types exposing (BackendModel, BackendMsg, FrontendModel, FrontendMsg, OfferStatus(..), ToBackend, ToFrontend)
+import Types exposing (BackendModel, BackendMsg(..), FrontendModel, FrontendMsg, OfferStatus(..), ToBackend, ToFrontend)
 import Url exposing (Url)
 
 
@@ -226,6 +227,19 @@ tests =
                                         , "onboarding_completed"
                                         ]
                                     )
+                                ]
+                       ]
+        ]
+    , Effect.Test.start "A tab that never got its connect-time state asks the backend for it" startTime configLosingConnectState
+        [ connect "s1" "/" <|
+            \user ->
+                onboard user "Wanderling"
+                    ++ [ -- A second tab on the same session: the backend knows who
+                         -- this is but never pushes it (what a failed Lamdera hot
+                         -- upgrade leaves behind: a fresh model, nobody talking).
+                         connect "s1" "/market" <|
+                            \again ->
+                                [ again.checkView 5000 (byTestId "user-chip" >> seesText "Wanderling")
                                 ]
                        ]
         ]
@@ -732,6 +746,30 @@ tests =
 appTests : Test.Test
 appTests =
     describe "User journeys" (List.map Effect.Test.toTest tests)
+
+
+{-| A backend that stays quiet when a client connects. Lamdera's hot upgrade
+can fail to decode an open tab's model and start it from `init` again; the
+backend doesn't hear about that connection, so it pushes nothing.
+-}
+configLosingConnectState : Effect.Test.Config ToBackend FrontendMsg FrontendModel ToFrontend BackendMsg BackendModel
+configLosingConnectState =
+    let
+        quiet =
+            { init = Backend.app_.init
+            , update =
+                \msg model ->
+                    case msg of
+                        ClientConnected _ _ ->
+                            ( model, Command.none )
+
+                        _ ->
+                            Backend.app_.update msg model
+            , updateFromFrontend = Backend.app_.updateFromFrontend
+            , subscriptions = Backend.app_.subscriptions
+            }
+    in
+    { config | backendApp = quiet }
 
 
 safeUrl : Url
