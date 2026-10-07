@@ -994,13 +994,13 @@ appShell model content =
 previewBanner : Html msg
 previewBanner =
     Html.div [ Attr.class "border-b border-[#6b5520] bg-[#1a1608] text-[13px] text-[#e9d9a6] px-4 md:px-7 py-2 flex gap-2 items-baseline", Ui.testId "preview-banner" ]
-        [ Html.span [ Attr.class "font-bold tracking-widest text-[11px] text-gold flex-none" ] [ Html.text "PREVIEW" ]
+        [ Html.span [ Attr.class "font-bold tracking-widest text-[11px] text-gold flex-none" ] [ Html.text "HEADS UP" ]
         , Html.span [ Attr.class "hidden sm:inline" ]
-            [ Html.text "Trading isn't live in WalkScape yet. Listings and offers here just build up price estimates, and nothing changes hands. "
+            [ Html.text "Trading is live in WalkScape! I'm still getting Trailpost ready for real trading, which should take an hour or two (about 11:30am PT). Until then, listings and offers here just build up price estimates, and nothing changes hands. "
             , feedbackLink
             ]
         , Html.span [ Attr.class "sm:hidden" ]
-            [ Html.text "Trading isn't live in WalkScape yet. Listings and offers just build price estimates. "
+            [ Html.text "Trading is live! I'm getting Trailpost ready for it, about 11:30am PT. Until then, nothing changes hands. "
             , feedbackLink
             ]
         ]
