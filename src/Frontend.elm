@@ -210,6 +210,7 @@ init url key =
             , claimError = Nothing
             , listingForm = prefillListingForm (Route.fromUrl url) emptyListingForm
             , offerForm = emptyOfferForm
+            , fellThroughForm = Nothing
             , reportForm =
                 case Route.fromUrl url of
                     Route.Report name ->
@@ -381,6 +382,12 @@ update msg model =
                 | route = route
                 , reportForm = reportForm
                 , offerForm = offerForm
+                , fellThroughForm =
+                    if route == model.route then
+                        model.fellThroughForm
+
+                    else
+                        Nothing
                 , listingForm = prefillListingForm route model.listingForm
                 , filtersOpen = False
               }
@@ -592,7 +599,69 @@ update msg model =
             ( model, Effect.Lamdera.sendToBackend (WithdrawOffer offerId) )
 
         RespondToOfferClicked offerId accept ->
-            ( model, Effect.Lamdera.sendToBackend (RespondToOffer offerId accept) )
+            ( model
+            , Command.batch
+                [ if accept then
+                    Analytics.track Analytics.OfferAccepted
+
+                  else
+                    Command.none
+                , Effect.Lamdera.sendToBackend (RespondToOffer offerId accept)
+                ]
+            )
+
+        TradeConfirmClicked offerId ->
+            let
+                -- The other side already confirmed, so this one completes the trade.
+                completes =
+                    case ( Dict.get offerId model.offers, Derived.myName model ) of
+                        ( Just offer, Just me ) ->
+                            if me == offer.from then
+                                offer.listerConfirmed
+
+                            else
+                                offer.offererConfirmed
+
+                        _ ->
+                            False
+            in
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.TradeConfirmed
+                , if completes then
+                    Analytics.track Analytics.TradeCompleted
+
+                  else
+                    Command.none
+                , Effect.Lamdera.sendToBackend (ConfirmTrade offerId)
+                ]
+            )
+
+        FellThroughClicked offerId ->
+            ( { model | fellThroughForm = Just { offerId = offerId, reason = "", error = Nothing } }, Command.none )
+
+        FellThroughReasonChanged reason ->
+            ( { model | fellThroughForm = model.fellThroughForm |> Maybe.map (\f -> { f | reason = reason, error = Nothing }) }, Command.none )
+
+        FellThroughSubmitted ->
+            case model.fellThroughForm of
+                Just form ->
+                    if String.isEmpty (String.trim form.reason) then
+                        ( { model | fellThroughForm = Just { form | error = Just "Say what happened, in a few words." } }, Command.none )
+
+                    else
+                        ( { model | fellThroughForm = Nothing }
+                        , Command.batch
+                            [ Analytics.track Analytics.TradeFellThrough
+                            , Effect.Lamdera.sendToBackend (MarkFellThrough form.offerId form.reason)
+                            ]
+                        )
+
+                Nothing ->
+                    ( model, Command.none )
+
+        FellThroughCancelled ->
+            ( { model | fellThroughForm = Nothing }, Command.none )
 
         ReportReasonToggled reason ->
             let
@@ -856,7 +925,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=618b45f7" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=de4c04e4" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"

@@ -15,6 +15,8 @@ module Derived exposing
     , onboardingRoute
     , pendingResponses
     , traderStats
+    , tradePending
+    , traded
     )
 
 {-| Values the frontend computes from the listings, offers and traders it holds.
@@ -141,14 +143,39 @@ offersSent model name =
         |> newestFirst
 
 
-{-| An open offer on a listing that's still open, so its owner can still
-accept or decline it.
+{-| An accepted offer on the listing hasn't been resolved yet (see
+`Market.tradePending`).
+-}
+tradePending : FrontendModel -> Int -> Bool
+tradePending model listingId =
+    Market.tradePending listingId (Dict.values model.offers)
+
+
+{-| Both sides confirmed a trade on the listing.
+-}
+traded : FrontendModel -> Int -> Bool
+traded model listingId =
+    offersFor model listingId
+        |> List.any
+            (\o ->
+                case o.status of
+                    OfferCompleted _ ->
+                        True
+
+                    _ ->
+                        False
+            )
+
+
+{-| An open offer on a listing that's still open and has no trade pending, so
+its owner can accept it.
 -}
 awaitsResponse : FrontendModel -> Offer -> Bool
 awaitsResponse model offer =
     offer.status
         == OfferOpen
         && (Dict.get offer.listingId model.listings |> Maybe.map (not << .closed) |> Maybe.withDefault False)
+        && not (tradePending model offer.listingId)
 
 
 {-| Offers on my listings that I haven't answered yet.
@@ -188,13 +215,14 @@ traderStats model name =
     in
     { activeListings = Market.activeListingCount name (Dict.values model.listings)
     , offersMade = List.length made
-    , offersAccepted = made |> List.filter (\o -> o.status == OfferAccepted) |> List.length
+    , offersAccepted = made |> List.filter (.status >> Market.wasAccepted) |> List.length
     , partners = Set.size partners
     , days = (Time.posixToMillis model.now - Time.posixToMillis joined) // 86400000
     }
 
 
 {-| Open listings after the market tab, filters, search and sort are applied.
+Listings with a trade pending are left out.
 -}
 marketListings : FrontendModel -> List Listing
 marketListings model =
@@ -270,5 +298,5 @@ marketListings model =
     in
     model.listings
         |> Dict.values
-        |> List.filter (\l -> not l.closed && tabOk l && gradeOk l && searchOk l && outlierOk l)
+        |> List.filter (\l -> not l.closed && not (tradePending model l.id) && tabOk l && gradeOk l && searchOk l && outlierOk l)
         |> sorter
