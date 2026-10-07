@@ -5,6 +5,7 @@ import Derived
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Item
+import Pricing
 import Route
 import Types exposing (FrontendModel, FrontendMsg)
 import Ui
@@ -110,12 +111,20 @@ featuredCard model =
                         , Html.div [ Attr.class "text-right" ]
                             [ Html.div [ Attr.class "flex items-center gap-2 justify-end" ]
                                 [ Ui.coin "w-5 h-5", Html.span [ Attr.class "font-bold text-2xl text-gold" ] [ Html.text (Ui.formatInt estimate.median) ] ]
-                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "estimate" ]
+                            , Html.div [ Attr.class "text-xs text-muted", Ui.testId "featured-basis" ] [ Html.text ("estimate " ++ Pricing.basisText estimate) ]
                             ]
                         ]
                     , Html.div [ Attr.class "my-5" ] [ Chart.sparkline points ]
                     , Html.div [ Attr.class "text-[13px] text-muted" ]
-                        [ Html.text ("Median of " ++ String.fromInt estimate.counted ++ " prices from " ++ String.fromInt estimate.traders ++ " traders · not confirmed trades") ]
+                        [ Html.text
+                            (case estimate.basis of
+                                Pricing.FromTrades ->
+                                    "Median of " ++ String.fromInt estimate.counted ++ " trades from the last " ++ String.fromInt Pricing.tradeWindowDays ++ " days"
+
+                                Pricing.FromPrices ->
+                                    "Median of " ++ String.fromInt estimate.counted ++ " prices from " ++ String.fromInt estimate.traders ++ " traders · not enough trades yet"
+                            )
+                        ]
                     ]
                 ]
 

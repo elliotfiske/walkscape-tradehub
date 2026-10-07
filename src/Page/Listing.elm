@@ -348,7 +348,21 @@ valueCard model listing =
                 , Html.div [ Attr.class "flex justify-between text-[11px] text-faint" ]
                     [ Html.span [] [ Html.text "−50%" ], Html.span [] [ Html.text ("estimate " ++ Ui.formatInt est.median) ], Html.span [] [ Html.text "+50%" ] ]
                 , Html.p [ Attr.class "text-xs text-faint" ]
-                    [ Html.text ("Estimate from " ++ String.fromInt est.counted ++ " prices by " ++ String.fromInt est.traders ++ " traders. Typical range " ++ Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high ++ ".") ]
+                    [ Html.text
+                        ((case est.basis of
+                            Pricing.FromTrades ->
+                                "Estimate from " ++ String.fromInt est.counted ++ " trades in the last " ++ String.fromInt Pricing.tradeWindowDays ++ " days."
+
+                            Pricing.FromPrices ->
+                                "Estimate from asks and offers: " ++ String.fromInt est.counted ++ " prices by " ++ String.fromInt est.traders ++ " traders."
+                         )
+                            ++ " Typical range "
+                            ++ Ui.formatInt est.low
+                            ++ "–"
+                            ++ Ui.formatInt est.high
+                            ++ "."
+                        )
+                    ]
                 , Html.a [ Attr.href (Route.toString (Route.ItemPrice listing.itemId listing.variant)), Attr.class "text-sm" ]
                     [ Html.text "See price history" ]
                 ]

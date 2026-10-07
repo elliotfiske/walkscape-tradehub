@@ -1474,6 +1474,11 @@ a:hover {
   background-color: rgb(58 26 24 / var(--tw-bg-opacity, 1));
 }
 
+.bg-\[\#3a4a52\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(58 74 82 / var(--tw-bg-opacity, 1));
+}
+
 .bg-\[\#57b34a\] {
   --tw-bg-opacity: 1;
   background-color: rgb(87 179 74 / var(--tw-bg-opacity, 1));

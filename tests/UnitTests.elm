@@ -5,11 +5,12 @@ import Item
 import Market
 import Name
 import Page.NewListing
-import Pricing exposing (Source(..), Status(..))
+import Pricing exposing (Basis(..), Source(..), Status(..))
 import Route
 import Screenshot
 import Test exposing (Test, describe, test)
 import Time
+import Dict
 import Types exposing (OfferStatus(..), Payment(..), Side(..))
 import Ui
 import Url
@@ -26,42 +27,93 @@ point trader price at =
     { price = price, trader = trader, at = Time.millisToPosix at, source = Ask }
 
 
+trade : String -> Int -> Int -> Pricing.Point
+trade trader price at =
+    { price = price, trader = trader, at = Time.millisToPosix at, source = Trade }
+
+
+{-| "Now" for the pricing tests: day 40, so trades can be inside or outside the
+30-day window.
+-}
+now : Time.Posix
+now =
+    Time.millisToPosix (40 * day)
+
+
 suite : Test
 suite =
     describe "Unit tests"
         [ describe "Pricing.estimate"
             [ test "no points means no estimate" <|
-                \_ -> Pricing.estimate [] |> Expect.equal Nothing
+                \_ -> Pricing.estimate now [] |> Expect.equal Nothing
             , test "median, not average" <|
                 \_ ->
                     [ point "a" 100 0, point "b" 110 0, point "c" 120 0, point "d" 130 0, point "e" 900 0 ]
-                        |> Pricing.estimate
+                        |> Pricing.estimate now
                         |> Maybe.map .median
                         |> Expect.equal (Just 115)
             , test "a wild price is excluded as an outlier" <|
                 \_ ->
                     [ point "a" 8800 0, point "b" 9000 0, point "c" 9100 0, point "d" 8900 0, point "e" 30000 0 ]
-                        |> Pricing.classify
+                        |> Pricing.classify now
                         |> List.map Tuple.second
                         |> Expect.equal [ Counted, Counted, Counted, Counted, Outlier ]
             , test "only a trader's latest price per day counts" <|
                 \_ ->
                     [ point "a" 100 1000, point "a" 120 2000, point "b" 110 3000, point "a" 130 (day + 10) ]
-                        |> Pricing.classify
+                        |> Pricing.classify now
                         |> List.map Tuple.second
                         |> Expect.equal [ Repeat, Counted, Counted, Counted ]
             , test "counts traders and exclusions" <|
                 \_ ->
                     [ point "a" 100 0, point "a" 100 5, point "b" 100 0 ]
-                        |> Pricing.estimate
+                        |> Pricing.estimate now
                         |> Maybe.map (\e -> ( e.counted, e.excluded, e.traders ))
                         |> Expect.equal (Just ( 2, 1, 2 ))
             , test "identical prices still form a normal range" <|
                 \_ ->
                     [ point "a" 500 0, point "b" 500 0, point "c" 540 0 ]
-                        |> Pricing.classify
+                        |> Pricing.classify now
                         |> List.map Tuple.second
                         |> Expect.equal [ Counted, Counted, Counted ]
+            , test "two recent trades aren't enough, so asks and offers still decide" <|
+                \_ ->
+                    [ point "a" 100 (39 * day), point "b" 100 (39 * day), point "c" 100 (39 * day), trade "d" 200 (38 * day), trade "e" 200 (38 * day) ]
+                        |> Pricing.estimate now
+                        |> Maybe.map (\e -> ( e.median, e.basis ))
+                        |> Expect.equal (Just ( 100, FromPrices ))
+            , test "three trades in the last 30 days replace asks and offers" <|
+                \_ ->
+                    [ point "a" 100 (39 * day), point "b" 100 (39 * day), trade "c" 200 (38 * day), trade "d" 210 (20 * day), trade "e" 220 (11 * day) ]
+                        |> Pricing.estimate now
+                        |> Maybe.map (\e -> ( e.median, e.basis, e.counted ))
+                        |> Expect.equal (Just ( 210, FromTrades, 3 ))
+            , test "trades older than 30 days don't count" <|
+                \_ ->
+                    [ point "a" 100 (39 * day), trade "b" 200 (38 * day), trade "c" 210 (20 * day), trade "d" 220 (9 * day) ]
+                        |> Pricing.estimate now
+                        |> Maybe.map (\e -> ( e.median, e.basis ))
+                        |> Expect.equal (Just ( 100, FromPrices ))
+            , test "with enough trades, asks and offers are shown but not used" <|
+                \_ ->
+                    [ point "a" 100 (39 * day), trade "b" 200 (38 * day), trade "c" 210 (20 * day), trade "d" 220 (11 * day), trade "e" 900 (39 * day) ]
+                        |> Pricing.classify now
+                        |> List.map Tuple.second
+                        |> Expect.equal [ NotUsed, Counted, Counted, Counted, Counted ]
+            , test "without enough trades, the trades are shown but not used" <|
+                \_ ->
+                    [ point "a" 100 (39 * day), trade "b" 200 (38 * day) ]
+                        |> Pricing.classify now
+                        |> List.map Tuple.second
+                        |> Expect.equal [ Counted, NotUsed ]
+            , test "says what the estimate is made from" <|
+                \_ ->
+                    ( [ trade "a" 1 (39 * day), trade "b" 1 (39 * day), trade "c" 1 (39 * day), trade "d" 1 (39 * day), trade "e" 1 (39 * day) ]
+                        |> Pricing.estimate now
+                        |> Maybe.map Pricing.basisText
+                    , [ point "a" 1 0 ] |> Pricing.estimate now |> Maybe.map Pricing.basisText
+                    )
+                        |> Expect.equal ( Just "from 5 trades", Just "from asks and offers" )
             , test "deviation and warnings" <|
                 \_ ->
                     ( Pricing.deviationPercent 8900 11480, Pricing.isWarning 29, Pricing.isWarning -25 )
@@ -297,6 +349,18 @@ suite =
                     Market.tradeTerms (listing Buying) (offer Nothing)
                         |> Expect.equal { seller = "Belkarama", buyer = "Vimes", coins = 40000 }
             ]
+        , describe "Market.pricePoints"
+            [ test "a completed trade is a Trade point at its price, dated when it went through, even on a closed listing" <|
+                \_ ->
+                    let
+                        sold =
+                            { accepted | price = Just 7500, status = OfferCompleted (Time.millisToPosix (3 * day)) }
+                    in
+                    Market.pricePoints now (Dict.singleton 1 { selling | closed = True }) (Dict.singleton 2 sold) "salty_hops/fine"
+                        |> List.filter (\p -> p.source == Trade)
+                        |> List.map (\p -> ( p.price, Time.posixToMillis p.at ))
+                        |> Expect.equal [ ( 7500, 3 * day ) ]
+            ]
         , describe "Market trade rules"
             [ test "a listing with an accepted offer has a trade pending until it's resolved" <|
                 \_ ->
@@ -395,6 +459,11 @@ offer price =
 accepted : Types.Offer
 accepted =
     offer Nothing
+
+
+selling : Types.Listing
+selling =
+    listing Selling
 
 
 openOffer : Types.Offer

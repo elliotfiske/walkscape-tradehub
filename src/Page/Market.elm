@@ -284,6 +284,7 @@ listingRow model listing =
                                     ]
                                     [ Html.text (Ui.signedPercent pct) ]
                                 , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text ("vs " ++ Ui.formatInt est.median) ]
+                                , Html.div [ Attr.class "text-[10px] text-faint" ] [ Html.text (Pricing.basisShort est) ]
                                 ]
 
                         Nothing ->
@@ -347,7 +348,7 @@ listingRow model listing =
                             , case estimate of
                                 Just ( est, pct ) ->
                                     Html.span [ Attr.class "text-xs text-faint" ]
-                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (Ui.signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median) ]
+                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (Ui.signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median ++ " · " ++ Pricing.basisShort est) ]
 
                                 Nothing ->
                                     Ui.empty

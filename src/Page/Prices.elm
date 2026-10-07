@@ -24,7 +24,7 @@ viewIndex model =
     Html.div [ Attr.class "w-full max-w-4xl mx-auto px-4 md:px-7 py-6 flex flex-col gap-5" ]
         [ Html.h1 [ Attr.class "font-display font-extrabold text-[30px]" ] [ Html.text "Prices" ]
         , Html.p [ Attr.class "text-body max-w-2xl" ]
-            [ Html.text "Estimates from what people ask, bid and offer here. Nothing has actually traded yet, so treat them as a rough guide." ]
+            [ Html.text "Estimates from trades people confirm here, or, until an item has a few of those, from what people ask, bid and offer. Treat them as a rough guide." ]
         , Html.div [ Attr.class "hidden sm:grid grid-cols-[minmax(0,2fr)_1fr_1.2fr_1fr] gap-3 px-3.5 font-bold text-[11px] tracking-[0.12em] text-faint" ]
             [ Html.div [] [ Html.text "ITEM" ], Html.div [] [ Html.text "ESTIMATE" ], Html.div [] [ Html.text "TYPICAL RANGE" ], Html.div [ Attr.class "text-right" ] [ Html.text "PRICES" ] ]
         , Html.div [ Attr.class "flex flex-col gap-2", Ui.testId "price-index" ]
@@ -41,7 +41,16 @@ viewIndex model =
                             ]
                         , Ui.coinAmount estimate.median
                         , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt estimate.low ++ "–" ++ Ui.formatInt estimate.high) ]
-                        , Html.div [ Attr.class "hidden sm:block text-right text-[13px] text-muted" ] [ Html.text (Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders") ]
+                        , Html.div [ Attr.class "hidden sm:block text-right text-[13px] text-muted" ]
+                            [ Html.text
+                                (case estimate.basis of
+                                    Pricing.FromTrades ->
+                                        Ui.plural estimate.counted "trade" "trades"
+
+                                    Pricing.FromPrices ->
+                                        Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders"
+                                )
+                            ]
                         ]
                 )
                 (Derived.activeSeries model)
@@ -72,10 +81,10 @@ viewItem model itemId requested =
                     Market.pricePoints model.now model.listings model.offers key
 
                 classified =
-                    Pricing.classify points
+                    Pricing.classify model.now points
 
                 est =
-                    Pricing.estimate points
+                    Pricing.estimate model.now points
 
                 listingCount =
                     model.listings
@@ -141,11 +150,21 @@ viewItem model itemId requested =
                     , case est of
                         Just e ->
                             Html.div [ Attr.class "grid grid-cols-2 md:grid-cols-4 gap-2.5", Ui.testId "price-stats" ]
-                                [ tile "Estimate" (Ui.formatInt e.median) "median of counted prices" "text-gold"
-                                , tile "Typical range" (Ui.formatInt e.low ++ "–" ++ Ui.formatInt e.high) "middle 50% of prices" "text-ink"
-                                , tile "Prices counted" (String.fromInt e.counted) ("from " ++ String.fromInt e.traders ++ " unique traders") "text-ink"
-                                , tile "Excluded" (String.fromInt e.excluded) "outliers + same-day repeats" "text-warn"
-                                ]
+                                (case e.basis of
+                                    Pricing.FromTrades ->
+                                        [ tile "Estimate" (Ui.formatInt e.median) (Pricing.basisText e) "text-gold"
+                                        , tile "Typical range" (Ui.formatInt e.low ++ "–" ++ Ui.formatInt e.high) "middle 50% of trades" "text-ink"
+                                        , tile "Trades counted" (String.fromInt e.counted) ("in the last " ++ String.fromInt Pricing.tradeWindowDays ++ " days") "text-ink"
+                                        , tile "Not used" (String.fromInt e.excluded) "asks, offers and older trades" "text-muted"
+                                        ]
+
+                                    Pricing.FromPrices ->
+                                        [ tile "Estimate" (Ui.formatInt e.median) (Pricing.basisText e) "text-gold"
+                                        , tile "Typical range" (Ui.formatInt e.low ++ "–" ++ Ui.formatInt e.high) "middle 50% of prices" "text-ink"
+                                        , tile "Prices counted" (String.fromInt e.counted) ("from " ++ String.fromInt e.traders ++ " unique traders") "text-ink"
+                                        , tile "Excluded" (String.fromInt e.excluded) "outliers, repeats, trades" "text-warn"
+                                        ]
+                                )
 
                         Nothing ->
                             Html.div [ Attr.class "rounded-xl border border-dashed border-rule p-8 text-center text-muted", Ui.testId "no-prices" ]
@@ -159,6 +178,7 @@ viewItem model itemId requested =
                                 [ Html.b [ Attr.class "text-ink" ] [ Html.text "30 days" ]
                                 , legend "bg-gold" "counted price"
                                 , legend "border border-[#e06a5f]" "outlier, excluded"
+                                , legend "bg-[#3a4a52]" "not used"
                                 , legend "bg-leaf h-0.5 w-3 rounded-none" "estimate"
                                 , legend "bg-[#2c5a2a] rounded-sm" "typical range"
                                 ]
@@ -173,7 +193,14 @@ viewItem model itemId requested =
                 , Html.aside [ Attr.class "flex flex-col gap-4" ]
                     [ Ui.card [ Attr.class "p-5 flex flex-col gap-3 text-sm text-body" ]
                         [ Html.h2 [ Attr.class "font-display font-extrabold text-xl text-gold" ] [ Html.text "How this estimate is made" ]
-                        , method "Asking prices, bids and offers." "Nothing has traded yet, so every price someone posts or offers here counts."
+                        , method "Trades first."
+                            ("When both traders confirm a trade went through, its price is a trade. With "
+                                ++ String.fromInt Pricing.minTrades
+                                ++ " or more trades in the last "
+                                ++ String.fromInt Pricing.tradeWindowDays
+                                ++ " days, the estimate is the median of those trades and nothing else."
+                            )
+                        , method "Otherwise, asks and offers." "Asking prices, bids and offers people post here, with these rules:"
                         , method "Median, not average." "One huge price can't drag the number around."
                         , method "One vote per trader per day." "Re-posting the same item counts once. Your latest price that day is the one used."
                         , method "Outliers cut." "Prices more than 2.5× the typical spread from the median are shown but left out."
@@ -234,6 +261,9 @@ pointTable model classified est =
                 Pricing.Offer ->
                     "Offer"
 
+                Pricing.Trade ->
+                    "Traded"
+
         statusCell ( p, s ) =
             case s of
                 Pricing.Counted ->
@@ -258,6 +288,21 @@ pointTable model classified est =
 
                 Pricing.Repeat ->
                     Html.span [ Attr.class "text-gold" ] [ Html.text "Excluded: same trader, same day" ]
+
+                Pricing.NotUsed ->
+                    Html.span [ Attr.class "text-muted" ]
+                        [ Html.text
+                            (case ( p.source, Maybe.map .basis est ) of
+                                ( Pricing.Trade, Just Pricing.FromTrades ) ->
+                                    "Not used: older than " ++ String.fromInt Pricing.tradeWindowDays ++ " days"
+
+                                ( Pricing.Trade, _ ) ->
+                                    "Not used: fewer than " ++ String.fromInt Pricing.minTrades ++ " recent trades"
+
+                                _ ->
+                                    "Not used: trades set this estimate"
+                            )
+                        ]
     in
     Html.div [ Attr.class "flex flex-col gap-1.5", Ui.testId "price-points" ]
         (Html.div [ Attr.class "grid grid-cols-[0.8fr_0.8fr_1.4fr_1.6fr] gap-3 px-3.5 font-bold text-[11px] tracking-[0.12em] text-faint" ]

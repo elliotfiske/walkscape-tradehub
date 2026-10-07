@@ -69,7 +69,9 @@ the listing page.
   ask the WalkScape devs whether that link is exposed anywhere.
 
 ### Phase 4: data and notifications
-- Estimates from completed trades first, then asks and bids.
+- Done: estimates from completed trades. With 3+ confirmed trades in the last
+  30 days, the estimate is their median; otherwise asks, bids and offers.
+  Every place an estimate shows says which it used.
 - Notifications when an offer gets a response (Discord DM from a bot, or browser
   push). People are out walking, not watching the site.
 - Item-for-item payment (`Payment` already has room for it). Coin-only

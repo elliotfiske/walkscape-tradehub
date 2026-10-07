@@ -363,7 +363,8 @@ validateOffer price message =
 
 {-| Price points for one listing: its own coin price, plus each offer on it
 that wasn't withdrawn. An offer "at your price" counts as another vote for the
-listed price.
+listed price. An offer both traders confirmed is also a `Pricing.Trade` at that
+price, dated when it went through.
 -}
 listingPoints : List Offer -> Listing -> List Pricing.Point
 listingPoints offers listing =
@@ -393,14 +394,28 @@ listingPoints offers listing =
                                 , source = Pricing.Offer
                                 }
                             )
+
+                trades =
+                    offers
+                        |> List.filter (\o -> o.listingId == listing.id)
+                        |> List.filterMap
+                            (\o ->
+                                case o.status of
+                                    OfferCompleted at ->
+                                        Just { price = Maybe.withDefault price o.price, trader = o.from, at = at, source = Pricing.Trade }
+
+                                    _ ->
+                                        Nothing
+                            )
             in
-            own :: fromOffers
+            own :: fromOffers ++ trades
 
         Nothing ->
             []
 
 
-{-| All price points for a price series (see `Item.priceKey`), from live listings.
+{-| All price points for a price series (see `Item.priceKey`), from listings
+that have gone live (closed ones too, which is where completed trades are).
 -}
 pricePoints : Time.Posix -> Dict Int Listing -> Dict Int Offer -> String -> List Pricing.Point
 pricePoints now listings offers key =
