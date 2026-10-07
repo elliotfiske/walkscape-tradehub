@@ -15,6 +15,7 @@ import Env
 import Lamdera as L
 import Market
 import Name
+import Screenshot
 import Time
 import Types
     exposing
@@ -81,6 +82,7 @@ init =
       , listings = Dict.empty
       , offers = Dict.empty
       , reports = []
+      , screenshots = Dict.empty
       , adminLog = []
       , nextId = 1
       , pendingAuths = Dict.empty
@@ -509,38 +511,93 @@ handleRequest sessionId clientId now msg model =
                         )
                 )
 
-        SubmitReport about reasons details ->
+        SubmitReport draft ->
             withReadyUser
                 (\name ->
-                    if not (List.any (\u -> Account.claimedName u == Just about) (Dict.values model.users)) then
+                    let
+                        trade =
+                            draft.offerId
+                                |> Maybe.map
+                                    (\offerId ->
+                                        Dict.get offerId model.offers
+                                            |> Maybe.andThen (\offer -> Dict.get offer.listingId model.listings |> Maybe.map (\listing -> { listing = listing, offer = offer }))
+                                            |> Maybe.andThen
+                                                (\t ->
+                                                    let
+                                                        terms =
+                                                            Market.tradeTerms t.listing t.offer
+
+                                                        parties =
+                                                            [ terms.seller, terms.buyer ]
+                                                    in
+                                                    if Market.wasAccepted t.offer.status && List.member name parties && List.member draft.about parties then
+                                                        Just t
+
+                                                    else
+                                                        Nothing
+                                                )
+                                    )
+
+                        reportId =
+                            model.nextId
+
+                        screenshotIds =
+                            List.indexedMap (\i _ -> reportId + 1 + i) draft.screenshots
+                    in
+                    if not (List.any (\u -> Account.claimedName u == Just draft.about) (Dict.values model.users)) then
                         fail "There's no trader with that name."
 
-                    else if about == name then
+                    else if draft.about == name then
                         fail "You can't report yourself."
 
-                    else if List.isEmpty reasons then
+                    else if List.isEmpty draft.reasons then
                         fail "Pick at least one thing that happened."
 
+                    else if trade == Just Nothing then
+                        fail "You can only report a trade you were part of."
+
                     else
-                        ( { model
-                            | reports =
-                                { id = model.nextId
-                                , reporter = name
-                                , about = about
-                                , reasons = reasons
-                                , details = String.left 2000 details
-                                , at = now
-                                , resolved = False
-                                }
-                                    :: model.reports
-                            , nextId = model.nextId + 1
-                          }
-                        , Effect.Lamdera.sendToFrontend clientId ReportReceived
-                        )
+                        case Screenshot.check draft.screenshots of
+                            Err err ->
+                                fail err
+
+                            Ok () ->
+                                ( { model
+                                    | reports =
+                                        { id = reportId
+                                        , reporter = name
+                                        , about = draft.about
+                                        , reasons = draft.reasons
+                                        , details = String.left 2000 draft.details
+                                        , at = now
+                                        , resolved = False
+                                        , trade = Maybe.andThen identity trade
+                                        , screenshots = screenshotIds
+                                        }
+                                            :: model.reports
+                                    , screenshots = Dict.union (Dict.fromList (List.map2 Tuple.pair screenshotIds draft.screenshots)) model.screenshots
+                                    , nextId = reportId + 1 + List.length screenshotIds
+                                  }
+                                , Effect.Lamdera.sendToFrontend clientId ReportReceived
+                                )
                 )
 
         AdminLoad ->
             withAdmin (\_ -> ( model, Effect.Lamdera.sendToFrontend clientId (AdminDataSent (adminData model)) ))
+
+        AdminLoadScreenshots reportId ->
+            withAdmin
+                (\_ ->
+                    case List.filter (\r -> r.id == reportId) model.reports of
+                        report :: _ ->
+                            ( model
+                            , Effect.Lamdera.sendToFrontend clientId
+                                (AdminScreenshotsSent reportId (List.filterMap (\id -> Dict.get id model.screenshots) report.screenshots))
+                            )
+
+                        [] ->
+                            fail "That report doesn't exist."
+                )
 
         AdminRequest action ->
             withAdmin

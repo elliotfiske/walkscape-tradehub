@@ -28,7 +28,9 @@ module Types exposing
     , Payment(..)
     , Provider(..)
     , Report
+    , ReportDraft
     , ReportForm
+    , ReportedTrade
     , Side(..)
     , ToBackend(..)
     , ToFrontend(..)
@@ -42,6 +44,7 @@ import Auth.Common
 import Dict exposing (Dict)
 import Effect.Browser exposing (UrlRequest)
 import Effect.Browser.Navigation exposing (Key)
+import Effect.File
 import Effect.Lamdera exposing (ClientId, SessionId)
 import Item
 import Route exposing (Route)
@@ -98,6 +101,7 @@ type alias Trader =
     { name : String
     , joinedAt : Time.Posix
     , discord : Maybe String
+    , discordSince : Maybe Time.Posix
     , lookalikeOf : Maybe String
     , banned : Bool
     }
@@ -184,6 +188,28 @@ type alias Report =
     , details : String
     , at : Time.Posix
     , resolved : Bool
+    , trade : Maybe ReportedTrade
+    , screenshots : List Int
+    }
+
+
+{-| The trade a report is about, as it was when the report was sent. Banning a
+player deletes their listings and offers, so the report keeps its own copy.
+-}
+type alias ReportedTrade =
+    { listing : Listing
+    , offer : Offer
+    }
+
+
+{-| What the report form sends. Screenshots are JPEG data URLs (see `Screenshot`).
+-}
+type alias ReportDraft =
+    { about : String
+    , reasons : List String
+    , details : String
+    , offerId : Maybe Int
+    , screenshots : List String
     }
 
 
@@ -321,8 +347,12 @@ type alias FellThroughForm =
 
 type alias ReportForm =
     { about : String
+    , trade : Maybe Int
     , reasons : List String
     , details : String
+    , screenshots : List String
+    , shrinking : Int
+    , screenshotError : Maybe String
     , sent : Bool
     }
 
@@ -351,6 +381,7 @@ type alias FrontendModel =
     , tradesTab : TradesTab
     , admin : Maybe AdminData
     , adminPage : AdminPage
+    , adminScreenshots : Dict Int (List String)
     }
 
 
@@ -400,6 +431,12 @@ type FrontendMsg
     | ReportReasonToggled String
     | ReportDetailsChanged String
     | ReportSubmitted
+    | ReportAddScreenshotsClicked
+    | ReportScreenshotsPicked Effect.File.File (List Effect.File.File)
+    | ReportScreenshotRead String
+    | ReportScreenshotShrunk (Result String String)
+    | ReportScreenshotRemoved Int
+    | AdminShowScreenshotsClicked Int
     | ToastDismissed
     | TradesTabSelected TradesTab
     | AdminTabSelected AdminTab
@@ -427,6 +464,7 @@ type ToFrontend
     | ReportReceived
     | ActionFailed String
     | AdminDataSent AdminData
+    | AdminScreenshotsSent Int (List String)
 
 
 
@@ -456,6 +494,7 @@ type alias BackendModel =
     , listings : Dict Int Listing
     , offers : Dict Int Offer
     , reports : List Report
+    , screenshots : Dict Int String
     , adminLog : List AdminLogEntry
     , nextId : Int
     , pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth
@@ -480,8 +519,9 @@ type ToBackend
     | RespondToOffer Int Bool
     | ConfirmTrade Int
     | MarkFellThrough Int String
-    | SubmitReport String (List String) String
+    | SubmitReport ReportDraft
     | AdminLoad
+    | AdminLoadScreenshots Int
     | AdminRequest AdminAction
 
 

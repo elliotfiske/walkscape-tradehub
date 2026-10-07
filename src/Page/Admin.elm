@@ -6,6 +6,7 @@ log of what admins did. The backend checks every request, so this page only
 decides what to show.
 -}
 
+import Dict
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
@@ -247,6 +248,13 @@ reportCard model data report =
 
               else
                 Html.p [ Attr.class "text-sm text-body whitespace-pre-wrap" ] [ Html.text report.details ]
+            , case report.trade of
+                Just trade ->
+                    reportedTrade data report trade
+
+                Nothing ->
+                    Ui.empty
+            , reportScreenshots model report
             , Html.div [ Attr.class "flex gap-2 flex-wrap" ]
                 [ if report.resolved then
                     Ui.button Ui.Secondary Ui.Compact ("admin-reopen-" ++ idText) (AdminActionClicked (SetReportResolved report.id False)) "Reopen"
@@ -267,6 +275,93 @@ reportCard model data report =
             ]
         , confirmBox model banAction
         ]
+
+
+{-| The trade a report is about, as it was when it was reported, and how it
+stands now if the offer still exists.
+-}
+reportedTrade : AdminData -> Report -> Types.ReportedTrade -> Html msg
+reportedTrade data report trade =
+    let
+        before =
+            tradeStatus trade.offer.status
+
+        now =
+            data.offers |> List.filter (\o -> o.id == trade.offer.id) |> List.head |> Maybe.map (.status >> tradeStatus)
+    in
+    Html.div [ Attr.class "rounded-lg bg-raised border border-edge px-3 py-2 text-sm flex flex-col gap-0.5", Ui.testId ("admin-report-trade-" ++ String.fromInt report.id) ]
+        [ Html.a [ Attr.href ("/listing/" ++ String.fromInt trade.listing.id), Attr.class "text-ink font-semibold no-underline hover:text-gold" ]
+            [ Html.text (Market.describeTrade trade.listing trade.offer) ]
+        , Html.span [ Attr.class "text-xs text-muted" ]
+            [ Html.text
+                ("When reported: "
+                    ++ before
+                    ++ (case now of
+                            Just status ->
+                                if status == before then
+                                    ""
+
+                                else
+                                    " · now: " ++ status
+
+                            Nothing ->
+                                " · the offer has been deleted since"
+                       )
+                )
+            ]
+        ]
+
+
+tradeStatus : OfferStatus -> String
+tradeStatus status =
+    case status of
+        OfferOpen ->
+            "Open"
+
+        OfferAccepted ->
+            "Trade pending"
+
+        OfferCompleted _ ->
+            "Traded"
+
+        OfferFellThrough fell ->
+            "Fell through (" ++ fell.by ++ ": " ++ fell.reason ++ ")"
+
+        OfferDeclined ->
+            "Declined"
+
+        OfferWithdrawn ->
+            "Withdrawn"
+
+
+reportScreenshots : FrontendModel -> Report -> Html FrontendMsg
+reportScreenshots model report =
+    let
+        idText =
+            String.fromInt report.id
+    in
+    if List.isEmpty report.screenshots then
+        Ui.empty
+
+    else
+        case Dict.get report.id model.adminScreenshots of
+            Just screenshots ->
+                Html.div [ Attr.class "flex flex-col gap-2" ]
+                    (screenshots
+                        |> List.indexedMap
+                            (\i src ->
+                                Html.img [ Attr.src src, Attr.alt ("Screenshot " ++ String.fromInt (i + 1)), Attr.class "w-full rounded-lg border border-edge", Ui.testId ("admin-screenshot-" ++ idText ++ "-" ++ String.fromInt i) ] []
+                            )
+                    )
+
+            Nothing ->
+                Html.div []
+                    [ Ui.button Ui.Secondary
+                        Ui.Compact
+                        ("admin-show-screenshots-" ++ idText)
+                        (AdminShowScreenshotsClicked report.id)
+                        ("Show " ++ Ui.plural (List.length report.screenshots) "screenshot" "screenshots")
+                    ]
 
 
 listingCard : FrontendModel -> AdminData -> Listing -> Html FrontendMsg

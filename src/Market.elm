@@ -5,6 +5,7 @@ module Market exposing
     , checkNewOffer
     , confirmTrade
     , describe
+    , describeTrade
     , isLive
     , item
     , markFellThrough
@@ -80,7 +81,24 @@ describe listing =
         Buying ->
             "Buying "
     )
-        ++ String.fromInt listing.quantity
+        ++ describeItems listing
+
+
+{-| "Juno Trek sells 1x Shovel axe to Wanderling for 9800 coins", with the
+coins written the way the trade window shows them.
+-}
+describeTrade : Listing -> Offer -> String
+describeTrade listing offer =
+    let
+        terms =
+            tradeTerms listing offer
+    in
+    terms.seller ++ " sells " ++ describeItems listing ++ " to " ++ terms.buyer ++ " for " ++ String.fromInt terms.coins ++ " coins"
+
+
+describeItems : Listing -> String
+describeItems listing =
+    String.fromInt listing.quantity
         ++ "x "
         ++ (if listing.variant.fine then
                 "fine "

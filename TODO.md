@@ -55,10 +55,13 @@ the listing page.
   "Still available?" bump.
 
 ### Phase 3: trust (no verification yet)
-- Completed-trade count on profiles ("12 trades · 0 fell through").
-- Show the Discord account's age next to the handle.
-- A "Didn't match what we agreed" report reason tied to a trade, with
-  screenshot uploads (the in-game "Previous trades" screen is good evidence).
+- Done: "12 trades · 0 fell through" on profiles and trader cards; the Discord
+  account's age next to the handle (from the user id); "Report a problem with
+  this trade" on the checklist and on fallen-through trades, with a "Didn't
+  match what we agreed" reason, a copy of the trade on the report, and up to 3
+  screenshots (shrunk in the browser, kept in the BackendModel, admins only).
+- Screenshots live in `BackendModel.screenshots` (up to ~1.2MB per report). If
+  reports pile up, move them out or delete them when a report is resolved.
 - Name verification is less urgent now that trades swap both sides at once.
   Ideas: the coin-to-bot flow from #15 (recover from `885e9d5`), checked by hand
   in `/admin` instead of by a bot; or Helpful Herbert already knows each

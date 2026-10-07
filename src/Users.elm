@@ -1,4 +1,4 @@
-module Users exposing (adminName, byName, isAdmin, previewAdminPrefix, signIn, toAdminUser, toMe, toTrader, traders)
+module Users exposing (adminName, byName, discordSince, isAdmin, previewAdminPrefix, signIn, toAdminUser, toMe, toTrader, traders)
 
 {-| Backend-side helpers for accounts and their public trader profiles.
 -}
@@ -149,10 +149,31 @@ toTrader model user =
 
                     else
                         Nothing
+                , discordSince = discordSince user.id
                 , lookalikeOf = Name.lookalikeOf name earlier
                 , banned = user.ban /= Nothing
                 }
             )
+
+
+{-| When a Discord account was made, read from its user id (a "snowflake":
+milliseconds since 2015 in the bits above the lowest 22). Preview accounts have
+no Discord id.
+-}
+discordSince : UserId -> Maybe Time.Posix
+discordSince userId =
+    if String.startsWith discordPrefix userId then
+        String.dropLeft (String.length discordPrefix) userId
+            |> String.toInt
+            |> Maybe.map (\id -> Time.millisToPosix (floor (toFloat id / 4194304) + 1420070400000))
+
+    else
+        Nothing
+
+
+discordPrefix : String
+discordPrefix =
+    "OAuthDiscord:"
 
 
 traders : BackendModel -> List Trader

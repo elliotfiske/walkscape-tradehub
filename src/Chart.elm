@@ -54,7 +54,7 @@ sparkline points =
         area =
             "0,60 " ++ line ++ " 460,60"
     in
-    Svg.svg [ SA.viewBox "0 0 460 60", SA.preserveAspectRatio "none", Attr.class "w-full h-[60px] block" ]
+    Svg.svg [ SA.viewBox "0 0 460 60", SA.preserveAspectRatio "none", SA.class "w-full h-[60px] block" ]
         (if n <= 1 then
             [ Svg.line [ SA.x1 "0", SA.x2 "460", SA.y1 "30", SA.y2 "30", SA.stroke "#e3b54c", SA.strokeWidth "2" ] [] ]
 
@@ -176,8 +176,8 @@ scatter now classified estimate =
     Html.div [ Attr.class "flex flex-col gap-2" ]
         [ Html.div [ Attr.class "flex justify-between text-[11px] text-faint" ]
             [ Html.span [] [ Html.text "30 days ago" ], Html.span [] [ Html.text "now" ] ]
-        , Svg.svg [ SA.viewBox ("0 0 " ++ fmt w ++ " " ++ fmt h), SA.preserveAspectRatio "none", Attr.class "w-full h-[200px] block overflow-visible" ]
+        , Svg.svg [ SA.viewBox ("0 0 " ++ fmt w ++ " " ++ fmt h), SA.preserveAspectRatio "none", SA.class "w-full h-[200px] block overflow-visible" ]
             (bandAndMedian ++ List.map dot recent)
-        , Svg.svg [ SA.viewBox ("0 0 " ++ fmt w ++ " 34"), SA.preserveAspectRatio "none", Attr.class "w-full h-[34px] block border-t border-line pt-1" ] bars
+        , Svg.svg [ SA.viewBox ("0 0 " ++ fmt w ++ " 34"), SA.preserveAspectRatio "none", SA.class "w-full h-[34px] block border-t border-line pt-1" ] bars
         , Html.div [ Attr.class "text-xs text-faint" ] [ Html.text "Prices posted per day" ]
         ]

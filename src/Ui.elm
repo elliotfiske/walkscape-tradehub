@@ -2,6 +2,7 @@ module Ui exposing
     ( ButtonSize(..)
     , ButtonStyle(..)
     , Tone(..)
+    , accountAge
     , backLink
     , bannedTag
     , button
@@ -14,6 +15,7 @@ module Ui exposing
     , colorChip
     , discordHandle
     , discordIcon
+    , discordLine
     , empty
     , feedbackThreadUrl
     , formatInt
@@ -26,6 +28,7 @@ module Ui exposing
     , percentAboveBelow
     , plural
     , previewNote
+    , reportTradeLink
     , priceText
     , sectionLabel
     , segmented
@@ -36,6 +39,7 @@ module Ui exposing
     , textArea
     , textInput
     , timeAgo
+    , tradeRecord
     , tradePendingTag
     , tradedTag
     , unverifiedTag
@@ -287,6 +291,101 @@ discordHandle : String -> Html msg
 discordHandle handle =
     Html.span [ Attr.class "flex items-center gap-1.5 text-[13px] text-[#b7bdf7]" ]
         [ discordIcon "w-3.5 h-3.5 text-discord", Html.text ("@" ++ handle) ]
+
+
+{-| "Report a problem with this trade", for either trader once an offer has
+been accepted.
+-}
+reportTradeLink : String -> Int -> Html msg
+reportTradeLink other offerId =
+    Html.a
+        [ Attr.href (Route.toString (Route.Report other (Just offerId)))
+        , Attr.id ("report-trade-" ++ String.fromInt offerId)
+        , Attr.class "text-warn hover:text-warn text-[13px] font-semibold no-underline"
+        ]
+        [ Html.text "Report a problem with this trade" ]
+
+
+{-| "12 trades · 0 fell through": trades both sides confirmed, and trades with
+this trader that fell through.
+-}
+tradeRecord : { a | trades : Int, fellThrough : Int } -> Html msg
+tradeRecord stats =
+    Html.div
+        [ Attr.class
+            ("rounded-[10px] bg-raised border border-edge px-3 py-2.5 text-sm font-bold "
+                ++ (if stats.fellThrough > 0 then
+                        "text-warn"
+
+                    else if stats.trades > 0 then
+                        "text-leaf"
+
+                    else
+                        "text-muted"
+                   )
+            )
+        , testId "trade-record"
+        ]
+        [ Html.text (plural stats.trades "trade" "trades" ++ " · " ++ String.fromInt stats.fellThrough ++ " fell through") ]
+
+
+{-| A trader's Discord handle and how old their Discord account is, for
+signed-in viewers only (the callers check). New accounts are in red.
+-}
+discordLine : Time.Posix -> { a | discord : Maybe String, discordSince : Maybe Time.Posix } -> Html msg
+discordLine now trader =
+    case trader.discord of
+        Just handle ->
+            Html.span [ Attr.class "flex items-center gap-1.5 flex-wrap" ]
+                [ discordHandle handle
+                , case trader.discordSince of
+                    Just since ->
+                        Html.span
+                            [ Attr.class
+                                ("text-[13px] "
+                                    ++ (if daysBetween since now < 30 then
+                                            "text-warn"
+
+                                        else
+                                            "text-faint"
+                                       )
+                                )
+                            , testId "discord-age"
+                            ]
+                            [ Html.text ("· " ++ accountAge now since) ]
+
+                    Nothing ->
+                        empty
+                ]
+
+        Nothing ->
+            empty
+
+
+{-| "account 3 years old", from when the account was made.
+-}
+accountAge : Time.Posix -> Time.Posix -> String
+accountAge now since =
+    let
+        days =
+            daysBetween since now
+    in
+    if days < 1 then
+        "account made today"
+
+    else if days < 60 then
+        "account " ++ plural days "day" "days" ++ " old"
+
+    else if days < 730 then
+        "account " ++ plural (days // 30) "month" "months" ++ " old"
+
+    else
+        "account " ++ plural (days // 365) "year" "years" ++ " old"
+
+
+daysBetween : Time.Posix -> Time.Posix -> Int
+daysBetween from to =
+    (Time.posixToMillis to - Time.posixToMillis from) // 86400000
 
 
 {-| Shown wherever a trader's name is very close to an earlier trader's.

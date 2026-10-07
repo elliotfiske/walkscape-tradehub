@@ -130,6 +130,18 @@ signInAsAdmin actions =
     ]
 
 
+{-| A report about Juno Trek, for sending straight to the backend.
+-}
+draft : { offerId : Maybe Int, screenshots : List String } -> Types.ReportDraft
+draft { offerId, screenshots } =
+    { about = "Juno Trek"
+    , reasons = [ "Other" ]
+    , details = ""
+    , offerId = offerId
+    , screenshots = screenshots
+    }
+
+
 {-| Every analytics event sent so far, oldest first, as `name` or
 `name {"side":"sell",...}` when it carries metadata.
 -}
@@ -395,6 +407,7 @@ tests =
                                        , buyer.clickLink 100 "/listing/1"
                                        , buyer.click 100 (Dom.id "trade-confirm-2")
                                        , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , buyer.checkView 100 (byTestId "trader-card" >> byTestId "trade-record" >> seesText "1 trade · 0 fell through")
                                        , seller.checkView 100 (byTestId "listing-status" >> seesText "TRADED")
                                        , seller.checkView 100 (lacksTestId "trade-checklist-2")
                                        , seller.checkView 100 (Query.hasNot [ Selector.id "close-listing" ])
@@ -458,9 +471,12 @@ tests =
                                                        , seller.checkView 300 (byTestId "listing-status" >> seesText "LIVE")
                                                        , seller.checkView 100 (byTestId "offer-2" >> seesText "Fell through: They went offline")
                                                        , b2.checkView 100 (lacksTestId "trade-pending")
+                                       , b2.checkView 100 (byTestId "trader-card" >> byTestId "trade-record" >> seesText "0 trades · 1 fell through")
+                                       , b1.checkView 100 (Query.has [ Selector.id "report-trade-2", Selector.attribute (Html.Attributes.href "/report/Juno%20Trek?trade=2") ])
                                                        , b1.clickLink 100 "/trades"
                                                        , b1.click 100 (Dom.id "trades-sent")
                                                        , b1.checkView 100 (byTestId "trade-offer-2" >> seesText "Fell through")
+                                       , b1.checkView 100 (byTestId "trade-offer-2" >> Query.has [ Selector.attribute (Html.Attributes.href "/report/Juno%20Trek?trade=2") ])
                                                        , seller.click 100 (Dom.id "accept-3")
                                                        , seller.checkView 300 (hasTestId "trade-checklist-3")
                                                        , b2.checkView 100 (byTestId "trade-checklist-3" >> seesText "Trade with Juno Trek in WalkScape")
@@ -484,6 +500,119 @@ tests =
 
                                                                 else
                                                                     Err "trade_fell_through should be tracked"
+                                                            )
+                                                       ]
+                                       ]
+                       ]
+        ]
+    , start "A trader's profile shows their trade record and when their Discord account was made"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ [ connect "guest" "/u/Juno%20Trek" <|
+                            \guest ->
+                                [ guest.checkView 300 (byTestId "trade-record" >> seesText "0 trades · 0 fell through")
+                                , guest.checkView 100 (Query.hasNot [ Selector.text "offers accepted" ])
+                                , guest.checkView 100 (lacksTestId "discord-age")
+                                ]
+                       ]
+        ]
+    , start "Reporting a problem with a trade sends its terms and screenshots to the admins"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.click 300 (Dom.id "accept-2")
+                                       , buyer.checkView 300 (byTestId "trade-checklist-2" >> seesText "Report a problem with this trade")
+                                       , buyer.clickLink 100 "/report/Juno%20Trek?trade=2"
+                                       , buyer.checkView 100 (byTestId "report-trade" >> seesText "9800")
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.text "You can't upload screenshots yet" ])
+                                       , buyer.click 100 (Dom.id "reason-5")
+                                       , buyer.click 100 (Dom.id "report-add-screenshots")
+                                       , buyer.checkView 300 (hasTestId "report-screenshot-1")
+                                       , buyer.click 100 (Dom.id "report-remove-screenshot-1")
+                                       , buyer.checkView 100 (lacksTestId "report-screenshot-1")
+                                       , buyer.click 100 (Dom.id "report-add-screenshots")
+                                       , buyer.checkView 300 (hasTestId "report-screenshot-2")
+                                       , buyer.checkView 100 (byTestId "report-screenshot-count" >> seesText "3 of 3")
+                                       , buyer.checkView 100 (Query.hasNot [ Selector.id "report-add-screenshots" ])
+                                       , buyer.click 100 (Dom.id "send-report")
+                                       , buyer.checkView 300 (hasTestId "report-sent")
+                                       , Effect.Test.checkBackend 100
+                                            (\backend ->
+                                                case backend.reports of
+                                                    [ report ] ->
+                                                        if Maybe.map (.offer >> .id) report.trade /= Just 2 then
+                                                            Err "the report should carry offer 2"
+
+                                                        else if report.reasons /= [ "Didn't match what we agreed" ] then
+                                                            Err "the report should have the new reason"
+
+                                                        else if List.length report.screenshots /= 3 || Dict.size backend.screenshots /= 3 then
+                                                            Err "the report should have 3 screenshots"
+
+                                                        else
+                                                            Ok ()
+
+                                                    _ ->
+                                                        Err "expected one report"
+                                            )
+                                       , buyer.sendToBackend 100 (Types.AdminLoadScreenshots 3)
+                                       , buyer.checkModel 300
+                                            (\model ->
+                                                if Dict.isEmpty model.adminScreenshots then
+                                                    Ok ()
+
+                                                else
+                                                    Err "only admins can load screenshots"
+                                            )
+                                       , connect "mod" "/" <|
+                                            \mod ->
+                                                signInAsAdmin mod
+                                                    ++ [ mod.checkView 100 (byTestId "admin-report-3" >> seesText "Didn't match what we agreed")
+                                                       , mod.checkView 100 (byTestId "admin-report-trade-3" >> seesText "Juno Trek sells")
+                                                       , mod.checkView 100 (byTestId "admin-report-trade-3" >> seesText "9800")
+                                                       , mod.checkView 100 (byTestId "admin-report-trade-3" >> seesText "Trade pending")
+                                                       , mod.click 100 (Dom.id "admin-show-screenshots-3")
+                                                       , mod.checkView 300 (hasTestId "admin-screenshot-3-2")
+                                                       ]
+                                       ]
+                       ]
+        ]
+    , start "The backend refuses reports with too many or too big screenshots, or someone else's trade"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.click 300 (Dom.id "accept-2")
+                                       , connect "other" "/" <|
+                                            \other ->
+                                                onboard other "Hollowfen"
+                                                    ++ [ other.sendToBackend 100 (Types.SubmitReport (draft { offerId = Nothing, screenshots = List.repeat 4 fakeJpeg }))
+                                                       , other.checkView 300 (byTestId "toast" >> seesText "You can add up to 3 screenshots.")
+                                                       , other.sendToBackend 100 (Types.SubmitReport (draft { offerId = Nothing, screenshots = [ fakeJpeg ++ String.repeat 410000 "A" ] }))
+                                                       , other.checkView 300 (byTestId "toast" >> seesText "One of the screenshots is too big.")
+                                                       , other.sendToBackend 100 (Types.SubmitReport (draft { offerId = Just 2, screenshots = [] }))
+                                                       , other.checkView 300 (byTestId "toast" >> seesText "You can only report a trade you were part of.")
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                if List.isEmpty backend.reports && Dict.isEmpty backend.screenshots then
+                                                                    Ok ()
+
+                                                                else
+                                                                    Err "none of those reports should be saved"
                                                             )
                                                        ]
                                        ]
@@ -917,8 +1046,31 @@ config =
     { frontendApp = Frontend.app_
     , backendApp = Backend.app_
     , handleHttpRequest = always NetworkErrorResponse
-    , handlePortToJs = always Nothing
+    , handlePortToJs = fakeDownscaler
     , handleFileUpload = always Effect.Test.UnhandledFileUpload
-    , handleMultipleFilesUpload = always Effect.Test.UnhandledMultiFileUpload
+    , handleMultipleFilesUpload = \_ -> Effect.Test.UploadMultipleFiles (screenshotFile "trade-1.png") [ screenshotFile "trade-2.png" ]
     , domain = safeUrl
     }
+
+
+screenshotFile : String -> Effect.Test.FileData
+screenshotFile name =
+    Effect.Test.uploadStringFile name "image/png" "not really a png" startTime
+
+
+{-| Stands in for `elm-pkg-js/screenshots.js`, which shrinks a picked image in
+a canvas and sends back a JPEG data URL.
+-}
+fakeDownscaler : { data : Effect.Test.Data FrontendModel BackendModel, currentRequest : Effect.Test.PortToJs } -> Maybe ( String, Json.Decode.Value )
+fakeDownscaler { currentRequest } =
+    if currentRequest.portName == "downscaleScreenshot" then
+        Just ( "screenshotDownscaled", Json.Encode.object [ ( "ok", Json.Encode.string fakeJpeg ) ] )
+
+    else
+        Nothing
+
+
+fakeJpeg : String
+fakeJpeg =
+    "data:image/jpeg;base64,c2hvdA=="
+
