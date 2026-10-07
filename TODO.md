@@ -4,15 +4,14 @@ The backlog. The original starter checklist is done (see git history).
 
 ## Needs input from Elliot
 
-- **Discord sign-in on PR previews.** Each PR deploys to
-  `trailpost-pr-<N>.lamdera.app` (`.github/workflows/preview.yml`), and Discord
-  only allows redirect URIs registered in the Developer Portal, so OAuth fails
-  on every preview domain (the "preview account" sign-in still works there).
-  Ideas: register a wildcard-ish set of URIs, route all previews' callbacks
-  through one fixed callback domain that bounces back, or just rely on the
-  preview account. Also check that preview apps get accepted at all without
-  per-app `discordClientId`/`discordClientSecret` values in the Lamdera
-  dashboard ("MISSING PRODUCTION CONFIG" is what killed the starter's previews).
+- **Discord sign-in on PR previews.** Built: previews use 5 fixed slots,
+  `trailpost-pr-{a,b,c,d,e}.lamdera.app` (see "Preview slots" in CLAUDE.md).
+  Still to do by hand: register
+  `https://trailpost-pr-<x>.lamdera.app/login/OAuthDiscord/callback` for each
+  slot in the Discord Developer Portal, and check that preview apps get
+  `discordClientId`/`discordClientSecret` from the Lamdera dashboard (without
+  them the button falls back to the preview account, and "MISSING PRODUCTION
+  CONFIG" is what killed the starter's previews).
 
 ## Live trading
 

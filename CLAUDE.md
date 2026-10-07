@@ -345,13 +345,25 @@ and edit there instead.
 
 **Production deploys are automatic:** every merge to `main` runs
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which runs
-`npm run deploy` on CI. **Every PR push gets a preview app** at
-`https://<app>-pr-<N>.lamdera.app` via
+`npm run deploy` on CI. **Every PR push gets a preview app** via
 [.github/workflows/preview.yml](.github/workflows/preview.yml), plus a sticky
 PR comment with the preview URL and screenshots. The app name lives in
 `package.json` → `config.lamderaApp`. Preview apps don't run Evergreen and
-reset their backend on every deploy. Discord sign-in doesn't work on previews
-yet; see [TODO.md](TODO.md).
+reset their backend on every deploy.
+
+**Preview slots (so Discord sign-in works on previews).** Discord only accepts
+registered redirect URIs, so previews live at one of 5 fixed URLs,
+`https://<app>-pr-{a,b,c,d,e}.lamdera.app`, each registered in the Developer
+Portal as `<url>/login/OAuthDiscord/callback` (the app builds the redirect URI
+from its own origin, so there's no code involved). `.github/scripts/preview-slot.js`
+hands them out: a slot is free unless an unmerged (open or draft) PR holds it,
+recorded as a `preview-slot-<x>` label on the PR. A PR keeps its slot across
+pushes, a new PR takes the first free one, and closing or merging frees it
+(a new owner just force-pushes the branch, which resets the backend anyway).
+If all 5 are held the PR falls back to `<app>-pr-<N>`, where only the
+preview-account sign-in works (the PR comment says so). Previews need
+`discordClientId`/`discordClientSecret` available to them in the Lamdera
+dashboard; see [TODO.md](TODO.md).
 
 **Every deploy bumps production's Evergreen version, even with no type
 changes**, and a migration is numbered production+1 when `lamdera check` runs.
