@@ -195,11 +195,11 @@ viewClaim model me =
                     "Signed in with " ++ providerName me.provider
                 )
             ]
-        , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] leading-tight mb-4" ] [ Html.text "Which WalkScape account is yours?" ]
+        , Html.h1 [ Attr.class "font-display font-extrabold text-[26px] leading-tight mb-4" ] [ Html.text "Which WalkScape character is yours?" ]
         , Html.form [ Events.onSubmit ClaimNameSubmitted, Attr.class "flex flex-col flex-1" ]
-            [ Html.label [ Attr.for "claim-name" ] [ Ui.label "WalkScape username" ]
+            [ Html.label [ Attr.for "claim-name" ] [ Ui.label "WalkScape character name" ]
             , Ui.textInput [ Attr.id "claim-name", Attr.placeholder "Wanderling", Attr.autocomplete False ] model.claimName ClaimNameChanged
-            , Html.p [ Attr.class "text-xs text-faint mt-1.5" ] [ Html.text "Must match exactly, including capitals." ]
+            , Html.p [ Attr.class "text-xs text-faint mt-1.5" ] [ Html.text "Must match exactly, including capitals and spaces. This is your character's name, not your portal username." ]
             , case model.claimError of
                 Just err ->
                     Html.p [ Attr.class "text-sm text-warn mt-3", Ui.testId "claim-error" ] [ Html.text err ]

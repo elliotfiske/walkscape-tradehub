@@ -72,7 +72,7 @@ viewListing model listing item =
                     Ui.button Ui.Secondary Ui.Block "close-listing" (CloseListingClicked listing.id) "Close this listing"
 
               else if Derived.isReady model then
-                Html.a [ Attr.href ("/report/" ++ listing.trader), Attr.id "report-link", Attr.class "text-warn hover:text-warn text-sm font-semibold no-underline" ]
+                Html.a [ Attr.href (Route.toString (Route.Report listing.trader)), Attr.id "report-link", Attr.class "text-warn hover:text-warn text-sm font-semibold no-underline" ]
                     [ Html.text ("Report " ++ listing.trader) ]
 
               else
@@ -132,7 +132,7 @@ termsCard model listing item =
             Html.p [ Attr.class "text-sm text-body border-l-2 border-rule pl-3 italic" ] [ Html.text listing.note ]
         , Html.div [ Attr.class "text-xs text-faint" ]
             [ Html.text ("Posted " ++ Ui.timeAgo model.now listing.createdAt ++ " by ")
-            , Html.a [ Attr.href ("/u/" ++ listing.trader) ] [ Html.text listing.trader ]
+            , Html.a [ Attr.href (Route.toString (Route.Profile listing.trader)) ] [ Html.text listing.trader ]
             ]
         , if Market.isLive model.now listing then
             Ui.empty
@@ -264,7 +264,7 @@ offerRow model listing isMine offer =
     in
     Html.div [ Attr.class "rounded-lg bg-[#16232a] px-3.5 py-2.5", Ui.testId ("offer-" ++ String.fromInt offer.id) ]
         [ Html.div [ Attr.class "flex items-center gap-3 flex-wrap" ]
-            [ Html.a [ Attr.href ("/u/" ++ offer.from), Attr.class "font-semibold text-ink hover:text-gold no-underline" ] [ Html.text offer.from ]
+            [ Html.a [ Attr.href (Route.toString (Route.Profile offer.from)), Attr.class "font-semibold text-ink hover:text-gold no-underline" ] [ Html.text offer.from ]
             , priceLabel
             , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
             , Html.div [ Attr.class "flex-1" ] []
@@ -392,7 +392,7 @@ traderCard model name =
             Dict.get name model.traders
     in
     Html.div [ Attr.class "flex flex-col gap-3", Ui.testId "trader-card" ]
-        [ Html.a [ Attr.href ("/u/" ++ name), Attr.class "flex items-center gap-3.5 no-underline text-ink hover:text-ink" ]
+        [ Html.a [ Attr.href (Route.toString (Route.Profile name)), Attr.class "flex items-center gap-3.5 no-underline text-ink hover:text-ink" ]
             [ Ui.portrait "w-16 h-16 rounded-xl"
             , Html.div [ Attr.class "flex flex-col gap-1" ]
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]

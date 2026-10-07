@@ -271,7 +271,7 @@ pointTable model classified est =
                                 [ Html.div [ Attr.class "text-muted" ] [ Html.text (Ui.timeAgo model.now p.at) ]
                                 , Html.div [ Attr.class "font-bold text-gold" ] [ Html.text (Ui.formatInt p.price) ]
                                 , Html.div [ Attr.class "min-w-0 truncate" ]
-                                    [ Html.a [ Attr.href ("/u/" ++ p.trader), Attr.class "text-ink hover:text-gold no-underline" ] [ Html.text p.trader ]
+                                    [ Html.a [ Attr.href (Route.toString (Route.Profile p.trader)), Attr.class "text-ink hover:text-gold no-underline" ] [ Html.text p.trader ]
                                     , Html.span [ Attr.class "text-faint text-xs" ] [ Html.text (" · " ++ sourceLabel p.source) ]
                                     ]
                                 , Html.div [ Attr.class "text-[13px]" ] [ statusCell ( p, s ) ]

@@ -235,14 +235,14 @@ tests =
                 onboard first "Mossbeard"
                     ++ [ connect "s2" "/" <|
                             \second ->
-                                signInAndClaim second "Moss beard"
+                                signInAndClaim second "Moss!beard"
                                     ++ [ second.checkView 300 (byTestId "claim-error" >> seesText "Names can only use letters")
                                        , second.input 100 (Dom.id "claim-name") "mossbeard"
                                        , second.click 100 (Dom.id "claim-submit")
                                        , second.checkView 300 (byTestId "claim-error" >> seesText "already claimed")
-                                       , second.input 100 (Dom.id "claim-name") "Juno_Trek"
+                                       , second.input 100 (Dom.id "claim-name") "Juno Trek"
                                        , second.click 100 (Dom.id "claim-submit")
-                                       , second.checkView 300 (byTestId "done-heading" >> seesText "Juno_Trek is linked")
+                                       , second.checkView 300 (byTestId "done-heading" >> seesText "Juno Trek is linked")
                                        , Effect.Test.checkState 100
                                             (\data ->
                                                 if List.length (List.filter ((==) "claim_name_rejected") (trackedEvents data)) == 2 then
@@ -295,7 +295,7 @@ tests =
     , start "Making an offer, getting a badge, and accepting it"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
@@ -349,7 +349,7 @@ tests =
     , start "Offers feed the price estimate on the item page"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ postListing seller { item = "shovel_axe", price = "9000", quantity = "1" }
                     ++ [ connect "b1" "/" <|
                             \b1 ->
@@ -378,7 +378,7 @@ tests =
     , start "Fine items are listed, filtered and priced separately from regular ones"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ postListing seller { item = "iron_bar", price = "100", quantity = "10" }
                     ++ [ seller.clickLink 100 "/market"
                        , seller.clickLink 100 "/new"
@@ -415,7 +415,7 @@ tests =
     , start "Rare pet eggs are listed and priced separately from common ones"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ postListing seller { item = "camel_egg", price = "100", quantity = "1" }
                     ++ [ seller.clickLink 100 "/market"
                        , seller.clickLink 100 "/new"
@@ -442,7 +442,7 @@ tests =
     , start "Post a listing on an item's price page starts the form on that item"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ [ connect "seller" "/prices/camel_egg?rare=1" <|
                             \tab ->
                                 [ tab.clickLink 100 "/new?item=camel_egg&rare=1"
@@ -460,13 +460,13 @@ tests =
                 onboard real "Mossbeard"
                     ++ [ connect "fake" "/" <|
                             \fake ->
-                                onboard fake "Mosbeard_"
+                                onboard fake "Moss Beard"
                                     ++ postListing fake { item = "copper_ore", price = "5", quantity = "100" }
                                     ++ [ real.clickLink (minutes 6) "/market"
                                        , real.checkView 100 (byTestId "listing-1" >> byTestId "lookalike-warning" >> seesText "very close to Mossbeard")
                                        , real.clickLink 100 "/listing/1"
-                                       , real.clickLink 100 "/u/Mosbeard_"
-                                       , real.checkView 100 (byTestId "profile-name" >> seesText "Mosbeard_")
+                                       , real.clickLink 100 "/u/Moss%20Beard"
+                                       , real.checkView 100 (byTestId "profile-name" >> seesText "Moss Beard")
                                        , real.checkView 100 (seesText "This name is very close to Mossbeard")
                                        ]
                        ]
@@ -609,7 +609,7 @@ tests =
     , start "An admin deletes an offer, a listing that isn't live yet, and releases a name"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ postListing seller { item = "shovel_axe", price = "9000", quantity = "1" }
                     ++ [ connect "buyer" "/" <|
                             \buyer ->
@@ -675,7 +675,7 @@ tests =
     , start "A trader can have at most 20 active listings at once"
         [ connect "seller" "/" <|
             \seller ->
-                onboard seller "Juno_Trek"
+                onboard seller "Juno Trek"
                     ++ List.concatMap (\_ -> postListing seller { item = "coal", price = "10", quantity = "1" }) (List.range 1 20)
                     ++ [ seller.clickLink 100 "/market"
                        , seller.clickLink 100 "/new"
