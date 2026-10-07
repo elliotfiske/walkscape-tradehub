@@ -209,8 +209,7 @@ viewClaim model me =
             , case validName of
                 Just name ->
                     Html.div [ Attr.class "mt-4 flex items-center gap-3.5 rounded-xl border border-[#2c5a2a] bg-card p-3.5" ]
-                        [ Ui.portrait "w-[60px] h-[60px]"
-                        , Html.div []
+                        [ Html.div []
                             [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                             , Html.div [ Attr.class "text-xs text-faint mt-1" ]
                                 [ Html.text "Once trading opens, your level and steps from WalkScape show up here." ]
@@ -231,10 +230,6 @@ viewDone : Me -> Claim -> Html FrontendMsg
 viewDone me claim =
     Html.div [ Attr.class "flex-1 flex flex-col items-center text-center gap-3" ]
         [ stepper StepDone
-        , Html.div [ Attr.class "relative mt-2" ]
-            [ Ui.portrait "w-24 h-24 rounded-xl"
-            , Html.span [ Attr.class "absolute -right-2 -bottom-2 w-8 h-8 rounded-full bg-[#6b5520] border-2 border-shell grid place-items-center text-gold font-bold" ] [ Html.text "?" ]
-            ]
         , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "done-heading" ] [ Html.text (claim.name ++ " is linked") ]
         , Html.p [ Attr.class "text-body" ] [ Html.text "You can post listings and make offers now. Your name shows as unverified until trading opens." ]
         , Ui.card [ Attr.class "w-full text-left p-4 mt-3 flex flex-col gap-3" ]

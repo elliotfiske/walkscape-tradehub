@@ -25,7 +25,6 @@ module Ui exposing
     , pageMessage
     , percentAboveBelow
     , plural
-    , portrait
     , previewNote
     , priceText
     , sectionLabel
@@ -269,12 +268,6 @@ sideBadge listing =
     in
     Html.span [ Attr.class ("flex-none font-bold text-[10px] tracking-wider px-1.5 py-0.5 rounded text-white " ++ cls) ]
         [ Html.text text ]
-
-
-portrait : String -> Html msg
-portrait size =
-    Html.div [ Attr.class ("hatch flex-none overflow-hidden rounded-lg border border-edge " ++ size) ]
-        [ Html.img [ Attr.src "/assets/portrait.svg", Attr.alt "", Attr.class "pixel block w-full h-full object-cover" ] [] ]
 
 
 {-| Discord's logo (from discord.com/branding), filled with the current text
