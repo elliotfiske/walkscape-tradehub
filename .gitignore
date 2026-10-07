@@ -11,3 +11,6 @@ review/elm-stuff
 .env
 __pycache__/
 screenshots/
+
+# Per-worktree scratch output (cdp-drive screenshots, PR description drafts)
+.context/

@@ -98,7 +98,7 @@ myAcceptedOffers model listing =
 {-| What each side puts in WalkScape's trade window, and what to check before
 pressing Accept there.
 -}
-tradeChecklist : FrontendModel -> Listing -> Item -> Offer -> Html msg
+tradeChecklist : FrontendModel -> Listing -> Item -> Offer -> Html FrontendMsg
 tradeChecklist model listing item offer =
     let
         terms =
@@ -177,7 +177,74 @@ tradeChecklist model listing item offer =
             ]
         , Html.p []
             [ Html.text "Read their side before you press Accept. If either of you presses Update, Accept resets, so read it again before accepting again." ]
+        , resolveTrade model listing offer other
         ]
+
+
+{-| "It went through" and "It fell through", for after the trade window.
+-}
+resolveTrade : FrontendModel -> Listing -> Offer -> String -> Html FrontendMsg
+resolveTrade model listing offer other =
+    let
+        idText =
+            String.fromInt offer.id
+
+        iAmLister =
+            Derived.myName model == Just listing.trader
+
+        ( iConfirmed, theyConfirmed ) =
+            if iAmLister then
+                ( offer.listerConfirmed, offer.offererConfirmed )
+
+            else
+                ( offer.offererConfirmed, offer.listerConfirmed )
+
+        status text =
+            Html.p [ Attr.class "font-semibold text-leaf", Ui.testId ("trade-status-" ++ idText) ] [ Html.text text ]
+
+        buttons =
+            Html.div [ Attr.class "grid grid-cols-2 gap-2" ]
+                [ Ui.button Ui.Primary Ui.Block ("trade-confirm-" ++ idText) (TradeConfirmClicked offer.id) "It went through"
+                , Ui.button Ui.Secondary Ui.Block ("trade-fell-through-" ++ idText) (FellThroughClicked offer.id) "It fell through"
+                ]
+    in
+    Html.div [ Attr.class "flex flex-col gap-2 border-t border-[#2c5a2a] pt-3" ]
+        (case model.fellThroughForm of
+            Just form ->
+                if form.offerId == offer.id then
+                    [ Ui.label "What happened?"
+                    , Ui.textInput [ Attr.id "fell-through-reason", Attr.placeholder "e.g. They never accepted the invite" ] form.reason FellThroughReasonChanged
+                    , case form.error of
+                        Just err ->
+                            Html.p [ Attr.class "text-sm text-warn", Ui.testId "fell-through-error" ] [ Html.text err ]
+
+                        Nothing ->
+                            Ui.empty
+                    , Html.div [ Attr.class "grid grid-cols-2 gap-2" ]
+                        [ Ui.button Ui.Danger Ui.Block "fell-through-submit" FellThroughSubmitted "It fell through"
+                        , Ui.button Ui.Secondary Ui.Block "fell-through-cancel" FellThroughCancelled "Cancel"
+                        ]
+                    , Html.p [ Attr.class "text-xs text-muted" ] [ Html.text "The listing goes back up, and you can't undo this." ]
+                    ]
+
+                else
+                    resolveButtons iConfirmed theyConfirmed other status buttons
+
+            Nothing ->
+                resolveButtons iConfirmed theyConfirmed other status buttons
+        )
+
+
+resolveButtons : Bool -> Bool -> String -> (String -> Html msg) -> Html msg -> List (Html msg)
+resolveButtons iConfirmed theyConfirmed other status buttons =
+    if iConfirmed then
+        [ status ("Waiting for " ++ other ++ " to confirm it went through.") ]
+
+    else if theyConfirmed then
+        [ status (other ++ " says it went through. Did it?"), buttons ]
+
+    else
+        [ Html.p [] [ Html.text "Once you've traded, tell us how it went." ], buttons ]
 
 
 statusTag : FrontendModel -> Listing -> Html msg
@@ -186,7 +253,13 @@ statusTag model listing =
         tag cls text =
             Html.span [ Attr.class ("font-bold text-[11px] tracking-[0.1em] px-2 py-1 rounded-md border " ++ cls), Ui.testId "listing-status" ] [ Html.text text ]
     in
-    if listing.closed then
+    if Derived.traded model listing.id then
+        tag "border-[#2c5a2a] bg-[#0f1d17] text-leaf" "TRADED"
+
+    else if Derived.tradePending model listing.id then
+        tag "border-[#6b5520] bg-[#2a2210] text-gold" "TRADE PENDING"
+
+    else if listing.closed then
         tag "border-rule text-muted" "CLOSED"
 
     else if not (Market.isLive model.now listing) then
@@ -325,7 +398,21 @@ offersSection model listing isMine =
 
           else
             Html.div [ Attr.class "flex flex-col gap-2", Ui.testId "offers" ] (List.map (offerRow model listing isMine) offers)
-        , if isMine || listing.closed || not (Market.isLive model.now listing) || not (List.isEmpty (myAcceptedOffers model listing)) then
+        , if not (List.isEmpty (myAcceptedOffers model listing)) then
+            Ui.empty
+
+          else if Derived.tradePending model listing.id && not listing.closed then
+            Html.p [ Attr.class "text-sm text-muted border-t border-line pt-4 mt-1", Ui.testId "trade-pending" ]
+                [ Html.text
+                    (if isMine then
+                        "A trade is pending. You can accept another offer if it falls through."
+
+                     else
+                        "A trade is pending with someone else. If it falls through, the listing takes offers again."
+                    )
+                ]
+
+          else if isMine || listing.closed || not (Market.isLive model.now listing) then
             Ui.empty
 
           else
@@ -350,13 +437,19 @@ offerRow model listing isMine offer =
                     Ui.empty
 
                 OfferAccepted ->
-                    Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Accepted" ]
+                    Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Accepted · trade pending" ]
 
                 OfferDeclined ->
                     Html.div [ Attr.class "text-xs text-warn mt-1" ] [ Html.text "Declined" ]
 
                 OfferWithdrawn ->
                     Ui.empty
+
+                OfferCompleted _ ->
+                    Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Traded" ]
+
+                OfferFellThrough fell ->
+                    Html.div [ Attr.class "text-xs text-warn mt-1" ] [ Html.text ("Fell through: " ++ fell.reason) ]
 
         isMyOffer =
             Derived.myName model == Just offer.from
@@ -369,7 +462,11 @@ offerRow model listing isMine offer =
             , Html.div [ Attr.class "flex-1" ] []
             , if isMine && offer.status == OfferOpen && not listing.closed then
                 Html.div [ Attr.class "flex gap-2" ]
-                    [ Ui.button Ui.Primary Ui.Compact ("accept-" ++ String.fromInt offer.id) (RespondToOfferClicked offer.id True) "Accept"
+                    [ if Derived.tradePending model listing.id then
+                        Ui.empty
+
+                      else
+                        Ui.button Ui.Primary Ui.Compact ("accept-" ++ String.fromInt offer.id) (RespondToOfferClicked offer.id True) "Accept"
                     , Ui.button Ui.Secondary Ui.Compact ("decline-" ++ String.fromInt offer.id) (RespondToOfferClicked offer.id False) "Decline"
                     ]
 
