@@ -2,17 +2,6 @@
 
 The backlog. The original starter checklist is done (see git history).
 
-## Needs input from Elliot
-
-- **Discord sign-in on PR previews.** Built: previews use 5 fixed slots,
-  `trailpost-pr-{a,b,c,d,e}.lamdera.app` (see "Preview slots" in CLAUDE.md).
-  Still to do by hand: register
-  `https://trailpost-pr-<x>.lamdera.app/login/OAuthDiscord/callback` for each
-  slot in the Discord Developer Portal, and check that preview apps get
-  `discordClientId`/`discordClientSecret` from the Lamdera dashboard (without
-  them the button falls back to the preview account, and "MISSING PRODUCTION
-  CONFIG" is what killed the starter's previews).
-
 ## Live trading
 
 Trading went live in WalkScape on 2026-10-07. How it works in the game:

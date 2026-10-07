@@ -10,7 +10,7 @@
 // reset on every deploy and skip Evergreen, so handing a slot to a new PR needs
 // no cleanup. A PR keeps its slot across pushes, and takes the first free one
 // when it has none. With no free slot it gets '' and the caller falls back to
-// `pr-<N>` (works, but Discord sign-in doesn't).
+// `pr-<N>` (which has no Lamdera config and probably isn't served).
 const SLOTS = ['a', 'b', 'c', 'd', 'e'];
 const LABEL_PREFIX = 'preview-slot-';
 

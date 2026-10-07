@@ -10,8 +10,8 @@ name: Preview
 # Discord OAuth only works on redirect URIs registered in the Developer Portal,
 # so previews use 5 fixed slots, <app>-pr-a .. <app>-pr-e, handed out by
 # .github/scripts/preview-slot.js: a slot is free unless an unmerged (open or
-# draft) PR holds it. With none free, the PR gets <app>-pr-<N>, where Discord
-# sign-in doesn't work (the preview-account sign-in still does).
+# draft) PR holds it. With none free, the PR gets <app>-pr-<N>, which has no
+# Lamdera config and probably isn't served.
 
 on:
   pull_request:

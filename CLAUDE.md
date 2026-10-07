@@ -360,10 +360,17 @@ hands them out: a slot is free unless an unmerged (open or draft) PR holds it,
 recorded as a `preview-slot-<x>` label on the PR. A PR keeps its slot across
 pushes, a new PR takes the first free one, and closing or merging frees it
 (a new owner just force-pushes the branch, which resets the backend anyway).
-If all 5 are held the PR falls back to `<app>-pr-<N>`, where only the
-preview-account sign-in works (the PR comment says so). Previews need
-`discordClientId`/`discordClientSecret` available to them in the Lamdera
-dashboard; see [TODO.md](TODO.md).
+If all 5 are held the PR falls back to `<app>-pr-<N>`, which has no Lamdera
+config and no Discord redirect URI, so it isn't served at all (the PR comment
+says so). Lamdera config is per branch, not inherited from the app: each slot
+branch (`pr-a` .. `pr-e`) has its own `discordClientId` / `discordClientSecret` /
+`adminDiscordUsernames` in the dashboard, set once since the branch names never
+change. They currently point at the **staging Discord application** (the one
+`trailpost-staging` uses), not production's, so the 5 redirect URIs
+(`https://trailpost-pr-<x>.lamdera.app/login/OAuthDiscord/callback`) are
+registered on that app and production's Discord app only lists production URLs.
+Why the new branches came up with staging's values isn't known; check the
+dashboard rather than assuming a preview inherits `trailpost`'s config.
 
 **Every deploy bumps production's Evergreen version, even with no type
 changes**, and a migration is numbered production+1 when `lamdera check` runs.
