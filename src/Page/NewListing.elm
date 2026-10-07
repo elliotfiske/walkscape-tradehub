@@ -295,7 +295,7 @@ medianCheck model form =
                                            )
                                     )
                                 ]
-                            , Html.span [ Attr.class "text-muted" ] [ Html.text ("estimate " ++ Ui.formatInt est.median) ]
+                            , Html.span [ Attr.class "text-muted" ] [ Html.text ("estimate " ++ Ui.formatInt est.median ++ " " ++ Pricing.basisText est) ]
                             ]
                         , Ui.valueMeter pct
                         ]

@@ -284,6 +284,7 @@ listingRow model listing =
                                     ]
                                     [ Html.text (Ui.signedPercent pct) ]
                                 , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text ("vs " ++ Ui.formatInt est.median) ]
+                                , Html.div [ Attr.class "text-[10px] text-faint" ] [ Html.text (Pricing.basisShort est) ]
                                 ]
 
                         Nothing ->
@@ -347,7 +348,7 @@ listingRow model listing =
                             , case estimate of
                                 Just ( est, pct ) ->
                                     Html.span [ Attr.class "text-xs text-faint" ]
-                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (Ui.signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median) ]
+                                        [ Html.span [ Attr.class "font-bold text-soft" ] [ Html.text (Ui.signedPercent pct) ], Html.text (" vs " ++ Ui.formatInt est.median ++ " · " ++ Pricing.basisShort est) ]
 
                                 Nothing ->
                                     Ui.empty
@@ -392,7 +393,7 @@ mostActive model =
                             [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item variant
                             , Html.div [ Attr.class "flex-1 min-w-0 leading-tight" ]
                                 [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item variant), Html.text " ", Ui.variantTag variant ]
-                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders") ]
+                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Pricing.countText estimate) ]
                                 ]
                             , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt estimate.median) ]
                             ]

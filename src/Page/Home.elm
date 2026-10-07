@@ -5,6 +5,7 @@ import Derived
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Item
+import Pricing
 import Route
 import Types exposing (FrontendModel, FrontendMsg)
 import Ui
@@ -39,7 +40,7 @@ view model =
             ]
         , Html.section [ Attr.class "grid sm:grid-cols-2 lg:grid-cols-4 gap-7 px-4 md:px-[72px] py-10 border-b border-line" ]
             [ feature "Find someone to trade with" "Post a listing and take offers. When you accept one, Trailpost shows you both exactly what goes in the trade window, and what to check before you press Accept."
-            , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of everyone's prices, one vote per trader per day, with outliers cut."
+            , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of trades people confirmed, or, until an item has a few, of everyone's prices, one vote per trader per day, with outliers cut."
             , feature "Safe to try" "Discord only shares your username with Trailpost, and nothing here touches your WalkScape account."
             , feature "No pressure tactics" "No countdowns anywhere. New listings wait 5 minutes before going live, so no deal appears and disappears before you can check it."
             ]
@@ -110,12 +111,20 @@ featuredCard model =
                         , Html.div [ Attr.class "text-right" ]
                             [ Html.div [ Attr.class "flex items-center gap-2 justify-end" ]
                                 [ Ui.coin "w-5 h-5", Html.span [ Attr.class "font-bold text-2xl text-gold" ] [ Html.text (Ui.formatInt estimate.median) ] ]
-                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text "estimate" ]
+                            , Html.div [ Attr.class "text-xs text-muted", Ui.testId "featured-basis" ] [ Html.text ("estimate " ++ Pricing.basisText estimate) ]
                             ]
                         ]
                     , Html.div [ Attr.class "my-5" ] [ Chart.sparkline points ]
                     , Html.div [ Attr.class "text-[13px] text-muted" ]
-                        [ Html.text ("Median of " ++ String.fromInt estimate.counted ++ " prices from " ++ String.fromInt estimate.traders ++ " traders · not confirmed trades") ]
+                        [ Html.text
+                            (case estimate.basis of
+                                Pricing.FromTrades ->
+                                    "Median of " ++ String.fromInt estimate.counted ++ " trades from the last " ++ String.fromInt Pricing.tradeWindowDays ++ " days"
+
+                                Pricing.FromPrices ->
+                                    "Median of " ++ String.fromInt estimate.counted ++ " prices from " ++ String.fromInt estimate.traders ++ " traders · not enough trades yet"
+                            )
+                        ]
                     ]
                 ]
 

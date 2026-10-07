@@ -122,6 +122,9 @@ scatter now classified estimate =
                 Pricing.Repeat ->
                     Svg.circle [ SA.cx (fmt (x p.at)), SA.cy (fmt (y (toFloat p.price))), SA.r "3.5", SA.fill "none", SA.stroke "#6d7d85", SA.strokeWidth "1.5" ] []
 
+                Pricing.NotUsed ->
+                    Svg.circle [ SA.cx (fmt (x p.at)), SA.cy (fmt (y (toFloat p.price))), SA.r "3", SA.fill "#3a4a52" ] []
+
         bandAndMedian =
             case estimate of
                 Just e ->

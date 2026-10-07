@@ -640,10 +640,73 @@ tests =
                                                        , b2.clickLink 300 "/prices/shovel_axe"
                                                        , b2.checkView 100 (byTestId "price-stats" >> seesText "9,000")
                                                        , b2.checkView 100 (byTestId "price-stats" >> seesText "from 3 unique traders")
+                                                       , b2.checkView 100 (byTestId "price-stats" >> seesText "from asks and offers")
                                                        , b2.checkView 100 (byTestId "price-points" >> seesText "Hollowfen")
                                                        , b2.clickLink 100 "/prices"
                                                        , b2.checkView 100 (byTestId "price-row-shovel_axe" >> seesText "9,000")
                                                        ]
+                                       ]
+                       ]
+        ]
+    , start "Three confirmed trades in 30 days set the estimate on their own"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Wanderling"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.checkView 100 (byTestId "trader-card" >> seesText "0 trades")
+                                       , buyer.clickLink 100 "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "offer-counter")
+                                       , buyer.input 100 (Dom.id "offer-price") "9000"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.clickLink 300 "/trades"
+                                       , seller.clickLink 100 "/listing/1"
+                                       , seller.click 100 (Dom.id "accept-5")
+                                       , seller.click 300 (Dom.id "trade-confirm-5")
+                                       , buyer.click 300 (Dom.id "trade-confirm-5")
+                                       , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , buyer.clickLink 100 "/prices/shovel_axe"
+                                       , buyer.checkView 100 (byTestId "price-stats" >> seesText "from asks and offers")
+                                       , buyer.clickLink 100 "/market"
+                                       , buyer.clickLink 100 "/listing/2"
+                                       , buyer.click 100 (Dom.id "offer-counter")
+                                       , buyer.input 100 (Dom.id "offer-price") "9100"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.clickLink 300 "/trades"
+                                       , seller.clickLink 100 "/listing/2"
+                                       , seller.click 100 (Dom.id "accept-6")
+                                       , seller.click 300 (Dom.id "trade-confirm-6")
+                                       , buyer.click 300 (Dom.id "trade-confirm-6")
+                                       , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , buyer.clickLink 100 "/market"
+                                       , buyer.clickLink 100 "/listing/3"
+                                       , buyer.click 100 (Dom.id "offer-counter")
+                                       , buyer.input 100 (Dom.id "offer-price") "9200"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , seller.clickLink 300 "/trades"
+                                       , seller.clickLink 100 "/listing/3"
+                                       , seller.click 100 (Dom.id "accept-7")
+                                       , seller.click 300 (Dom.id "trade-confirm-7")
+                                       , buyer.click 300 (Dom.id "trade-confirm-7")
+                                       , buyer.checkView 300 (byTestId "listing-status" >> seesText "TRADED")
+                                       , buyer.clickLink 100 "/prices/shovel_axe"
+                                       , buyer.checkView 100 (byTestId "price-stats" >> seesText "9,100")
+                                       , buyer.checkView 100 (byTestId "price-stats" >> seesText "from 3 trades")
+                                       , buyer.checkView 100 (byTestId "price-points" >> seesText "Not used: trades set this estimate")
+                                       , buyer.clickLink 100 "/market"
+                                       , buyer.checkView 100 (byTestId "listing-4" >> seesText "3 trades")
+                                       , buyer.clickLink 100 "/listing/4"
+                                       , buyer.checkView 100 (seesText "Estimate from 3 trades in the last 30 days.")
+                                       , buyer.clickLink 100 "/"
+                                       , buyer.checkView 100 (byTestId "featured-basis" >> seesText "estimate from 3 trades")
                                        ]
                        ]
         ]

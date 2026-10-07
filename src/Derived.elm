@@ -58,7 +58,7 @@ onboardingRoute model =
 
 estimateFor : FrontendModel -> String -> Maybe Pricing.Estimate
 estimateFor model key =
-    Market.pricePoints model.now model.listings model.offers key |> Pricing.estimate
+    Market.pricePoints model.now model.listings model.offers key |> Pricing.estimate model.now
 
 
 type alias Series =
@@ -88,7 +88,7 @@ activeSeries model =
                 in
                 Maybe.map2 (\item estimate -> { item = item, variant = variant, points = points, estimate = estimate })
                     (Item.byId itemId)
-                    (Pricing.estimate points)
+                    (Pricing.estimate model.now points)
             )
         |> List.sortBy (.points >> List.length >> negate)
 
