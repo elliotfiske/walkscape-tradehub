@@ -7,6 +7,10 @@ and make offers here, then do the trade itself in WalkScape's trade window
 resets Accept). Once an offer is accepted, its listing page shows both traders a
 checklist (`Page.Listing.tradeChecklist`, from `Market.tradeTerms`): who to
 invite, what each side puts in, and what to check before pressing Accept.
+Accepting reserves the listing ("trade pending", `Market.tradePending`) until
+both traders confirm it went through (`OfferCompleted`, which closes the
+listing) or either says it fell through (`OfferFellThrough`, and the listing
+goes back up).
 Trailpost can't see in-game trades, so estimates still come from asks, bids and
 offers. The backlog for live trading is in [TODO.md](TODO.md).
 
@@ -20,7 +24,7 @@ offers. The backlog for live trading is in [TODO.md](TODO.md).
 | `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
 | `Pricing.elm` | Pure price-estimate rules: median, one vote per trader per day, outliers > 2.5× spread cut. |
-| `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides, and frontend-derived values (estimates, stats, filtered market). |
+| `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (including the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
 | `Name.elm` | WalkScape **character name** validation and look-alike detection. Character names are letters, digits and single spaces, 3–30 chars, where the minimum of 3 doesn't count spaces (the game's character creation caps at 30 and rejects consecutive, leading and trailing spaces, and the claim form trims the last two rather than erroring; examples from scraping the portal leaderboard, where "Slyth Inaru" is a character and `Slyth_Inaru` its portal username, shown in grey parentheses after the character when that account is public). Only ASCII letters, digits and spaces are allowed (no accents; the game's character creation confirms all of this, and compares names case-insensitively like we do); `lookalikeOf` still ignores underscores in case an older claim has one. Names go in URLs, so `Route` percent-encodes and decodes them. |
@@ -80,6 +84,10 @@ identify a trader.
 | `listing_submitted` | Valid listing sent. Metadata: `side` (`sell`/`buy`), `itemId` |
 | `listing_created` / `listing_create_failed` | Backend confirmed / refused it |
 | `listing_closed`, `offer_submitted`, `report_submitted` | Those buttons pressed |
+| `offer_accepted` | Lister pressed Accept on an offer |
+| `trade_confirmed` | "It went through" pressed |
+| `trade_completed` | "It went through" pressed by the second side, which completes the trade |
+| `trade_fell_through` | "It fell through" sent with a reason |
 
 The E2E tests assert the event sequence with `trackedEvents`.
 
@@ -139,7 +147,8 @@ reload breaks open tabs), and give the first `goto` after a rebuild a long
 ## Testing
 
 `npm test` runs `tests/E2ETests.elm` (lamdera/program-test user journeys:
-onboarding, claim errors, 5-minute go-live, offers + accept, estimates, look-alikes,
+onboarding, claim errors, 5-minute go-live, offers + accept, trades going
+through or falling through, estimates, look-alikes,
 validation, reports, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
 listing form). In program-test, `clickLink` needs a matching `href` in the
 current view, and `pushUrl` must be given a path (not an absolute URL) or the

@@ -281,7 +281,10 @@ listingCard model data listing =
                 |> List.sortBy (.at >> Time.posixToMillis >> negate)
 
         ( statusText, statusClass ) =
-            if listing.closed then
+            if Market.tradePending listing.id data.offers then
+                ( "Trade pending", "text-gold" )
+
+            else if listing.closed then
                 ( "Closed", "text-muted" )
 
             else if Market.isLive model.now listing then
@@ -340,7 +343,23 @@ offerRow model offer =
                     "open"
 
                 OfferAccepted ->
-                    "accepted"
+                    "accepted, trade pending"
+                        ++ (case ( offer.listerConfirmed, offer.offererConfirmed ) of
+                                ( True, False ) ->
+                                    " (lister confirmed)"
+
+                                ( False, True ) ->
+                                    " (offerer confirmed)"
+
+                                _ ->
+                                    ""
+                           )
+
+                OfferCompleted at ->
+                    "traded " ++ Ui.timeAgo model.now at
+
+                OfferFellThrough fell ->
+                    "fell through (" ++ fell.by ++ ": " ++ fell.reason ++ ")"
 
                 OfferDeclined ->
                     "declined"

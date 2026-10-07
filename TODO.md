@@ -43,15 +43,16 @@ The scams that are left all come down to accepting the wrong window:
 Preview wording is gone, and accepted offers show both traders a checklist on
 the listing page.
 
-### Phase 2: real trades
-- Add `quantity` to `Offer`, defaulting to the full listing quantity.
-- Accepting an offer takes its quantity off what's left on the listing, and the
-  listing closes when nothing is left. Flag open offers that ask for more than
-  what's left.
-- Both sides confirm "It went through" (new `OfferCompleted`), or mark it as
-  "Fell through" with a reason.
-- Listings expire after N days, with a "Still available?" bump.
-- Evergreen migration for all of the above.
+### Phase 2: real trades (done)
+- Offers are all-or-nothing: always for the listing's full quantity.
+- Accepting an offer reserves the listing ("trade pending", worked out from the
+  offers): it leaves the market list, takes no new offers, can't accept a
+  second offer or be closed. Other open offers stay open as a fallback.
+- Both sides confirm "It went through" (`OfferCompleted`, which closes the
+  listing), or either side marks it "Fell through" with a reason
+  (`OfferFellThrough`, final), which puts the listing back up straight away.
+- No listing expiry yet. Maybe later: listings expire after N days, with a
+  "Still available?" bump.
 
 ### Phase 3: trust (no verification yet)
 - Completed-trade count on profiles ("12 trades · 0 fell through").
@@ -70,7 +71,6 @@ the listing page.
   push). People are out walking, not watching the site.
 - Item-for-item payment (`Payment` already has room for it). Coin-only
   estimates would ignore these.
-- Analytics: `offer_accepted`, `trade_completed`, `trade_fell_through`.
 
 ### Later
 - Chat on an accepted trade, escrow (design 1m), Discord linking for

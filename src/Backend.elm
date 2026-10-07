@@ -260,6 +260,14 @@ handleRequest sessionId clientId now msg model =
             in
             ( newModel, replyMe user )
 
+        withTrade offerId f =
+            case Dict.get offerId model.offers |> Maybe.andThen (\o -> Dict.get o.listingId model.listings |> Maybe.map (f o)) of
+                Just result ->
+                    result
+
+                Nothing ->
+                    fail "That trade doesn't exist."
+
         withReadyUser f =
             withUser
                 (\user ->
@@ -363,14 +371,12 @@ handleRequest sessionId clientId now msg model =
                                 fail "That isn't your listing."
 
                             else
-                                let
-                                    closed =
-                                        { listing | closed = True }
+                                case Market.checkClose listing (Dict.values model.offers) of
+                                    Err err ->
+                                        fail err
 
-                                    newModel =
-                                        { model | listings = Dict.insert listingId closed model.listings }
-                                in
-                                ( newModel, publishListing closed newModel )
+                                    Ok () ->
+                                        closeListing listing model
 
                         Nothing ->
                             fail "That listing doesn't exist."
@@ -388,7 +394,7 @@ handleRequest sessionId clientId now msg model =
                                 fail "This listing isn't open for offers."
 
                             else
-                                case Market.validateOffer price message of
+                                case Market.checkNewOffer listing (Dict.values model.offers) |> Result.andThen (\() -> Market.validateOffer price message) of
                                     Err err ->
                                         fail err
 
@@ -407,6 +413,8 @@ handleRequest sessionId clientId now msg model =
                                                           , message = valid.message
                                                           , at = now
                                                           , status = OfferOpen
+                                                          , listerConfirmed = False
+                                                          , offererConfirmed = False
                                                           }
                                                         , model.nextId + 1
                                                         )
@@ -440,20 +448,56 @@ handleRequest sessionId clientId now msg model =
                             if listing.trader /= name || offer.status /= OfferOpen then
                                 fail "You can't respond to that offer."
 
-                            else
-                                updateOffer
-                                    { offer
-                                        | status =
-                                            if accept then
-                                                OfferAccepted
+                            else if accept then
+                                case Market.checkAccept listing (Dict.values model.offers) of
+                                    Ok () ->
+                                        updateOffer { offer | status = OfferAccepted } model
 
-                                            else
-                                                OfferDeclined
-                                    }
-                                    model
+                                    Err err ->
+                                        fail err
+
+                            else
+                                updateOffer { offer | status = OfferDeclined } model
 
                         Nothing ->
                             fail "That offer doesn't exist."
+                )
+
+        ConfirmTrade offerId ->
+            withReadyUser
+                (\name ->
+                    withTrade offerId
+                        (\offer listing ->
+                            case Market.confirmTrade name now listing offer of
+                                Ok confirmed ->
+                                    let
+                                        ( newModel, cmd ) =
+                                            updateOffer confirmed model
+                                    in
+                                    case confirmed.status of
+                                        OfferCompleted _ ->
+                                            closeListing listing newModel |> Tuple.mapSecond (\close -> Command.batch [ cmd, close ])
+
+                                        _ ->
+                                            ( newModel, cmd )
+
+                                Err err ->
+                                    fail err
+                        )
+                )
+
+        MarkFellThrough offerId reason ->
+            withReadyUser
+                (\name ->
+                    withTrade offerId
+                        (\offer listing ->
+                            case Market.markFellThrough name reason now listing offer of
+                                Ok fell ->
+                                    updateOffer fell model
+
+                                Err err ->
+                                    fail err
+                        )
                 )
 
         SubmitReport about reasons details ->
@@ -684,6 +728,18 @@ removeWhere listingGone offerGone model =
         ++ List.map (OfferRemoved >> Effect.Lamdera.broadcast) (Dict.keys goneOffers)
         |> Command.batch
     )
+
+
+closeListing : Listing -> Model -> ( Model, Cmd_ )
+closeListing listing model =
+    let
+        closed =
+            { listing | closed = True }
+
+        newModel =
+            { model | listings = Dict.insert listing.id closed model.listings }
+    in
+    ( newModel, publishListing closed newModel )
 
 
 updateOffer : Offer -> Model -> ( Model, Cmd_ )

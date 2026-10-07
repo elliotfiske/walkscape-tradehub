@@ -9,7 +9,7 @@ import Pricing exposing (Source(..), Status(..))
 import Route
 import Test exposing (Test, describe, test)
 import Time
-import Types exposing (Payment(..), Side(..))
+import Types exposing (OfferStatus(..), Payment(..), Side(..))
 import Url
 
 
@@ -245,6 +245,68 @@ suite =
                     Market.tradeTerms (listing Buying) (offer Nothing)
                         |> Expect.equal { seller = "Belkarama", buyer = "Vimes", coins = 40000 }
             ]
+        , describe "Market trade rules"
+            [ test "a listing with an accepted offer has a trade pending until it's resolved" <|
+                \_ ->
+                    [ Market.tradePending 1 [ offer Nothing ]
+                    , Market.tradePending 1 [ { openOffer | id = 3 } ]
+                    , Market.tradePending 1 [ { accepted | status = OfferCompleted (Time.millisToPosix 5) } ]
+                    , Market.tradePending 1 [ { accepted | status = OfferFellThrough { by = "Vimes", at = Time.millisToPosix 5, reason = "Offline" } } ]
+                    ]
+                        |> Expect.equal [ True, False, False, False ]
+            , test "can't accept, make an offer or close while a trade is pending" <|
+                \_ ->
+                    [ Market.checkAccept (listing Selling) [ offer Nothing, openOffer ]
+                    , Market.checkNewOffer (listing Selling) [ offer Nothing ]
+                    , Market.checkClose (listing Selling) [ offer Nothing ]
+                    ]
+                        |> Expect.equal
+                            [ Err "Finish the pending trade on this listing before you accept another offer."
+                            , Err "A trade is pending on this listing, so it isn't taking offers right now."
+                            , Err "You can't close this listing while a trade is pending. Mark the trade as gone through or fallen through first."
+                            ]
+            , test "with no trade pending, accepting, offering and closing are fine" <|
+                \_ ->
+                    [ Market.checkAccept (listing Selling) [ openOffer ]
+                    , Market.checkNewOffer (listing Selling) [ openOffer ]
+                    , Market.checkClose (listing Selling) [ { accepted | status = OfferCompleted (Time.millisToPosix 5) } ]
+                    ]
+                        |> Expect.equal [ Ok (), Ok (), Ok () ]
+            , test "each side confirms separately, and the second confirmation completes the trade" <|
+                \_ ->
+                    Market.confirmTrade "Vimes" (Time.millisToPosix 10) (listing Selling) (offer Nothing)
+                        |> Result.andThen (Market.confirmTrade "Belkarama" (Time.millisToPosix 20) (listing Selling))
+                        |> Result.map (\o -> ( o.status, o.listerConfirmed, o.offererConfirmed ))
+                        |> Expect.equal (Ok ( OfferCompleted (Time.millisToPosix 20), True, True ))
+            , test "one confirmation leaves the trade pending" <|
+                \_ ->
+                    Market.confirmTrade "Belkarama" (Time.millisToPosix 10) (listing Selling) (offer Nothing)
+                        |> Result.map (\o -> ( o.status, o.listerConfirmed, o.offererConfirmed ))
+                        |> Expect.equal (Ok ( OfferAccepted, False, True ))
+            , test "only the two traders can confirm or mark a trade as fallen through" <|
+                \_ ->
+                    [ Market.confirmTrade "Mallory" (Time.millisToPosix 10) (listing Selling) (offer Nothing) |> Result.map .status
+                    , Market.markFellThrough "Mallory" "nope" (Time.millisToPosix 10) (listing Selling) (offer Nothing) |> Result.map .status
+                    ]
+                        |> Expect.equal [ Err "Only the two traders can do that.", Err "Only the two traders can do that." ]
+            , test "falling through stores who, when and why, and is final" <|
+                \_ ->
+                    let
+                        fell =
+                            OfferFellThrough { by = "Vimes", at = Time.millisToPosix 10, reason = "They went offline" }
+                    in
+                    [ Market.markFellThrough "Vimes" "  They went offline " (Time.millisToPosix 10) (listing Selling) (offer Nothing) |> Result.map .status
+                    , Market.markFellThrough "Vimes" "  " (Time.millisToPosix 10) (listing Selling) (offer Nothing) |> Result.map .status
+                    , Market.confirmTrade "Belkarama" (Time.millisToPosix 20) (listing Selling) { accepted | status = fell } |> Result.map .status
+                    , Market.markFellThrough "Belkarama" "again" (Time.millisToPosix 20) (listing Selling) { accepted | status = fell } |> Result.map .status
+                    ]
+                        |> Expect.equal
+                            [ Ok fell
+                            , Err "Say what happened, in a few words."
+                            , Err "That trade isn't pending."
+                            , Err "That trade isn't pending."
+                            ]
+            ]
         ]
 
 
@@ -272,8 +334,20 @@ offer price =
     , price = price
     , message = ""
     , at = Time.millisToPosix 0
-    , status = Types.OfferAccepted
+    , status = OfferAccepted
+    , listerConfirmed = False
+    , offererConfirmed = False
     }
+
+
+accepted : Types.Offer
+accepted =
+    offer Nothing
+
+
+openOffer : Types.Offer
+openOffer =
+    { accepted | id = 3, from = "Mallory", status = OfferOpen }
 
 
 form : Types.ListingForm
