@@ -7,10 +7,13 @@ import Name
 import Page.NewListing
 import Pricing exposing (Source(..), Status(..))
 import Route
+import Screenshot
 import Test exposing (Test, describe, test)
 import Time
 import Types exposing (OfferStatus(..), Payment(..), Side(..))
+import Ui
 import Url
+import Users
 
 
 day : Int
@@ -95,11 +98,59 @@ suite =
             , test "short names aren't flagged for a single different letter" <|
                 \_ -> Name.lookalikeOf "Abc" [ "Abd" ] |> Expect.equal Nothing
             ]
+        , describe "Discord account age"
+            [ test "reads the creation time from a Discord user id" <|
+                \_ ->
+                    -- The example snowflake from Discord's API docs: 2016-04-30T11:18:25.796Z.
+                    Users.discordSince "OAuthDiscord:175928847299117063"
+                        |> Expect.equal (Just (Time.millisToPosix 1462015105796))
+            , test "preview accounts have none" <|
+                \_ ->
+                    ( Users.discordSince "preview:abc", Users.discordSince "preview-admin:abc", Users.discordSince "OAuthDiscord:nope" )
+                        |> Expect.equal ( Nothing, Nothing, Nothing )
+            , test "says how old an account is in days, months or years" <|
+                \_ ->
+                    [ 0, 1, 45, 59, 60, 400, 729, 730, 2000 ]
+                        |> List.map (\days -> Ui.accountAge (Time.millisToPosix (2000 * day)) (Time.millisToPosix ((2000 - days) * day)))
+                        |> Expect.equal
+                            [ "account made today"
+                            , "account 1 day old"
+                            , "account 45 days old"
+                            , "account 59 days old"
+                            , "account 2 months old"
+                            , "account 13 months old"
+                            , "account 24 months old"
+                            , "account 2 years old"
+                            , "account 5 years old"
+                            ]
+            ]
+        , describe "Screenshot.check"
+            [ test "allows up to three JPEGs under the cap" <|
+                \_ ->
+                    Screenshot.check (List.repeat 3 (Screenshot.jpegPrefix ++ String.repeat (Screenshot.maxLength - 30) "A"))
+                        |> Expect.equal (Ok ())
+            , test "refuses a fourth" <|
+                \_ ->
+                    Screenshot.check (List.repeat 4 (Screenshot.jpegPrefix ++ "AAAA"))
+                        |> Expect.equal (Err "You can add up to 3 screenshots.")
+            , test "refuses one over the cap" <|
+                \_ ->
+                    Screenshot.check [ Screenshot.jpegPrefix ++ String.repeat Screenshot.maxLength "A" ]
+                        |> Expect.equal (Err "One of the screenshots is too big. Try a smaller one.")
+            , test "refuses anything that isn't a JPEG data URL" <|
+                \_ ->
+                    Screenshot.check [ "data:image/png;base64,AAAA" ]
+                        |> Expect.equal (Err "Screenshots have to be JPEG images.")
+            ]
         , describe "Route"
             [ test "percent-encodes spaces in names" <|
                 \_ ->
-                    ( Route.toString (Route.Profile "Slyth Inaru"), Route.toString (Route.Report "Rabyte Black") )
+                    ( Route.toString (Route.Profile "Slyth Inaru"), Route.toString (Route.Report "Rabyte Black" Nothing) )
                         |> Expect.equal ( "/u/Slyth%20Inaru", "/report/Rabyte%20Black" )
+            , test "a trade report carries the offer id" <|
+                \_ ->
+                    Route.toString (Route.Report "Juno Trek" (Just 12))
+                        |> Expect.equal "/report/Juno%20Trek?trade=12"
             , test "round-trips every route" <|
                 \_ ->
                     let
@@ -118,8 +169,9 @@ suite =
                             , Route.MyTrades
                             , Route.Profile "Juno_Trek"
                             , Route.Profile "Slyth Inaru"
-                            , Route.Report "Mosbeard_"
-                            , Route.Report "Rabyte Black"
+                            , Route.Report "Mosbeard_" Nothing
+                            , Route.Report "Rabyte Black" Nothing
+                            , Route.Report "Juno Trek" (Just 12)
                             , Route.SignIn
                             , Route.Onboarding
                             ]

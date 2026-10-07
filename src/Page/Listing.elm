@@ -73,7 +73,7 @@ viewListing model listing item =
                     Ui.button Ui.Secondary Ui.Block "close-listing" (CloseListingClicked listing.id) "Close this listing"
 
               else if Derived.isReady model then
-                Html.a [ Attr.href (Route.toString (Route.Report listing.trader)), Attr.id "report-link", Attr.class "text-warn hover:text-warn text-sm font-semibold no-underline" ]
+                Html.a [ Attr.href (Route.toString (Route.Report listing.trader Nothing)), Attr.id "report-link", Attr.class "text-warn hover:text-warn text-sm font-semibold no-underline" ]
                     [ Html.text ("Report " ++ listing.trader) ]
 
               else
@@ -178,6 +178,7 @@ tradeChecklist model listing item offer =
         , Html.p []
             [ Html.text "Read their side before you press Accept. If either of you presses Update, Accept resets, so read it again before accepting again." ]
         , resolveTrade model listing offer other
+        , Ui.reportTradeLink other offer.id
         ]
 
 
@@ -449,7 +450,17 @@ offerRow model listing isMine offer =
                     Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Traded" ]
 
                 OfferFellThrough fell ->
-                    Html.div [ Attr.class "text-xs text-warn mt-1" ] [ Html.text ("Fell through: " ++ fell.reason) ]
+                    Html.div [ Attr.class "text-xs text-warn mt-1 flex flex-wrap gap-x-3 gap-y-1" ]
+                        [ Html.span [] [ Html.text ("Fell through: " ++ fell.reason) ]
+                        , if isMine then
+                            Ui.reportTradeLink offer.from offer.id
+
+                          else if isMyOffer then
+                            Ui.reportTradeLink listing.trader offer.id
+
+                          else
+                            Ui.empty
+                        ]
 
         isMyOffer =
             Derived.myName model == Just offer.from
@@ -594,13 +605,14 @@ traderCard model name =
                 , Html.div [ Attr.class "flex items-center gap-2" ]
                     [ Ui.unverifiedTag
                     , if model.me /= Nothing then
-                        trader |> Maybe.andThen .discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+                        trader |> Maybe.map (Ui.discordLine model.now) |> Maybe.withDefault Ui.empty
 
                       else
                         Ui.empty
                     ]
                 ]
             ]
+        , Ui.tradeRecord stats
         , Html.div [ Attr.class "grid grid-cols-2 gap-2" ]
             [ Ui.stat "text-ink" (String.fromInt stats.activeListings) "active listings"
             , Ui.stat "text-ink" (String.fromInt stats.partners) "unique partners"

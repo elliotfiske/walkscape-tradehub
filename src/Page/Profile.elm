@@ -47,7 +47,7 @@ view model name =
                           else
                             Ui.unverifiedTag
                         , if model.me /= Nothing then
-                            trader.discord |> Maybe.map Ui.discordHandle |> Maybe.withDefault Ui.empty
+                            Ui.discordLine model.now trader
 
                           else
                             Ui.empty
@@ -55,10 +55,11 @@ view model name =
                     ]
                 , trader.lookalikeOf |> Maybe.map Ui.lookalikeWarning |> Maybe.withDefault Ui.empty
                 , Ui.sectionLabel "On Trailpost"
+                , Ui.tradeRecord stats
                 , Html.div [ Attr.class "grid grid-cols-2 gap-2.5", Ui.testId "profile-stats" ]
                     [ Ui.stat "text-ink" (String.fromInt stats.activeListings) "active listings"
                     , Ui.stat "text-ink" (String.fromInt stats.partners) "unique partners"
-                    , Ui.stat "text-leaf" (String.fromInt stats.offersAccepted) "offers accepted"
+                    , Ui.stat "text-ink" (String.fromInt stats.offersMade) "offers made"
                     , Ui.stat "text-ink" (Ui.plural stats.days "day" "days") "on Trailpost"
                     ]
                 , Ui.sectionLabel "In WalkScape"
@@ -78,7 +79,7 @@ view model name =
                         [ Ui.button Ui.Secondary Ui.Block "sign-out" SignOutClicked "Sign out" ]
 
                   else if Derived.isReady model && not trader.banned then
-                    Html.a [ Attr.href (Route.toString (Route.Report name)), Attr.id "report-player", Attr.class "text-center text-warn hover:text-warn no-underline font-semibold text-sm mt-2" ]
+                    Html.a [ Attr.href (Route.toString (Route.Report name Nothing)), Attr.id "report-player", Attr.class "text-center text-warn hover:text-warn no-underline font-semibold text-sm mt-2" ]
                         [ Html.text "Report this player" ]
 
                   else

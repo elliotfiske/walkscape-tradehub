@@ -9,6 +9,7 @@
 // users. Other steps act on the current ctx:
 //   {"size":[w,h]}  {"goto":"/path","delay":ms}  {"click":"#css"}  {"type":["#css","text"]}
 //   {"select":["#css","value"]}  {"eval":"js expr"}  {"wait":ms}  {"shot":"name","full":true}
+//   {"upload":["#css","/abs/a.png",...]}  clicks #css and picks those files in the file chooser it opens
 // Screenshots land in $OUT (default <repo>/.context/shots, per worktree) and their paths are printed.
 // A step whose selector isn't found prints "missing <selector>" on stderr.
 //
@@ -39,11 +40,11 @@ const getJ = (port, p) => new Promise((res, rej) => http.get(`http://localhost:$
       let tabs; for (let i=0;i<60;i++){ try { tabs = await getJ(port,'/json'); if (tabs.find(t=>t.type==='page')) break; } catch(e){} await sleep(200); }
       const tab = tabs.find(t=>t.type==='page');
       const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise(r=>ws.on('open',r));
-      let id=0; const pending={};
-      ws.on('message', m => { const d=JSON.parse(m); if (d.id && pending[d.id]) { pending[d.id](d); delete pending[d.id]; } });
+      let id=0; const pending={}; const listeners=[];
+      ws.on('message', m => { const d=JSON.parse(m); if (d.id && pending[d.id]) { pending[d.id](d); delete pending[d.id]; } else if (d.method) listeners.forEach(f=>f(d)); });
       const sendFn = (method, params={}) => new Promise(r => { const i=++id; pending[i]=r; ws.send(JSON.stringify({id:i,method,params})); });
       await sendFn('Page.enable');
-      ctxs[name] = { send: sendFn, ws };
+      ctxs[name] = { send: sendFn, ws, listeners };
     }
     cur = ctxs[name];
   }
@@ -57,6 +58,17 @@ const getJ = (port, p) => new Promise((res, rej) => http.get(`http://localhost:$
     if (s.goto) { await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600}); await send('Page.navigate', { url: base + s.goto }); await sleep(s.delay || 4000); }
     if (s.click) { const ok = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.click)}); if(!e) return false; e.click(); return true})()`); if (!ok) console.error('missing', s.click); await sleep(s.delay || 600); }
     if (s.type) { const ok = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.type[0])}); if(!e) return false; const proto = e.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto,'value').set.call(e, ${JSON.stringify(s.type[1])}); e.dispatchEvent(new Event('input',{bubbles:true})); return true})()`); if (!ok) console.error('missing', s.type[0]); await sleep(s.delay || 300); }
+    if (s.upload) {
+      await send('Page.setInterceptFileChooserDialog', { enabled: true });
+      const opened = new Promise(r => { const f = d => { if (d.method === 'Page.fileChooserOpened') { cur.listeners.splice(cur.listeners.indexOf(f), 1); r(d.params); } }; cur.listeners.push(f); });
+      // A file chooser only opens on a trusted click, so press the mouse on the element instead of calling .click().
+      const box = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.upload[0])}); if(!e) return null; e.scrollIntoView({block:'center'}); const r=e.getBoundingClientRect(); return {x:r.x+r.width/2, y:r.y+r.height/2}})()`);
+      if (box) for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
+      const ok = !!box;
+      if (!ok) console.error('missing', s.upload[0]);
+      else { const chooser = await Promise.race([opened, sleep(5000).then(()=>null)]); if (!chooser) console.error('no file chooser for', s.upload[0]); else await send('DOM.setFileInputFiles', { files: s.upload.slice(1), backendNodeId: chooser.backendNodeId }); }
+      await sleep(s.delay || 1500);
+    }
     if (s.select) { await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.select[0])}); e.value=${JSON.stringify(s.select[1])}; e.dispatchEvent(new Event('input',{bubbles:true}));})()`); await sleep(300); }
     if (s.eval) console.log(JSON.stringify(await ev(s.eval)));
     if (s.wait) await sleep(s.wait);

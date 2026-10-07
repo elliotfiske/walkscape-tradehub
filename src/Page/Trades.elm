@@ -170,32 +170,39 @@ offerCard model received offer =
                     highlight =
                         received && Derived.awaitsResponse model offer
                 in
-                Html.a
-                    [ Attr.href ("/listing/" ++ String.fromInt listing.id)
-                    , Attr.class
-                        ("block no-underline text-ink hover:text-ink rounded-xl bg-card border px-3.5 py-3 hover:bg-raised "
-                            ++ (if highlight then
-                                    "border-[#6b5520]"
+                Html.div [ Attr.class "flex flex-col gap-1.5", Ui.testId ("trade-offer-" ++ String.fromInt offer.id) ]
+                    [ Html.a
+                        [ Attr.href ("/listing/" ++ String.fromInt listing.id)
+                        , Attr.class
+                            ("block no-underline text-ink hover:text-ink rounded-xl bg-card border px-3.5 py-3 hover:bg-raised "
+                                ++ (if highlight then
+                                        "border-[#6b5520]"
 
-                                else
-                                    "border-edge"
-                               )
-                        )
-                    , Ui.testId ("trade-offer-" ++ String.fromInt offer.id)
-                    ]
-                    [ Html.div [ Attr.class "flex items-center gap-3" ]
-                        [ Ui.itemIcon "w-10 h-10" item listing.variant
-                        , Html.div [ Attr.class "flex-1 min-w-0" ]
-                            [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
-                            , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text ("with " ++ other ++ priceText) ]
-                            ]
-                        , Html.div [ Attr.class "flex flex-col items-end gap-1" ]
-                            [ tag
-                            , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
-                            ]
+                                    else
+                                        "border-edge"
+                                   )
+                            )
                         ]
-                    , progress filled color
-                    , Html.div [ Attr.class "text-[13px] font-semibold", Attr.style "color" color ] [ Html.text status ]
+                        [ Html.div [ Attr.class "flex items-center gap-3" ]
+                            [ Ui.itemIcon "w-10 h-10" item listing.variant
+                            , Html.div [ Attr.class "flex-1 min-w-0" ]
+                                [ Html.div [ Attr.class "font-bold truncate" ] [ Html.text (String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
+                                , Html.div [ Attr.class "text-xs text-muted" ] [ Html.text ("with " ++ other ++ priceText) ]
+                                ]
+                            , Html.div [ Attr.class "flex flex-col items-end gap-1" ]
+                                [ tag
+                                , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text (Ui.timeAgo model.now offer.at) ]
+                                ]
+                            ]
+                        , progress filled color
+                        , Html.div [ Attr.class "text-[13px] font-semibold", Attr.style "color" color ] [ Html.text status ]
+                        ]
+                    , case offer.status of
+                        OfferFellThrough _ ->
+                            Html.div [ Attr.class "px-1" ] [ Ui.reportTradeLink other offer.id ]
+
+                        _ ->
+                            Ui.empty
                     ]
             )
 

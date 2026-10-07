@@ -193,7 +193,8 @@ pendingResponses model =
 type alias TraderStats =
     { activeListings : Int
     , offersMade : Int
-    , offersAccepted : Int
+    , trades : Int
+    , fellThrough : Int
     , partners : Int
     , days : Int
     }
@@ -212,10 +213,35 @@ traderStats model name =
 
         joined =
             Dict.get name model.traders |> Maybe.map .joinedAt |> Maybe.withDefault model.now
+
+        resolved =
+            made ++ offersReceived model name |> List.map .status
+
+        count isIt =
+            resolved |> List.filter isIt |> List.length
     in
     { activeListings = Market.activeListingCount name (Dict.values model.listings)
     , offersMade = List.length made
-    , offersAccepted = made |> List.filter (.status >> Market.wasAccepted) |> List.length
+    , trades =
+        count
+            (\s ->
+                case s of
+                    OfferCompleted _ ->
+                        True
+
+                    _ ->
+                        False
+            )
+    , fellThrough =
+        count
+            (\s ->
+                case s of
+                    OfferFellThrough _ ->
+                        True
+
+                    _ ->
+                        False
+            )
     , partners = Set.size partners
     , days = (Time.posixToMillis model.now - Time.posixToMillis joined) // 86400000
     }

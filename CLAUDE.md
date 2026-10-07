@@ -26,9 +26,10 @@ offers. The backlog for live trading is in [TODO.md](TODO.md).
 | `Pricing.elm` | Pure price-estimate rules: median, one vote per trader per day, outliers > 2.5× spread cut. |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (including the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
+| `Screenshot.elm`, `ScreenshotShrink.elm` | Report screenshots: the limits and backend check (3 JPEGs, ~300KB each), and the port to `elm-pkg-js/screenshots.js`, which shrinks a picked image in a canvas. They're stored in `BackendModel.screenshots` and only sent to admins (`AdminLoadScreenshots`). |
 | `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
 | `Name.elm` | WalkScape **character name** validation and look-alike detection. Character names are letters, digits and single spaces, 3–30 chars, where the minimum of 3 doesn't count spaces (the game's character creation caps at 30 and rejects consecutive, leading and trailing spaces, and the claim form trims the last two rather than erroring; examples from scraping the portal leaderboard, where "Slyth Inaru" is a character and `Slyth_Inaru` its portal username, shown in grey parentheses after the character when that account is public). Only ASCII letters, digits and spaces are allowed (no accents; the game's character creation confirms all of this, and compares names case-insensitively like we do); `lookalikeOf` still ignores underscores in case an older claim has one. Names go in URLs, so `Route` percent-encodes and decodes them. |
-| `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`, who's an admin). |
+| `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`, the Discord account's age read from its user id, who's an admin). |
 | `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Discord OAuth (on the vendored lamdera/auth). Discord is the only sign-in. |
 
 ## Placeholders and preview accounts
@@ -97,7 +98,8 @@ Admins are the Discord accounts whose username is in the comma-separated
 `Env.adminDiscordUsernames` (set it in the Lamdera dashboard too, or
 `lamdera check` fails with MISSING PRODUCTION CONFIG). The backend checks
 `Users.isAdmin` on every `AdminLoad` / `AdminRequest`; the page only decides
-what to show. Admins can resolve reports, delete listings (any state) and
+what to show. Reports show a copy of the trade they are about (if any) and a
+"Show screenshots" button. Admins can resolve reports, delete listings (any state) and
 offers, ban/unban players, and release a claimed name. Banning or releasing a
 name deletes that player's listings and offers. A banned account can still
 sign in and browse, but every other request fails. Every action is written to
@@ -149,7 +151,7 @@ reload breaks open tabs), and give the first `goto` after a rebuild a long
 `npm test` runs `tests/E2ETests.elm` (lamdera/program-test user journeys:
 onboarding, claim errors, 5-minute go-live, offers + accept, trades going
 through or falling through, estimates, look-alikes,
-validation, reports, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
+validation, reports with trades and screenshots, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
 listing form). In program-test, `clickLink` needs a matching `href` in the
 current view, and `pushUrl` must be given a path (not an absolute URL) or the
 simulated router falls back to `/`.

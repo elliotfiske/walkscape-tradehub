@@ -16,7 +16,7 @@ type Route
     | NewListing (Maybe ( String, Item.Variant ))
     | MyTrades
     | Profile String
-    | Report String
+    | Report String (Maybe Int)
     | SignIn
     | Onboarding
     | Admin
@@ -36,7 +36,7 @@ parser =
             (s "new" <?> Query.string "item" <?> Query.string "quality" <?> Query.string "fine" <?> Query.string "rare")
         , Parser.map MyTrades (s "trades")
         , Parser.map Profile (s "u" </> traderName)
-        , Parser.map Report (s "report" </> traderName)
+        , Parser.map Report (s "report" </> traderName <?> Query.int "trade")
         , Parser.map SignIn (s "signin")
         , Parser.map Onboarding (s "welcome")
         , Parser.map Admin (s "admin")
@@ -86,8 +86,8 @@ toString route =
         Profile name ->
             Url.Builder.absolute [ "u", Url.percentEncode name ] []
 
-        Report name ->
-            Url.Builder.absolute [ "report", Url.percentEncode name ] []
+        Report name trade ->
+            Url.Builder.absolute [ "report", Url.percentEncode name ] (trade |> Maybe.map (Url.Builder.int "trade") |> Maybe.map List.singleton |> Maybe.withDefault [])
 
         SignIn ->
             "/signin"

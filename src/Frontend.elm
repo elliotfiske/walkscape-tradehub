@@ -11,9 +11,11 @@ import Duration
 import Effect.Browser
 import Effect.Browser.Navigation
 import Effect.Command as Command exposing (Command, FrontendOnly)
+import Effect.File
+import Effect.File.Select
 import Effect.Lamdera
 import Effect.Task
-import Effect.Subscription exposing (Subscription)
+import Effect.Subscription as Subscription exposing (Subscription)
 import Effect.Time
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -33,6 +35,8 @@ import Page.Report
 import Page.SignIn
 import Page.Trades
 import Route exposing (Route)
+import Screenshot
+import ScreenshotShrink
 import Time
 import Types
     exposing
@@ -95,16 +99,19 @@ subscriptions model =
                 _ ->
                     False
     in
-    Effect.Time.every
-        (Duration.seconds
-            (if countingDown || not model.loaded then
-                1
+    Subscription.batch
+        [ Effect.Time.every
+            (Duration.seconds
+                (if countingDown || not model.loaded then
+                    1
 
-             else
-                10
+                 else
+                    10
+                )
             )
-        )
-        Tick
+            Tick
+        , ScreenshotShrink.subscription ReportScreenshotShrunk
+        ]
 
 
 emptyListingForm : ListingForm
@@ -176,7 +183,15 @@ offerFormFor model listingId =
 
 emptyReportForm : ReportForm
 emptyReportForm =
-    { about = "", reasons = [], details = "", sent = False }
+    { about = ""
+    , trade = Nothing
+    , reasons = []
+    , details = ""
+    , screenshots = []
+    , shrinking = 0
+    , screenshotError = Nothing
+    , sent = False
+    }
 
 
 init : Url -> Effect.Browser.Navigation.Key -> ( Model, Cmd_ )
@@ -213,8 +228,8 @@ init url key =
             , fellThroughForm = Nothing
             , reportForm =
                 case Route.fromUrl url of
-                    Route.Report name ->
-                        { emptyReportForm | about = name }
+                    Route.Report name trade ->
+                        { emptyReportForm | about = name, trade = trade }
 
                     _ ->
                         emptyReportForm
@@ -223,6 +238,7 @@ init url key =
             , tradesTab = ReceivedTab
             , admin = Nothing
             , adminPage = { tab = AdminReports, search = "", confirming = Nothing, banReason = "" }
+            , adminScreenshots = Dict.empty
             }
 
         getTime =
@@ -356,9 +372,9 @@ update msg model =
 
                 reportForm =
                     case route of
-                        Route.Report name ->
-                            if name /= model.reportForm.about then
-                                { emptyReportForm | about = name }
+                        Route.Report name trade ->
+                            if name /= model.reportForm.about || trade /= model.reportForm.trade then
+                                { emptyReportForm | about = name, trade = trade }
 
                             else
                                 model.reportForm
@@ -697,9 +713,85 @@ update msg model =
             ( model
             , Command.batch
                 [ Analytics.track Analytics.ReportSubmitted
-                , Effect.Lamdera.sendToBackend (SubmitReport form.about (List.reverse form.reasons) form.details)
+                , Effect.Lamdera.sendToBackend
+                    (SubmitReport
+                        { about = form.about
+                        , reasons = List.reverse form.reasons
+                        , details = form.details
+                        , offerId = Page.Report.reportedTrade model |> Maybe.map (Tuple.second >> .id)
+                        , screenshots = form.screenshots
+                        }
+                    )
                 ]
             )
+
+        ReportAddScreenshotsClicked ->
+            ( model, Effect.File.Select.files [ "image/png", "image/jpeg", "image/webp", "image/gif" ] ReportScreenshotsPicked )
+
+        ReportScreenshotsPicked first rest ->
+            let
+                form =
+                    model.reportForm
+
+                room =
+                    Screenshot.maxCount - List.length form.screenshots - form.shrinking
+
+                picked =
+                    List.take room (first :: rest)
+            in
+            ( { model
+                | reportForm =
+                    { form
+                        | shrinking = form.shrinking + List.length picked
+                        , screenshotError =
+                            if List.length rest + 1 > room then
+                                Just ("You can add up to " ++ String.fromInt Screenshot.maxCount ++ " screenshots, so I kept the first ones.")
+
+                            else
+                                Nothing
+                    }
+              }
+            , picked |> List.map (Effect.File.toUrl >> Effect.Task.perform ReportScreenshotRead) |> Command.batch
+            )
+
+        ReportScreenshotRead dataUrl ->
+            ( model, ScreenshotShrink.request dataUrl )
+
+        ReportScreenshotShrunk result ->
+            let
+                form =
+                    model.reportForm
+
+                shrunk =
+                    { form | shrinking = max 0 (form.shrinking - 1) }
+            in
+            ( { model
+                | reportForm =
+                    case result of
+                        Ok jpeg ->
+                            if List.length form.screenshots < Screenshot.maxCount then
+                                { shrunk | screenshots = form.screenshots ++ [ jpeg ] }
+
+                            else
+                                shrunk
+
+                        Err err ->
+                            { shrunk | screenshotError = Just err }
+              }
+            , Command.none
+            )
+
+        ReportScreenshotRemoved index ->
+            let
+                form =
+                    model.reportForm
+            in
+            ( { model | reportForm = { form | screenshots = List.take index form.screenshots ++ List.drop (index + 1) form.screenshots, screenshotError = Nothing } }
+            , Command.none
+            )
+
+        AdminShowScreenshotsClicked reportId ->
+            ( model, Effect.Lamdera.sendToBackend (AdminLoadScreenshots reportId) )
 
         ToastDismissed ->
             ( { model | toast = Nothing }, Command.none )
@@ -875,6 +967,9 @@ updateFromBackend msg model =
         AdminDataSent data ->
             ( { model | admin = Just data }, Command.none )
 
+        AdminScreenshotsSent reportId screenshots ->
+            ( { model | adminScreenshots = Dict.insert reportId screenshots model.adminScreenshots }, Command.none )
+
         OfferUpserted offer ->
             let
                 newModel =
@@ -937,7 +1032,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=de4c04e4" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=d5f3798a" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -989,7 +1084,7 @@ pageTitle route =
         Route.Profile name ->
             suffix name
 
-        Route.Report name ->
+        Route.Report name _ ->
             suffix ("Report " ++ name)
 
         Route.SignIn ->
@@ -1032,7 +1127,7 @@ viewPage model =
         Route.Profile name ->
             Page.Profile.view model name
 
-        Route.Report name ->
+        Route.Report name _ ->
             Page.Report.view model name
 
         Route.Admin ->
