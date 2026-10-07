@@ -191,7 +191,8 @@ coinAmount amount =
         ]
 
 
-{-| "1,150 ea", "1,150 ea or items", "Items only" or "Coins or items".
+{-| "1,150 ea", "1,150 ea or items", "Items only", "2 × Iron bar" (the items
+it wants) or "Coins or items".
 -}
 priceText : Listing -> Html msg
 priceText listing =
@@ -214,14 +215,46 @@ priceText listing =
                 coins price
 
             ItemsOnly ->
-                [ words "Items only" ]
+                case wantsText listing of
+                    Just wants ->
+                        [ words wants ]
+
+                    Nothing ->
+                        [ words "Items only" ]
 
             CoinsOrItems (Just price) ->
                 coins price ++ [ Html.span [ Attr.class "text-faint text-xs" ] [ Html.text "or items" ] ]
 
             CoinsOrItems Nothing ->
-                [ words "Coins or items" ]
+                case wantsText listing of
+                    Just wants ->
+                        [ words ("Coins or " ++ wants) ]
+
+                    Nothing ->
+                        [ words "Coins or items" ]
         )
+
+
+{-| "2 × Iron bar", or "2 × Iron bar +1 more", for a listing's wanted items.
+-}
+wantsText : Listing -> Maybe String
+wantsText listing =
+    case listing.wants of
+        first :: rest ->
+            Just
+                (String.fromInt first.quantity
+                    ++ " × "
+                    ++ (Item.byId first.itemId |> Maybe.map (\i -> Item.fullName i first.variant) |> Maybe.withDefault first.itemId)
+                    ++ (if List.isEmpty rest then
+                            ""
+
+                        else
+                            " +" ++ String.fromInt (List.length rest) ++ " more"
+                       )
+                )
+
+        [] ->
+            Nothing
 
 
 {-| "9,400 ea", "at the listed price", "2x Coal, 1x fine Iron bar" or "500 ea

@@ -4,7 +4,6 @@ import Derived
 import Dict
 import Html exposing (Html)
 import Html.Attributes as Attr
-import Html.Events as Events
 import Item exposing (Item)
 import Market
 import Page.NewListing
@@ -322,8 +321,26 @@ termsCard model listing item =
                             "Paying"
                     )
                 ]
-            , Html.span [ Attr.class "text-lg", Ui.testId "listing-price" ] [ Ui.priceText listing ]
+            , Html.span [ Attr.class "text-lg", Ui.testId "listing-price" ] [ Ui.priceText { listing | wants = [] } ]
             ]
+        , if List.isEmpty listing.wants then
+            Ui.empty
+
+          else
+            Html.div [ Attr.class "flex flex-col gap-1.5 text-sm", Ui.testId "listing-wants" ]
+                [ Html.span [ Attr.class "text-muted" ]
+                    [ Html.text
+                        (case listing.side of
+                            Selling ->
+                                "Wants"
+
+                            Buying ->
+                                "Pays with"
+                        )
+                    ]
+                , Html.div [ Attr.class "flex flex-col gap-1" ] (List.map Ui.itemLine listing.wants)
+                , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text "Other items can be offered too." ]
+                ]
         , Html.div [ Attr.class "flex justify-between text-sm" ]
             [ Html.span [ Attr.class "text-muted" ] [ Html.text "Quantity" ]
             , Html.span [ Attr.class "font-bold text-leaf" ] [ Html.text (String.fromInt listing.quantity ++ "x") ]
@@ -704,84 +721,23 @@ takesItems listing =
 -}
 offerItems : Listing -> OfferForm -> Html FrontendMsg
 offerItems listing form =
-    Html.div [ Attr.class "flex flex-col gap-2" ]
-        [ Ui.label
-            (case listing.side of
+    Page.NewListing.itemLinesEditor
+        { prefix = "offer"
+        , label =
+            case listing.side of
                 Selling ->
                     "Items you'll give"
 
                 Buying ->
                     "Items you want for it"
-            )
-        , Html.div [ Attr.class "flex flex-col gap-2" ] (List.indexedMap offerLine form.items)
-        , if List.length form.items < Market.maxOfferItems then
-            Page.NewListing.itemPicker "offer-item" form.itemQuery OfferItemQueryChanged OfferItemPicked
-
-          else
-            Html.p [ Attr.class "text-xs text-faint" ] [ Html.text ("That's the most, " ++ String.fromInt Market.maxOfferItems ++ " items per offer.") ]
-        ]
-
-
-offerLine : Int -> Types.OfferLineForm -> Html FrontendMsg
-offerLine index line =
-    case Item.byId line.itemId of
-        Just lineItem ->
-            let
-                prefix =
-                    "offer-line-" ++ String.fromInt index
-
-                variant =
-                    line.variant
-
-                chip id label active v =
-                    Html.button
-                        [ Attr.id (prefix ++ "-" ++ id)
-                        , Attr.type_ "button"
-                        , Events.onClick (OfferLineVariantPicked index v)
-                        , Attr.class
-                            ("rounded-md px-2 py-1 text-xs font-semibold border "
-                                ++ (if active then
-                                        "border-gold text-gold bg-tab"
-
-                                    else
-                                        "border-rule text-muted"
-                                   )
-                            )
-                        ]
-                        [ Html.text label ]
-            in
-            Ui.card [ Attr.class "p-2.5 flex flex-col gap-2", Ui.testId prefix ]
-                [ Html.div [ Attr.class "flex items-center gap-2.5" ]
-                    [ Ui.itemIcon "w-9 h-9 rounded-md" lineItem variant
-                    , Html.div [ Attr.class "flex-1 min-w-0 font-semibold text-sm" ] [ Html.text lineItem.name, Html.text " ", Ui.variantTag variant ]
-                    , Html.div [ Attr.class "w-20 flex-none" ]
-                        [ Ui.textInput [ Attr.id (prefix ++ "-quantity"), Attr.attribute "inputmode" "numeric", Attr.class "text-leaf font-bold text-center", Attr.attribute "aria-label" "Quantity" ] line.quantity (OfferLineQuantityChanged index) ]
-                    , Html.button [ Attr.id (prefix ++ "-remove"), Attr.type_ "button", Events.onClick (OfferLineRemoved index), Attr.class "text-soft text-sm px-1", Attr.attribute "aria-label" "Remove" ] [ Html.text "✕" ]
-                    ]
-                , if lineItem.canBeFine then
-                    Html.div [ Attr.class "flex gap-1.5" ]
-                        [ chip "regular" "Regular" (not variant.fine) { variant | fine = False }
-                        , chip "fine" "✦ Fine" variant.fine { variant | fine = True }
-                        ]
-
-                  else if lineItem.canBeRare then
-                    Html.div [ Attr.class "flex gap-1.5" ]
-                        [ chip "common" "Common" (not variant.rare) { variant | rare = False }
-                        , chip "rare" "Rare" variant.rare { variant | rare = True }
-                        ]
-
-                  else
-                    case variant.quality of
-                        Just quality ->
-                            Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
-                                (Item.allQualities |> List.map (\q -> chip ("quality-" ++ Item.qualityToString q) (Item.qualityLabel q) (q == quality) { variant | quality = Just q }))
-
-                        Nothing ->
-                            Ui.empty
-                ]
-
-        Nothing ->
-            Ui.empty
+        , lines = form.items
+        , query = form.itemQuery
+        , onQuery = OfferItemQueryChanged
+        , onPick = OfferItemPicked
+        , onQuantity = OfferLineQuantityChanged
+        , onVariant = OfferLineVariantPicked
+        , onRemove = OfferLineRemoved
+        }
 
 
 {-| Check the offer form and turn it into what the backend expects. The coin
@@ -800,20 +756,12 @@ toOfferDraft listing form =
             else
                 Market.parsePrice form.price |> Result.map Just
 
-        parseLine line =
-            case String.toInt (String.trim line.quantity) of
-                Just quantity ->
-                    Ok { itemId = line.itemId, variant = line.variant, quantity = quantity }
-
-                Nothing ->
-                    Err ("Enter a quantity for " ++ (Item.byId line.itemId |> Maybe.map .name |> Maybe.withDefault line.itemId) ++ ", like 1 or 50.")
-
         items =
             if atTheirPrice || not (takesItems listing) then
                 Ok []
 
             else
-                List.foldr (\line acc -> Result.map2 (::) (parseLine line) acc) (Ok []) form.items
+                Market.parseLines form.items
     in
     Result.map2 (\p i -> { price = p, items = i, message = form.message }) price items
         |> Result.andThen (Market.validateOffer listing)

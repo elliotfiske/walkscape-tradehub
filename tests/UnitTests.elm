@@ -323,6 +323,7 @@ suite =
                         , variant = { fine = False, rare = False, quality = Just Item.Good }
                         , side = Selling
                         , payment = Coins 10
+                        , wants = []
                         , quantity = 1
                         , note = ""
                         }
@@ -398,6 +399,40 @@ suite =
                             , Ok (CoinsOrItems Nothing)
                             , Ok (CoinsOrItems (Just 1500))
                             , Err "Enter a price in coins, like 1200 or 1.2k."
+                            ]
+            ]
+        , describe "Wanted items on a listing"
+            [ test "only a listing that takes items can list wanted items, checked like offer lines" <|
+                \_ ->
+                    [ { draft | payment = ItemsOnly, wants = [ line "coal" 2 ] }
+                    , { draft | payment = CoinsOrItems (Just 900), wants = [ line "coal" 2 ] }
+                    , { draft | wants = [ line "coal" 2 ] }
+                    , { draft | payment = ItemsOnly, wants = List.repeat 6 (line "coal" 1) }
+                    , { draft | payment = ItemsOnly, wants = [ line "coal" 0 ] }
+                    ]
+                        |> List.map (Market.validateDraft >> Result.map .wants)
+                        |> Expect.equal
+                            [ Ok [ line "coal" 2 ]
+                            , Ok [ line "coal" 2 ]
+                            , Err "A listing that only takes coins can't ask for items."
+                            , Err "List at most 5 items."
+                            , Err "Enter a quantity above zero for Coal."
+                            ]
+            , test "the listing form reads wanted quantities, and drops them for a coins listing" <|
+                \_ ->
+                    let
+                        wants q =
+                            [ { itemId = "coal", variant = Item.plain, quantity = q } ]
+                    in
+                    [ { form | itemId = Just "coal", paymentChoice = Types.PayItems, wants = wants "3" }
+                    , { form | itemId = Just "coal", paymentChoice = Types.PayItems, wants = wants "lots" }
+                    , { form | itemId = Just "coal", paymentChoice = Types.PayCoins, price = "10", wants = wants "3" }
+                    ]
+                        |> List.map (Page.NewListing.toDraft >> Result.map .wants)
+                        |> Expect.equal
+                            [ Ok [ line "coal" 3 ]
+                            , Err "Enter a quantity for Coal, like 1 or 50."
+                            , Ok []
                             ]
             ]
         , describe "Market.sortByPrice"
@@ -543,6 +578,7 @@ listing side =
     , variant = { fine = True, rare = False, quality = Nothing }
     , side = side
     , payment = Coins 8000
+    , wants = []
     , quantity = 5
     , note = ""
     , createdAt = Time.millisToPosix 0
@@ -592,6 +628,8 @@ form =
     , quantity = "1"
     , paymentChoice = Types.PayCoins
     , price = ""
+    , wants = []
+    , wantQuery = ""
     , note = ""
     , error = Nothing
     , submitting = False
@@ -620,4 +658,4 @@ line itemId quantity =
 
 draft : Types.ListingDraft
 draft =
-    { itemId = "coal", variant = Item.plain, side = Selling, payment = Coins 10, quantity = 1, note = "" }
+    { itemId = "coal", variant = Item.plain, side = Selling, payment = Coins 10, wants = [], quantity = 1, note = "" }

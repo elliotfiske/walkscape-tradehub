@@ -125,6 +125,8 @@ emptyListingForm =
     , quantity = "1"
     , paymentChoice = Types.PayCoins
     , price = ""
+    , wants = []
+    , wantQuery = ""
     , note = ""
     , error = Nothing
     , submitting = False
@@ -323,6 +325,28 @@ updateFilters f model =
 updateListingForm : (ListingForm -> ListingForm) -> Model -> ( Model, Cmd_ )
 updateListingForm f model =
     ( { model | listingForm = f model.listingForm }, Command.none )
+
+
+{-| Add an item line for `itemId`, unless there are already
+`Market.maxOfferItems`. Searching "fine iron bar" and picking Iron bar means
+the fine one.
+-}
+addLine : String -> String -> List Types.OfferLineForm -> List Types.OfferLineForm
+addLine query itemId lines =
+    case Item.byId itemId of
+        Just item ->
+            let
+                q =
+                    String.toLower (String.trim query)
+            in
+            if List.length lines >= Market.maxOfferItems then
+                lines
+
+            else
+                lines ++ [ { itemId = item.id, variant = Item.normalizeVariant item { fine = String.startsWith "fine " q, rare = String.startsWith "rare " q, quality = Nothing }, quantity = "1" } ]
+
+        Nothing ->
+            lines
 
 
 updateAt : Int -> (a -> a) -> List a -> List a
@@ -578,6 +602,21 @@ update msg model =
         ListingPriceChanged price ->
             updateListingForm (\f -> { f | price = price }) model
 
+        ListingWantQueryChanged query ->
+            updateListingForm (\f -> { f | wantQuery = query }) model
+
+        ListingWantPicked itemId ->
+            updateListingForm (\f -> { f | wants = addLine f.wantQuery itemId f.wants, wantQuery = "", error = Nothing }) model
+
+        ListingWantQuantityChanged index quantity ->
+            updateListingForm (\f -> { f | wants = updateAt index (\line -> { line | quantity = quantity }) f.wants, error = Nothing }) model
+
+        ListingWantVariantPicked index variant ->
+            updateListingForm (\f -> { f | wants = updateAt index (\line -> { line | variant = variant }) f.wants, error = Nothing }) model
+
+        ListingWantRemoved index ->
+            updateListingForm (\f -> { f | wants = List.take index f.wants ++ List.drop (index + 1) f.wants, error = Nothing }) model
+
         ListingNoteChanged note ->
             updateListingForm (\f -> { f | note = note }) model
 
@@ -620,27 +659,7 @@ update msg model =
             updateOfferForm (\f -> { f | itemQuery = query }) model
 
         OfferItemPicked itemId ->
-            case Item.byId itemId of
-                Just item ->
-                    let
-                        query =
-                            String.toLower (String.trim model.offerForm.itemQuery)
-
-                        variant =
-                            Item.normalizeVariant item { fine = String.startsWith "fine " query, rare = String.startsWith "rare " query, quality = Nothing }
-                    in
-                    updateOfferForm
-                        (\f ->
-                            if List.length f.items >= Market.maxOfferItems then
-                                f
-
-                            else
-                                { f | items = f.items ++ [ { itemId = item.id, variant = variant, quantity = "1" } ], itemQuery = "", error = Nothing }
-                        )
-                        model
-
-                Nothing ->
-                    ( model, Command.none )
+            updateOfferForm (\f -> { f | items = addLine f.itemQuery itemId f.items, itemQuery = "", error = Nothing }) model
 
         OfferLineQuantityChanged index quantity ->
             updateOfferForm (\f -> { f | items = updateAt index (\line -> { line | quantity = quantity }) f.items, error = Nothing }) model

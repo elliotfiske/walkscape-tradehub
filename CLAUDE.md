@@ -13,7 +13,8 @@ listing) or either says it fell through (`OfferFellThrough`, and the listing
 goes back up).
 Listings can ask for coins, items only, or coins or items (`Payment`), and
 offers can add up to 5 item lines (`ItemLine`, checked by
-`Market.validateOffer`); only coins feed estimates (`Market.pricePoints`).
+`Market.validateOffer`). A listing that takes items can also say which ones it
+wants (`Listing.wants`, up to 5, shown on the listing and in the market); only coins feed estimates (`Market.pricePoints`).
 Trailpost can't see in-game trades, but a trade both sides confirmed is a
 price: with 3 or more in the last 30 days, an item's estimate is their median,
 and otherwise it comes from asks, bids and offers. The backlog for live trading is in [TODO.md](TODO.md).
