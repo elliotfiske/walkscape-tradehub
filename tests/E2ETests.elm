@@ -170,7 +170,7 @@ tests =
     [ start "A guest can browse the homepage and an empty market"
         [ connect "guest" "/" <|
             \guest ->
-                [ guest.checkView 100 (byTestId "preview-banner" >> seesText "Trading isn't live in WalkScape yet")
+                [ guest.checkView 100 (byTestId "preview-banner" >> seesText "I'm still getting Trailpost ready for real trading")
                 , guest.checkView 100 (byTestId "featured-price" >> seesText "No prices yet")
                 , guest.clickLink 100 "/market"
                 , guest.checkView 100 (byTestId "guest-notice" >> seesText "You're browsing as a guest.")
