@@ -28,6 +28,10 @@
   "delay": 1500
  },
  {
+  "click": "a[href='/market']",
+  "delay": 1500
+ },
+ {
   "click": "a[href='/new']",
   "delay": 1200
  },
