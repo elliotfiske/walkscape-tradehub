@@ -14,6 +14,7 @@ module Market exposing
     , maxOfferItems
     , openOfferFrom
     , parseCoins
+    , parseLines
     , parsePrice
     , pricePoints
     , sortByPrice
@@ -32,7 +33,7 @@ import Dict exposing (Dict)
 import Item exposing (Item)
 import Pricing
 import Time
-import Types exposing (ItemLine, Listing, ListingDraft, Offer, OfferDraft, OfferStatus(..), Payment(..), Side(..))
+import Types exposing (ItemLine, Listing, ListingDraft, Offer, OfferDraft, OfferLineForm, OfferStatus(..), Payment(..), Side(..))
 
 
 maxActiveListings : Int
@@ -404,7 +405,7 @@ validateDraft draft =
                 Err "Keep the quantity under a million."
 
             else
-                Result.map2 (\_ note -> { draft | note = note })
+                Result.map3 (\_ wants note -> { draft | wants = wants, note = note })
                     (case draft.payment of
                         Coins price ->
                             checkPrice price |> Result.map (always ())
@@ -415,7 +416,36 @@ validateDraft draft =
                         CoinsOrItems price ->
                             price |> Maybe.map (checkPrice >> Result.map (always ())) |> Maybe.withDefault (Ok ())
                     )
+                    (case ( draft.payment, draft.wants ) of
+                        ( Coins _, _ :: _ ) ->
+                            Err "A listing that only takes coins can't ask for items."
+
+                        _ ->
+                            if List.length draft.wants > maxOfferItems then
+                                Err ("List at most " ++ String.fromInt maxOfferItems ++ " items.")
+
+                            else
+                                draft.wants |> List.map validateLine |> combine
+                    )
                     (checkText "note" draft.note)
+
+
+{-| Item lines typed into a form (offer items, or the items a listing wants),
+with their quantities read. The rest is checked by `validateOffer` and
+`validateDraft`.
+-}
+parseLines : List OfferLineForm -> Result String (List ItemLine)
+parseLines =
+    List.map
+        (\line ->
+            case String.toInt (String.trim line.quantity) of
+                Just quantity ->
+                    Ok { itemId = line.itemId, variant = line.variant, quantity = quantity }
+
+                Nothing ->
+                    Err ("Enter a quantity for " ++ (Item.byId line.itemId |> Maybe.map .name |> Maybe.withDefault line.itemId) ++ ", like 1 or 50.")
+        )
+        >> combine
 
 
 {-| Check an offer on `listing`: what it pays has to be something the listing

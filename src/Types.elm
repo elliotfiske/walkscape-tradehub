@@ -116,8 +116,9 @@ type Side
     | Buying
 
 
-{-| What the side paying for the items will take: coins each, items only (the
-offers say which), or either, with an optional coin price each.
+{-| What the side paying for the items will take: coins each, items only, or
+either, with an optional coin price each. A listing that takes items can say
+which ones it wants (`Listing.wants`), but offers can still propose others.
 -}
 type Payment
     = Coins Int
@@ -142,6 +143,7 @@ type alias Listing =
     , variant : Item.Variant
     , side : Side
     , payment : Payment
+    , wants : List ItemLine
     , quantity : Int
     , note : String
     , createdAt : Time.Posix
@@ -205,6 +207,7 @@ type alias ListingDraft =
     , variant : Item.Variant
     , side : Side
     , payment : Payment
+    , wants : List ItemLine
     , quantity : Int
     , note : String
     }
@@ -353,6 +356,8 @@ type alias ListingForm =
     , quantity : String
     , paymentChoice : PaymentChoice
     , price : String
+    , wants : List OfferLineForm
+    , wantQuery : String
     , note : String
     , error : Maybe String
     , submitting : Bool
@@ -464,6 +469,11 @@ type FrontendMsg
     | ListingQuantityChanged String
     | ListingPaymentPicked PaymentChoice
     | ListingPriceChanged String
+    | ListingWantQueryChanged String
+    | ListingWantPicked String
+    | ListingWantQuantityChanged Int String
+    | ListingWantVariantPicked Int Item.Variant
+    | ListingWantRemoved Int
     | ListingNoteChanged String
     | ListingSubmitted
     | CloseListingClicked Int

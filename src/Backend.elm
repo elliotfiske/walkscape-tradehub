@@ -355,6 +355,7 @@ handleRequest sessionId clientId now msg model =
                                         , variant = valid.variant
                                         , side = valid.side
                                         , payment = valid.payment
+                                        , wants = valid.wants
                                         , quantity = valid.quantity
                                         , note = valid.note
                                         , createdAt = now

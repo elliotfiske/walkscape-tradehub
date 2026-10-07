@@ -76,7 +76,10 @@ the listing page.
   push). People are out walking, not watching the site.
 - Done: item-for-item payment. Listings ask for coins, items only, or coins or
   items (with an optional price); offers add up to 5 item lines, each with its
-  own variant check on the checklist. Only coins feed estimates.
+  own variant check on the checklist. Only coins feed estimates. Listings that
+  take items can say which ones they want (up to 5); offers can still propose
+  others. Maybe later: an offer button that starts from the wanted items, and
+  market search that matches wanted items.
 
 ### Later
 - Chat on an accepted trade, escrow (design 1m), Discord linking for

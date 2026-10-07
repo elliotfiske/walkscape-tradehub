@@ -378,7 +378,7 @@ tests =
                                        ]
                        ]
         ]
-    , start "An items-only listing gets an item offer, which is accepted and goes through"
+    , start "An items-only listing says what it wants, gets an item offer, which is accepted and goes through"
         [ connect "seller" "/" <|
             \seller ->
                 onboard seller "Juno Trek"
@@ -388,13 +388,20 @@ tests =
                        , seller.click 100 (Dom.id "item-pick-shovel_axe")
                        , seller.click 100 (Dom.id "payment-items")
                        , seller.checkView 100 (Query.hasNot [ Selector.id "price" ])
+                       , seller.input 100 (Dom.id "want-item-search") "fine iron bar"
+                       , seller.click 100 (Dom.id "want-item-pick-iron_bar")
+                       , seller.input 100 (Dom.id "want-line-0-quantity") "0"
+                       , seller.click 100 (Dom.id "post-listing")
+                       , seller.checkView 100 (byTestId "listing-error" >> seesText "Enter a quantity above zero for Iron bar.")
+                       , seller.input 100 (Dom.id "want-line-0-quantity") "2"
                        , seller.click 100 (Dom.id "post-listing")
                        , seller.checkView 300 (byTestId "listing-price" >> seesText "Items only")
+                       , seller.checkView 100 (byTestId "listing-wants" >> seesText "2 × Iron bar")
                        , connect "buyer" "/" <|
                             \buyer ->
                                 onboard buyer "Wanderling"
                                     ++ [ buyer.clickLink (minutes 6) "/market"
-                                       , buyer.checkView 100 (byTestId "listing-1" >> seesText "Items only")
+                                       , buyer.checkView 100 (byTestId "listing-1" >> seesText "2 × Iron bar")
                                        , buyer.clickLink 100 "/listing/1"
                                        , buyer.checkView 100 (Query.hasNot [ Selector.id "offer-at-price" ])
                                        , buyer.checkView 100 (Query.hasNot [ Selector.id "offer-price" ])

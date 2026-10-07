@@ -1,4 +1,4 @@
-module Page.NewListing exposing (itemPicker, toDraft, view)
+module Page.NewListing exposing (itemLinesEditor, toDraft, view)
 
 import Derived
 import Dict
@@ -9,7 +9,7 @@ import Item
 import Market
 import Pricing
 import Route
-import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm, Payment(..), PaymentChoice(..), Side(..))
+import Types exposing (FrontendModel, FrontendMsg(..), ListingDraft, ListingForm, OfferLineForm, Payment(..), PaymentChoice(..), Side(..))
 import Ui
 
 
@@ -35,14 +35,22 @@ toDraft form =
                     Err "Enter a quantity, like 1 or 50."
 
                 Just quantity ->
-                    paymentFor form
+                    Result.map2 Tuple.pair
+                        (paymentFor form)
+                        (if form.paymentChoice == PayCoins then
+                            Ok []
+
+                         else
+                            Market.parseLines form.wants
+                        )
                         |> Result.andThen
-                            (\payment ->
+                            (\( payment, wants ) ->
                                 Market.validateDraft
                                     { itemId = item.id
                                     , variant = variantFor item form
                                     , side = form.side
                                     , payment = payment
+                                    , wants = wants
                                     , quantity = quantity
                                     , note = form.note
                                     }
@@ -203,6 +211,30 @@ viewForm model =
                         )
                     ]
             ]
+        , if form.paymentChoice == PayCoins then
+            Ui.empty
+
+          else
+            Html.div [ Attr.class "flex flex-col gap-1.5" ]
+                [ itemLinesEditor
+                    { prefix = "want"
+                    , label =
+                        case form.side of
+                            Selling ->
+                                "Items you want for it (optional)"
+
+                            Buying ->
+                                "Items you'll give for it (optional)"
+                    , lines = form.wants
+                    , query = form.wantQuery
+                    , onQuery = ListingWantQueryChanged
+                    , onPick = ListingWantPicked
+                    , onQuantity = ListingWantQuantityChanged
+                    , onVariant = ListingWantVariantPicked
+                    , onRemove = ListingWantRemoved
+                    }
+                , Html.p [ Attr.class "text-xs text-faint" ] [ Html.text "Shown on your listing. People can still offer other items." ]
+                ]
         , Html.div [ Attr.class "grid grid-cols-[110px_1fr] gap-3" ]
             [ Html.div []
                 [ Ui.label "Quantity"
@@ -258,7 +290,7 @@ viewForm model =
         ]
 
 
-itemPicker : String -> String -> (String -> FrontendMsg) -> (String -> FrontendMsg) -> Html FrontendMsg
+itemPicker : String -> String -> (String -> msg) -> (String -> msg) -> Html msg
 itemPicker prefix query onQuery onPick =
     let
         results =
@@ -289,6 +321,101 @@ itemPicker prefix query onQuery onPick =
                 results
             )
         ]
+
+
+{-| How an item-lines editor reports changes. `prefix` starts its element ids:
+"offer" gives `offer-item-search`, `offer-line-0-quantity` and so on.
+-}
+type alias LinesEditor msg =
+    { prefix : String
+    , label : String
+    , lines : List OfferLineForm
+    , query : String
+    , onQuery : String -> msg
+    , onPick : String -> msg
+    , onQuantity : Int -> String -> msg
+    , onVariant : Int -> Item.Variant -> msg
+    , onRemove : Int -> msg
+    }
+
+
+{-| Up to `Market.maxOfferItems` item lines, each with its variant and
+quantity, and a search to add another. Used for offer items and for the items
+a listing wants.
+-}
+itemLinesEditor : LinesEditor msg -> Html msg
+itemLinesEditor editor =
+    Html.div [ Attr.class "flex flex-col gap-2" ]
+        [ Ui.label editor.label
+        , Html.div [ Attr.class "flex flex-col gap-2" ] (List.indexedMap (itemLine editor) editor.lines)
+        , if List.length editor.lines < Market.maxOfferItems then
+            itemPicker (editor.prefix ++ "-item") editor.query editor.onQuery editor.onPick
+
+          else
+            Html.p [ Attr.class "text-xs text-faint" ] [ Html.text ("That's the most, " ++ String.fromInt Market.maxOfferItems ++ " items.") ]
+        ]
+
+
+itemLine : LinesEditor msg -> Int -> OfferLineForm -> Html msg
+itemLine editor index line =
+    case Item.byId line.itemId of
+        Just lineItem ->
+            let
+                prefix =
+                    editor.prefix ++ "-line-" ++ String.fromInt index
+
+                variant =
+                    line.variant
+
+                chip id label active v =
+                    Html.button
+                        [ Attr.id (prefix ++ "-" ++ id)
+                        , Attr.type_ "button"
+                        , Events.onClick (editor.onVariant index v)
+                        , Attr.class
+                            ("rounded-md px-2 py-1 text-xs font-semibold border "
+                                ++ (if active then
+                                        "border-gold text-gold bg-tab"
+
+                                    else
+                                        "border-rule text-muted"
+                                   )
+                            )
+                        ]
+                        [ Html.text label ]
+            in
+            Ui.card [ Attr.class "p-2.5 flex flex-col gap-2", Ui.testId prefix ]
+                [ Html.div [ Attr.class "flex items-center gap-2.5" ]
+                    [ Ui.itemIcon "w-9 h-9 rounded-md" lineItem variant
+                    , Html.div [ Attr.class "flex-1 min-w-0 font-semibold text-sm" ] [ Html.text lineItem.name, Html.text " ", Ui.variantTag variant ]
+                    , Html.div [ Attr.class "w-20 flex-none" ]
+                        [ Ui.textInput [ Attr.id (prefix ++ "-quantity"), Attr.attribute "inputmode" "numeric", Attr.class "text-leaf font-bold text-center", Attr.attribute "aria-label" "Quantity" ] line.quantity (editor.onQuantity index) ]
+                    , Html.button [ Attr.id (prefix ++ "-remove"), Attr.type_ "button", Events.onClick (editor.onRemove index), Attr.class "text-soft text-sm px-1", Attr.attribute "aria-label" "Remove" ] [ Html.text "✕" ]
+                    ]
+                , if lineItem.canBeFine then
+                    Html.div [ Attr.class "flex gap-1.5" ]
+                        [ chip "regular" "Regular" (not variant.fine) { variant | fine = False }
+                        , chip "fine" "✦ Fine" variant.fine { variant | fine = True }
+                        ]
+
+                  else if lineItem.canBeRare then
+                    Html.div [ Attr.class "flex gap-1.5" ]
+                        [ chip "common" "Common" (not variant.rare) { variant | rare = False }
+                        , chip "rare" "Rare" variant.rare { variant | rare = True }
+                        ]
+
+                  else
+                    case variant.quality of
+                        Just quality ->
+                            Html.div [ Attr.class "flex flex-wrap gap-1.5" ]
+                                (Item.allQualities |> List.map (\q -> chip ("quality-" ++ Item.qualityToString q) (Item.qualityLabel q) (q == quality) { variant | quality = Just q }))
+
+                        Nothing ->
+                            Ui.empty
+                ]
+
+        Nothing ->
+            Ui.empty
 
 
 medianCheck : FrontendModel -> ListingForm -> Html msg
