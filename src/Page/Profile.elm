@@ -5,6 +5,7 @@ import Dict
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Page.Market
+import Route
 import Types exposing (FrontendModel, FrontendMsg(..))
 import Ui
 
@@ -81,7 +82,7 @@ view model name =
                         [ Ui.button Ui.Secondary Ui.Block "sign-out" SignOutClicked "Sign out" ]
 
                   else if Derived.isReady model && not trader.banned then
-                    Html.a [ Attr.href ("/report/" ++ name), Attr.id "report-player", Attr.class "text-center text-warn hover:text-warn no-underline font-semibold text-sm mt-2" ]
+                    Html.a [ Attr.href (Route.toString (Route.Report name)), Attr.id "report-player", Attr.class "text-center text-warn hover:text-warn no-underline font-semibold text-sm mt-2" ]
                         [ Html.text "Report this player" ]
 
                   else

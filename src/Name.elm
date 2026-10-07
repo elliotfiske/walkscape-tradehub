@@ -1,6 +1,13 @@
 module Name exposing (lookalikeOf, normalize, validate)
 
 {-| WalkScape character names: validation and look-alike detection.
+
+A character name is not the same as a WalkScape portal username. The portal's
+leaderboard shows the character name as the main link, with the account's
+username in grey parentheses after it when that account is public ("Slyth
+Inaru (Slyth\_Inaru)"). Character names can contain single spaces between
+words; usernames can have underscores and other punctuation.
+
 -}
 
 
@@ -16,13 +23,19 @@ validate raw =
             String.length name
     in
     if len == 0 then
-        Err "Enter your WalkScape username."
+        Err "Enter your WalkScape character name."
 
-    else if len < 3 || len > 20 then
-        Err "WalkScape names are 3 to 20 characters long."
+    else if len > 30 then
+        Err "WalkScape character names are at most 30 characters long."
 
-    else if not (String.all (\c -> Char.isAlphaNum c || c == '_') name) then
-        Err "Names can only use letters, numbers and underscores."
+    else if not (String.all (\c -> Char.isAlphaNum c || c == ' ') name) then
+        Err "Names can only use letters, numbers and spaces."
+
+    else if String.contains "  " name then
+        Err "Use a single space between words."
+
+    else if String.length (String.filter (\c -> c /= ' ') name) < 3 then
+        Err "WalkScape character names need at least 3 letters or numbers, not counting spaces."
 
     else
         Ok name
@@ -36,13 +49,14 @@ normalize =
 
 
 {-| If `name` is suspiciously close to one of `established` (but not the same
-name), return the name it imitates. "Mosbeard\_" imitates "Mossbeard".
+name), return the name it imitates. "Mosbeard\_" imitates "Mossbeard", and
+"SlythInaru" imitates "Slyth Inaru".
 -}
 lookalikeOf : String -> List String -> Maybe String
 lookalikeOf name established =
     let
         squash s =
-            normalize s |> String.filter (\c -> c /= '_')
+            normalize s |> String.filter (\c -> c /= '_' && c /= ' ')
 
         target =
             squash name

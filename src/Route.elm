@@ -35,12 +35,20 @@ parser =
         , Parser.map (\item q fine rare -> NewListing (item |> Maybe.map (\id -> ( id, { fine = fine == Just "1", rare = rare == Just "1", quality = Maybe.andThen Item.qualityFromString q } ))))
             (s "new" <?> Query.string "item" <?> Query.string "quality" <?> Query.string "fine" <?> Query.string "rare")
         , Parser.map MyTrades (s "trades")
-        , Parser.map Profile (s "u" </> Parser.string)
-        , Parser.map Report (s "report" </> Parser.string)
+        , Parser.map Profile (s "u" </> traderName)
+        , Parser.map Report (s "report" </> traderName)
         , Parser.map SignIn (s "signin")
         , Parser.map Onboarding (s "welcome")
         , Parser.map Admin (s "admin")
         ]
+
+
+{-| A trader name in the path. `Parser.string` doesn't percent-decode, and names
+can have spaces ("Slyth Inaru" is `/u/Slyth%20Inaru`).
+-}
+traderName : Parser (String -> a) a
+traderName =
+    Parser.custom "NAME" Url.percentDecode
 
 
 fromUrl : Url -> Route
@@ -76,10 +84,10 @@ toString route =
             "/trades"
 
         Profile name ->
-            Url.Builder.absolute [ "u", name ] []
+            Url.Builder.absolute [ "u", Url.percentEncode name ] []
 
         Report name ->
-            Url.Builder.absolute [ "report", name ] []
+            Url.Builder.absolute [ "report", Url.percentEncode name ] []
 
         SignIn ->
             "/signin"

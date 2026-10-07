@@ -67,17 +67,40 @@ suite =
         , describe "Name"
             [ test "validates length and characters" <|
                 \_ ->
-                    List.map (Name.validate >> Result.toMaybe) [ "  Wanderling ", "ab", "bad name!", "Juno_Trek" ]
-                        |> Expect.equal [ Just "Wanderling", Nothing, Nothing, Just "Juno_Trek" ]
-            , test "flags names one edit or an underscore away from an established name" <|
+                    List.map (Name.validate >> Result.toMaybe) [ "  Wanderling ", "ab", "bad name!", "Juno_Trek", "Juno-Trek", "Émile", "Ñandú" ]
+                        |> Expect.equal [ Just "Wanderling", Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+            , test "allows single spaces between words, like real WalkScape characters" <|
+                \_ ->
+                    List.map (Name.validate >> Result.toMaybe)
+                        [ "Slyth Inaru", "  Mietosalsa the Mild ", "2nd beta patch", "Leviathan Von Weltzien", "Abcdefghij Abcdefghij Abcdefgh", "Isaac X" ]
+                        |> Expect.equal
+                            [ Just "Slyth Inaru", Just "Mietosalsa the Mild", Just "2nd beta patch", Just "Leviathan Von Weltzien", Just "Abcdefghij Abcdefghij Abcdefgh", Just "Isaac X" ]
+            , test "rejects doubled spaces, whitespace other than a space, and names over 30 characters" <|
+                \_ ->
+                    List.map (Name.validate >> Result.toMaybe)
+                        [ "Slyth  Inaru", "Slyth\tInaru", "Slyth\nInaru", "Abcdefghij Abcdefghij Abcdefghi", "   " ]
+                        |> Expect.equal [ Nothing, Nothing, Nothing, Nothing, Nothing ]
+            , test "needs at least 3 letters or numbers, not counting spaces" <|
+                \_ ->
+                    List.map (Name.validate >> Result.toMaybe) [ "A B", "A  B", "Ab", "Abc", "A B C", "Joe", "5cm" ]
+                        |> Expect.equal [ Nothing, Nothing, Nothing, Just "Abc", Just "A B C", Just "Joe", Just "5cm" ]
+            , test "flags names one edit, an underscore or a space away from an established name" <|
                 \_ ->
                     List.map (\n -> Name.lookalikeOf n [ "Mossbeard", "Tallowmere" ]) [ "Mosbeard_", "Mossbeard_", "Mossbeerd", "Mossbeard", "Pikewalker" ]
                         |> Expect.equal [ Just "Mossbeard", Just "Mossbeard", Just "Mossbeard", Nothing, Nothing ]
+            , test "a space, an underscore or neither all look alike" <|
+                \_ ->
+                    List.map (\n -> Name.lookalikeOf n [ "Slyth Inaru" ]) [ "SlythInaru", "Slyth_Inaru", "Slyth Inaru", "slyth inaru", "Slyth Inara" ]
+                        |> Expect.equal [ Just "Slyth Inaru", Just "Slyth Inaru", Nothing, Nothing, Just "Slyth Inaru" ]
             , test "short names aren't flagged for a single different letter" <|
                 \_ -> Name.lookalikeOf "Abc" [ "Abd" ] |> Expect.equal Nothing
             ]
         , describe "Route"
-            [ test "round-trips every route" <|
+            [ test "percent-encodes spaces in names" <|
+                \_ ->
+                    ( Route.toString (Route.Profile "Slyth Inaru"), Route.toString (Route.Report "Rabyte Black") )
+                        |> Expect.equal ( "/u/Slyth%20Inaru", "/report/Rabyte%20Black" )
+            , test "round-trips every route" <|
                 \_ ->
                     let
                         routes =
@@ -94,7 +117,9 @@ suite =
                             , Route.NewListing (Just ( "iron_pickaxe", { fine = False, rare = False, quality = Just Item.Perfect } ))
                             , Route.MyTrades
                             , Route.Profile "Juno_Trek"
+                            , Route.Profile "Slyth Inaru"
                             , Route.Report "Mosbeard_"
+                            , Route.Report "Rabyte Black"
                             , Route.SignIn
                             , Route.Onboarding
                             ]

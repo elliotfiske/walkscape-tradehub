@@ -10,6 +10,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Market
+import Route
 import Time
 import Types exposing (AdminAction(..), AdminData, AdminTab(..), AdminUser, FrontendModel, FrontendMsg(..), Listing, Offer, OfferStatus(..), Report)
 import Ui
@@ -135,7 +136,7 @@ playerSearchText user =
 
 profileLink : String -> Html msg
 profileLink name =
-    Html.a [ Attr.href ("/u/" ++ name), Attr.class "font-semibold" ] [ Html.text name ]
+    Html.a [ Attr.href (Route.toString (Route.Profile name)), Attr.class "font-semibold" ] [ Html.text name ]
 
 
 {-| The second click for a destructive action, shown under the card it belongs to.
