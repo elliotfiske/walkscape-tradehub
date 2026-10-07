@@ -492,8 +492,7 @@ traderCard model name =
     in
     Html.div [ Attr.class "flex flex-col gap-3", Ui.testId "trader-card" ]
         [ Html.a [ Attr.href (Route.toString (Route.Profile name)), Attr.class "flex items-center gap-3.5 no-underline text-ink hover:text-ink" ]
-            [ Ui.portrait "w-16 h-16 rounded-xl"
-            , Html.div [ Attr.class "flex flex-col gap-1" ]
+            [ Html.div [ Attr.class "flex flex-col gap-1" ]
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                 , Html.div [ Attr.class "flex items-center gap-2" ]
                     [ Ui.unverifiedTag

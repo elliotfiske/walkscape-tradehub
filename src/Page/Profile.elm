@@ -39,8 +39,7 @@ view model name =
             in
             Html.div [ Attr.class "w-full max-w-xl mx-auto px-4 py-6 flex flex-col gap-4" ]
                 [ Html.div [ Attr.class "flex flex-col items-center gap-2 text-center" ]
-                    [ Ui.portrait "w-24 h-24 rounded-xl"
-                    , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "profile-name" ] [ Html.text trader.name ]
+                    [ Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "profile-name" ] [ Html.text trader.name ]
                     , Html.div [ Attr.class "flex items-center gap-2" ]
                         [ if trader.banned then
                             Ui.bannedTag

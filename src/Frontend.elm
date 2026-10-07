@@ -856,7 +856,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=350f2b98" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=618b45f7" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -1118,8 +1118,7 @@ viewHeader model =
                         , Attr.class "flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-[10px] bg-raised border border-edge no-underline text-ink"
                         , Ui.testId "user-chip"
                         ]
-                        [ Ui.portrait "w-[26px] h-[26px] rounded-md"
-                        , Html.span [ Attr.class "font-semibold text-[13px]" ]
+                        [ Html.span [ Attr.class "font-semibold text-[13px] px-1.5" ]
                             [ Html.text (Derived.myName model |> Maybe.withDefault "Finish sign-up") ]
                         ]
 
