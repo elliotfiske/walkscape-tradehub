@@ -32,12 +32,6 @@ view model name =
                 isMe =
                     Derived.myName model == Just name
 
-                apiRow label =
-                    Html.div [ Attr.class "flex justify-between px-3.5 py-3 border-b border-line last:border-b-0 text-sm" ]
-                        [ Html.span [ Attr.class "text-muted" ] [ Html.text label ]
-                        , Html.span [ Attr.class "text-faint" ] [ Html.text "with trading" ]
-                        ]
-
                 listings =
                     model.listings
                         |> Dict.values
@@ -68,9 +62,12 @@ view model name =
                     , Ui.stat "text-leaf" (String.fromInt stats.offersAccepted) "offers accepted"
                     , Ui.stat "text-ink" (Ui.plural stats.days "day" "days") "on Trailpost"
                     ]
-                , Ui.sectionLabel "From the WalkScape API"
-                , Ui.card [ Attr.class "overflow-hidden" ]
-                    [ apiRow "Total level", apiRow "Steps walked", apiRow "Last active" ]
+                , Ui.sectionLabel "In WalkScape"
+                , Ui.card [ Attr.class "px-3.5 py-3 text-sm text-body", Ui.testId "profile-in-game" ]
+                    [ Html.text "Social → Find → "
+                    , Html.b [ Attr.class "text-ink" ] [ Html.text trader.name ]
+                    , Html.text " shows their total level and steps walked."
+                    ]
                 , if List.isEmpty listings then
                     Ui.empty
 

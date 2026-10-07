@@ -1,10 +1,14 @@
 # Trailpost — Claude notes
 
 Trailpost is a fan-made trading hub for WalkScape, built from the
-`Trailpost Trading.dc.html` design (claude.ai/design). Trading isn't live in
-WalkScape yet, so the app runs in **preview mode**: people post listings and
-make offers (interest) so everyone gets a rough idea of item values. Nothing
-changes hands, and there are no trade rooms yet.
+`Trailpost Trading.dc.html` design (claude.ai/design). People post listings
+and make offers here, then do the trade itself in WalkScape's trade window
+(invite by name, both sides put in coins/items, Update, both Accept; an Update
+resets Accept). Once an offer is accepted, its listing page shows both traders a
+checklist (`Page.Listing.tradeChecklist`, from `Market.tradeTerms`): who to
+invite, what each side puts in, and what to check before pressing Accept.
+Trailpost can't see in-game trades, so estimates still come from asks, bids and
+offers. The backlog for live trading is in [TODO.md](TODO.md).
 
 ## Map of the code
 
@@ -23,7 +27,7 @@ changes hands, and there are no trade rooms yet.
 | `Users.elm` | Backend account helpers (sign-in, `Me`, public `Trader`, who's an admin). |
 | `Auth.elm`, `Auth/Method/OAuthDiscord.elm` | Discord OAuth (on the vendored lamdera/auth). Discord is the only sign-in. |
 
-## Preview-mode placeholders
+## Placeholders and preview accounts
 
 - **Sign-in:** Discord only. With an empty `discordClientId` in `Env.elm` the
   button falls back to a "preview account" keyed to the Lamdera session. Set
@@ -36,12 +40,14 @@ changes hands, and there are no trade rooms yet.
   Discord (or a ban). **Testing OAuth under `lamdera live`:**
   keep a second app tab open. The dev backend runs in a tab, so if the only tab
   leaves for discord.com the pending sign-in is lost and the callback fails.
-- **Verification:** there is no verify step while trading isn't live. Claiming
-  a name goes straight to the done screen (`ClaimStatus.PreviewUnverified`).
-  Names are first-come and shown with an UNVERIFIED tag.
+- **Verification:** there is no verify step yet (there's no way to check a
+  name against WalkScape). Claiming a name goes straight to the done screen
+  (`ClaimStatus.PreviewUnverified`). Names are first-come and shown with an
+  UNVERIFIED tag. In-game names are unique and case-insensitive.
 - **Feedback thread:** the "Feedback?" banner link and the home page's
   "Trailpost thread on the WalkScape Discord" both use `Ui.feedbackThreadUrl`.
-- **WalkScape API** lookups (level, steps, last active) are shown as "with trading".
+- **No player API:** the WalkScape Tools API only has game data, so profiles
+  point people to Social → Find in the game for level and steps.
 
 ## Link previews and favicon
 

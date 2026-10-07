@@ -55,6 +55,7 @@ viewListing model listing item =
                     [ Html.text (verb ++ " " ++ String.fromInt listing.quantity ++ "x " ++ item.name), Html.text " ", Ui.variantTag listing.variant ]
                 , statusTag model listing
                 ]
+            , Html.div [ Attr.class "flex flex-col gap-4" ] (List.map (tradeChecklist model listing item) (myAcceptedOffers model listing))
             , Html.div [ Attr.class "grid md:grid-cols-2 gap-4" ]
                 [ termsCard model listing item
                 , valueCard model listing
@@ -78,6 +79,104 @@ viewListing model listing item =
               else
                 Ui.empty
             ]
+        ]
+
+
+{-| Accepted offers on this listing that the signed-in trader is part of.
+-}
+myAcceptedOffers : FrontendModel -> Listing -> List Offer
+myAcceptedOffers model listing =
+    case Derived.myName model of
+        Just me ->
+            Derived.offersFor model listing.id
+                |> List.filter (\o -> o.status == OfferAccepted && (o.from == me || listing.trader == me))
+
+        Nothing ->
+            []
+
+
+{-| What each side puts in WalkScape's trade window, and what to check before
+pressing Accept there.
+-}
+tradeChecklist : FrontendModel -> Listing -> Item -> Offer -> Html msg
+tradeChecklist model listing item offer =
+    let
+        terms =
+            Market.tradeTerms listing offer
+
+        me =
+            Derived.myName model |> Maybe.withDefault ""
+
+        other =
+            if me == terms.seller then
+                terms.buyer
+
+            else
+                terms.seller
+
+        itemsLine =
+            [ Html.b [] [ Html.text (String.fromInt listing.quantity ++ " × " ++ Item.fullName item listing.variant) ]
+            , Html.text " "
+            , Ui.variantTag listing.variant
+            ]
+
+        -- Written the way the trade window shows coins, with no commas.
+        coinsLine =
+            [ Ui.coin "w-3.5 h-3.5 inline-block align-[-2px]"
+            , Html.text " "
+            , Html.b [ Attr.class "text-gold tabular-nums" ] [ Html.text (String.fromInt terms.coins) ]
+            , Html.text " coins"
+            ]
+
+        ( yours, theirs ) =
+            if me == terms.seller then
+                ( itemsLine, coinsLine )
+
+            else
+                ( coinsLine, itemsLine )
+
+        theirsCheck =
+            if me == terms.seller then
+                "The trade window shows coins without commas, so count the digits: "
+                    ++ String.fromInt terms.coins
+                    ++ " is "
+                    ++ Ui.formatInt terms.coins
+                    ++ "."
+
+            else if listing.variant.fine then
+                "Fine items have teal text in the trade window. White text is the normal version."
+
+            else if listing.variant.rare then
+                "Check it's the rare egg, not a normal one."
+
+            else
+                case listing.variant.quality of
+                    Just q ->
+                        "Check it's " ++ Item.qualityLabel q ++ " quality, not a lower one."
+
+                    Nothing ->
+                        "Check the item and the amount."
+
+        row title body =
+            Html.div [ Attr.class "grid grid-cols-[88px_1fr] gap-3 items-baseline" ]
+                [ Html.span [ Attr.class "text-muted text-[13px]" ] [ Html.text title ]
+                , Html.div [] body
+                ]
+    in
+    Ui.callout Ui.Good
+        [ Attr.class "p-4 flex flex-col gap-3 text-sm", Ui.testId ("trade-checklist-" ++ String.fromInt offer.id) ]
+        [ Html.div [ Attr.class "font-display font-extrabold text-lg text-leaf" ] [ Html.text ("Trade with " ++ other ++ " in WalkScape") ]
+        , Html.p []
+            [ Html.text "One of you invites the other: Social → Find → "
+            , Html.b [] [ Html.text other ]
+            , Html.text " → Invite to trade."
+            ]
+        , Html.div [ Attr.class "rounded-lg bg-[#0b1611] px-3.5 py-3 flex flex-col gap-2" ]
+            [ row "You put in" yours
+            , row "They put in" (theirs ++ [ Html.div [ Attr.class "text-xs text-muted mt-0.5" ] [ Html.text theirsCheck ] ])
+            ]
+        , Html.p []
+            [ Html.text "Read their side before you press Accept. If either of you presses Update, Accept resets, so read it again before accepting again." ]
         ]
 
 
@@ -175,7 +274,7 @@ valueCard model listing =
                 , Html.div [ Attr.class "flex justify-between text-[11px] text-faint" ]
                     [ Html.span [] [ Html.text "−50%" ], Html.span [] [ Html.text ("estimate " ++ Ui.formatInt est.median) ], Html.span [] [ Html.text "+50%" ] ]
                 , Html.p [ Attr.class "text-xs text-faint" ]
-                    [ Html.text ("Preview estimate from " ++ String.fromInt est.counted ++ " prices by " ++ String.fromInt est.traders ++ " traders. Typical range " ++ Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high ++ ".") ]
+                    [ Html.text ("Estimate from " ++ String.fromInt est.counted ++ " prices by " ++ String.fromInt est.traders ++ " traders. Typical range " ++ Ui.formatInt est.low ++ "–" ++ Ui.formatInt est.high ++ ".") ]
                 , Html.a [ Attr.href (Route.toString (Route.ItemPrice listing.itemId listing.variant)), Attr.class "text-sm" ]
                     [ Html.text "See price history" ]
                 ]
@@ -226,7 +325,7 @@ offersSection model listing isMine =
 
           else
             Html.div [ Attr.class "flex flex-col gap-2", Ui.testId "offers" ] (List.map (offerRow model listing isMine) offers)
-        , if isMine || listing.closed || not (Market.isLive model.now listing) then
+        , if isMine || listing.closed || not (Market.isLive model.now listing) || not (List.isEmpty (myAcceptedOffers model listing)) then
             Ui.empty
 
           else
@@ -251,7 +350,7 @@ offerRow model listing isMine offer =
                     Ui.empty
 
                 OfferAccepted ->
-                    Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Accepted. When trading goes live, this opens a trade room with locked terms." ]
+                    Html.div [ Attr.class "text-xs text-leaf mt-1" ] [ Html.text "Accepted" ]
 
                 OfferDeclined ->
                     Html.div [ Attr.class "text-xs text-warn mt-1" ] [ Html.text "Declined" ]
@@ -324,7 +423,7 @@ offerForm model listing myOffer =
                                     )
                                 , Ui.testId "offer-check"
                                 ]
-                                [ Html.text (Ui.percentAboveBelow pct ++ " the preview estimate of " ++ Ui.formatInt est.median ++ ".") ]
+                                [ Html.text (Ui.percentAboveBelow pct ++ " the estimate of " ++ Ui.formatInt est.median ++ ".") ]
 
                         else
                             Ui.empty
@@ -358,7 +457,7 @@ offerForm model listing myOffer =
             , Html.div []
                 [ Ui.label "Message (optional)"
                 , Ui.textArea
-                    [ Attr.id "offer-message", Attr.class "h-20", Attr.placeholder "When you're usually online, which mailbox you use…" ]
+                    [ Attr.id "offer-message", Attr.class "h-20", Attr.placeholder "When you're usually online, or anything else they should know" ]
                     form.message
                     OfferMessageChanged
                 ]
@@ -378,7 +477,7 @@ offerForm model listing myOffer =
                  else
                     "Update offer"
                 )
-            , Html.p [ Attr.class "text-xs text-faint" ] [ Html.text "Nothing trades yet. Your offer goes into the price estimate." ]
+            , Html.p [ Attr.class "text-xs text-faint" ] [ Html.text "If they accept, you trade in WalkScape. Your offer also goes into the price estimate." ]
             ]
 
 
@@ -421,8 +520,11 @@ tricks =
     Ui.callout Ui.Caution
         [ Attr.class "p-4 flex flex-col gap-2.5 text-[13px]" ]
         [ Html.div [ Attr.class "font-display font-extrabold text-lg text-gold" ] [ Html.text "Common tricks" ]
+        , Html.p [] [ Html.text "Changing their side just before you accept. Update resets Accept, so read it again every time." ]
+        , Html.p [] [ Html.text "The normal version instead of fine. Fine items have teal text in the trade window." ]
         , Html.p [] [ Html.text "Same item at a lower quality: an Eternal pickaxe turns into a Normal one. Check the outline colour." ]
-        , Html.p [] [ Html.text "\"Someone else is buying in 2 minutes.\" Real buyers wait." ]
+        , Html.p [] [ Html.text "A zero missing from the coins. The trade window has no commas, so count the digits." ]
         , Html.p [] [ Html.text "A name that's one letter off (Mosbeard, Mossbeard_)." ]
-        , Html.p [] [ Html.text "Asking you to \"go first\" with part of the payment." ]
+        , Html.p [] [ Html.text "\"Someone else is buying in 2 minutes.\" Real buyers wait." ]
+        , Html.p [] [ Html.text "Splitting it into two trades so you go first. Do it in one." ]
         ]

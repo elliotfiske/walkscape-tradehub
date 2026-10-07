@@ -235,7 +235,45 @@ suite =
                             , Ok { price = Nothing, message = "hi" }
                             ]
             ]
+        , describe "Market.tradeTerms"
+            [ test "an offer on a sell listing: the lister hands over the items, the offerer pays its price for all of them" <|
+                \_ ->
+                    Market.tradeTerms (listing Selling) (offer (Just 7500))
+                        |> Expect.equal { seller = "Vimes", buyer = "Belkarama", coins = 37500 }
+            , test "an offer at the listed price on a buy listing: the offerer hands over the items" <|
+                \_ ->
+                    Market.tradeTerms (listing Buying) (offer Nothing)
+                        |> Expect.equal { seller = "Belkarama", buyer = "Vimes", coins = 40000 }
+            ]
         ]
+
+
+listing : Side -> Types.Listing
+listing side =
+    { id = 1
+    , trader = "Vimes"
+    , itemId = "salty_hops"
+    , variant = { fine = True, rare = False, quality = Nothing }
+    , side = side
+    , payment = Coins 8000
+    , quantity = 5
+    , note = ""
+    , createdAt = Time.millisToPosix 0
+    , liveAt = Time.millisToPosix 0
+    , closed = False
+    }
+
+
+offer : Maybe Int -> Types.Offer
+offer price =
+    { id = 2
+    , listingId = 1
+    , from = "Belkarama"
+    , price = price
+    , message = ""
+    , at = Time.millisToPosix 0
+    , status = Types.OfferAccepted
+    }
 
 
 form : Types.ListingForm

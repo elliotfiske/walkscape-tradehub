@@ -8,6 +8,7 @@ module Market exposing
     , parseCoins
     , parsePrice
     , pricePoints
+    , tradeTerms
     , unitPrice
     , validateDraft
     , validateOffer
@@ -91,6 +92,32 @@ unitPrice listing =
     case listing.payment of
         Coins price ->
             Just price
+
+
+{-| What changes hands if `offer` on `listing` is traded: who hands over the
+items, who pays, and the total coins (the offer's price each, or the listed
+price for an offer "at your price").
+-}
+tradeTerms : Listing -> Offer -> { seller : String, buyer : String, coins : Int }
+tradeTerms listing offer =
+    let
+        each =
+            case ( offer.price, listing.payment ) of
+                ( Just price, _ ) ->
+                    price
+
+                ( Nothing, Coins price ) ->
+                    price
+
+        coins =
+            each * listing.quantity
+    in
+    case listing.side of
+        Selling ->
+            { seller = listing.trader, buyer = offer.from, coins = coins }
+
+        Buying ->
+            { seller = offer.from, buyer = listing.trader, coins = coins }
 
 
 {-| `trader`'s open offer on a listing, if they have one. A trader has at
