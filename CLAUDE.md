@@ -144,7 +144,12 @@ sessions, or `CHROME_BIN`). Always open a
 `leader` ctx first that never navigates again: the dev backend lives in a tab,
 and reloading the only tab drops sessions. Don't edit `src/` mid-run (hot
 reload breaks open tabs), and give the first `goto` after a rebuild a long
-`delay`. The dev BackendModel is in memory, so restarting `lamdera live` wipes it.
+`delay`. `lamdera live` also reloads every tab when *any* file in the
+worktree changes, including the screenshots themselves, so for scenarios that
+run past their first `shot` set `OUT` outside the repo (e.g.
+`OUT=/tmp/shots`); otherwise the dev backend restarts from an older snapshot
+and later sign-ins are lost. `{"upload":["#button","/abs/file.png"]}` picks
+files in the file chooser that button opens. The dev BackendModel is in memory, so restarting `lamdera live` wipes it.
 
 ## Testing
 
