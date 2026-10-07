@@ -6,6 +6,7 @@ module Pricing exposing
     , Status(..)
     , basisShort
     , basisText
+    , countText
     , classify
     , deviationPercent
     , estimate
@@ -285,6 +286,29 @@ basisText est =
 
         FromPrices ->
             "from asks and offers"
+
+
+{-| "5 trades", or "12 prices · 4 traders" for an estimate from asks and offers.
+-}
+countText : Estimate -> String
+countText est =
+    let
+        plural n one many =
+            String.fromInt n
+                ++ " "
+                ++ (if n == 1 then
+                        one
+
+                    else
+                        many
+                   )
+    in
+    case est.basis of
+        FromTrades ->
+            plural est.counted "trade" "trades"
+
+        FromPrices ->
+            plural est.counted "price" "prices" ++ " · " ++ plural est.traders "trader" "traders"
 
 
 {-| "5 trades" or "asks/offers", where there's little room.

@@ -393,7 +393,7 @@ mostActive model =
                             [ Ui.itemIcon "w-[30px] h-[30px] rounded-md" item variant
                             , Html.div [ Attr.class "flex-1 min-w-0 leading-tight" ]
                                 [ Html.div [ Attr.class "font-semibold text-sm truncate" ] [ Html.text (Item.fullName item variant), Html.text " ", Ui.variantTag variant ]
-                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders") ]
+                                , Html.div [ Attr.class "text-[11px] text-faint" ] [ Html.text (Pricing.countText estimate) ]
                                 ]
                             , Html.div [ Attr.class "font-bold text-sm text-gold" ] [ Html.text (Ui.formatInt estimate.median) ]
                             ]

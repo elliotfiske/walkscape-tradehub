@@ -42,15 +42,7 @@ viewIndex model =
                         , Ui.coinAmount estimate.median
                         , Html.div [ Attr.class "hidden sm:block text-sm text-soft" ] [ Html.text (Ui.formatInt estimate.low ++ "–" ++ Ui.formatInt estimate.high) ]
                         , Html.div [ Attr.class "hidden sm:block text-right text-[13px] text-muted" ]
-                            [ Html.text
-                                (case estimate.basis of
-                                    Pricing.FromTrades ->
-                                        Ui.plural estimate.counted "trade" "trades"
-
-                                    Pricing.FromPrices ->
-                                        Ui.plural estimate.counted "price" "prices" ++ " · " ++ Ui.plural estimate.traders "trader" "traders"
-                                )
-                            ]
+                            [ Html.text (Pricing.countText estimate) ]
                         ]
                 )
                 (Derived.activeSeries model)
@@ -211,8 +203,8 @@ viewItem model itemId requested =
                             [ Html.text
                                 (case est of
                                     Just e ->
-                                        String.fromInt e.traders
-                                            ++ " unique traders. "
+                                        Ui.plural e.traders "unique trader" "unique traders"
+                                            ++ ". "
                                             ++ (if e.traders < 5 then
                                                     "That's not many yet, so this estimate can move a lot."
 
