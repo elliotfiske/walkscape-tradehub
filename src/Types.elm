@@ -464,6 +464,9 @@ type alias BackendModel =
 
 type ToBackend
     = AuthToBackend Auth.Common.ToBackend
+      -- Asks for what a connecting client is pushed (`InitialDataSent` and
+      -- `YouAre`), for a tab that never got it. See `Frontend.update`'s `Tick`.
+    | RequestState
     | PreviewSignIn Provider
       -- Only works in development; see `Users.isAdmin`.
     | PreviewAdminSignIn

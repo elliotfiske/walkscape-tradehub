@@ -79,8 +79,8 @@ app_ =
     }
 
 
-{-| Once a second while a listing's go-live countdown is on screen, otherwise
-every ten seconds.
+{-| Once a second while a listing's go-live countdown is on screen or the
+backend hasn't sent us anything yet (see `Tick`), otherwise every ten seconds.
 -}
 subscriptions : FrontendModel -> Subscription FrontendOnly FrontendMsg
 subscriptions model =
@@ -97,7 +97,7 @@ subscriptions model =
     in
     Effect.Time.every
         (Duration.seconds
-            (if countingDown then
+            (if countingDown || not model.loaded then
                 1
 
              else
@@ -399,7 +399,19 @@ update msg model =
             )
 
         Tick now ->
-            ( { model | now = now }, Command.none )
+            ( { model | now = now }
+              -- Everything arrives from the backend's `onConnect`. After a
+              -- deploy, Lamdera hot-swaps the open tab and, when it can't
+              -- decode the old model, restarts it from `init` (dropping
+              -- `init`'s commands) without reconnecting: signed out and empty
+              -- until a refresh. A tab that still has no data asks for it,
+              -- but not on the very first `Tick`, which is just `init`'s clock.
+            , if model.loaded || model.now == Time.millisToPosix 0 then
+                Command.none
+
+              else
+                Effect.Lamdera.sendToBackend RequestState
+            )
 
         ProviderClicked provider ->
             case ( AuthProviders.isConfigured provider, AuthProviders.methodIdFor provider ) of
