@@ -11,6 +11,9 @@ Accepting reserves the listing ("trade pending", `Market.tradePending`) until
 both traders confirm it went through (`OfferCompleted`, which closes the
 listing) or either says it fell through (`OfferFellThrough`, and the listing
 goes back up).
+Listings can ask for coins, items only, or coins or items (`Payment`), and
+offers can add up to 5 item lines (`ItemLine`, checked by
+`Market.validateOffer`); only coins feed estimates (`Market.pricePoints`).
 Trailpost can't see in-game trades, but a trade both sides confirmed is a
 price: with 3 or more in the last 30 days, an item's estimate is their median,
 and otherwise it comes from asks, bids and offers. The backlog for live trading is in [TODO.md](TODO.md).
@@ -25,7 +28,7 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
 | `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
 | `Pricing.elm` | Pure price-estimate rules. 3+ confirmed trades in the last 30 days: the median of those (`FromTrades`). Otherwise asks/bids/offers (`FromPrices`): median, one vote per trader per day, outliers > 2.5× spread cut. `basisText` says which ("from 5 trades" / "from asks and offers"). |
-| `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (including the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
+| `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (payment and offer validation, `tradeTerms`, `sortByPrice`, and the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Screenshot.elm`, `ScreenshotShrink.elm` | Report screenshots: the limits and backend check (3 JPEGs, ~300KB each), and the port to `elm-pkg-js/screenshots.js`, which shrinks a picked image in a canvas. They're stored in `BackendModel.screenshots` and only sent to admins (`AdminLoadScreenshots`). |
 | `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
@@ -155,7 +158,7 @@ files in the file chooser that button opens. The dev BackendModel is in memory, 
 ## Testing
 
 `npm test` runs `tests/E2ETests.elm` (lamdera/program-test user journeys:
-onboarding, claim errors, 5-minute go-live, offers + accept, trades going
+onboarding, claim errors, 5-minute go-live, offers + accept, item-for-item offers, trades going
 through or falling through, estimates, look-alikes,
 validation, reports with trades and screenshots, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
 listing form). In program-test, `clickLink` needs a matching `href` in the

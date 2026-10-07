@@ -468,13 +468,7 @@ offerRow model offer =
             , profileLink offer.from
             , Html.span [ Attr.class "text-soft" ]
                 [ Html.text
-                    (case offer.price of
-                        Just p ->
-                            Ui.formatInt p ++ " ea"
-
-                        Nothing ->
-                            "at the listed price"
-                    )
+                    (Ui.offerSummary offer)
                 ]
             , Html.span [ Attr.class "text-faint text-xs" ] [ Html.text (status ++ " · " ++ Ui.timeAgo model.now offer.at) ]
             , if String.isEmpty offer.message then

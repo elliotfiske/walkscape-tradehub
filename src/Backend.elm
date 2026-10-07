@@ -393,7 +393,7 @@ handleRequest sessionId clientId now msg model =
                             fail "That listing doesn't exist."
                 )
 
-        MakeOffer listingId price message ->
+        MakeOffer listingId draft ->
             withReadyUser
                 (\name ->
                     case Dict.get listingId model.listings of
@@ -405,7 +405,7 @@ handleRequest sessionId clientId now msg model =
                                 fail "This listing isn't open for offers."
 
                             else
-                                case Market.checkNewOffer listing (Dict.values model.offers) |> Result.andThen (\() -> Market.validateOffer price message) of
+                                case Market.checkNewOffer listing (Dict.values model.offers) |> Result.andThen (\() -> Market.validateOffer listing draft) of
                                     Err err ->
                                         fail err
 
@@ -414,13 +414,14 @@ handleRequest sessionId clientId now msg model =
                                             ( offer, nextId ) =
                                                 case Market.openOfferFrom name listingId (Dict.values model.offers) of
                                                     Just o ->
-                                                        ( { o | price = valid.price, message = valid.message, at = now }, model.nextId )
+                                                        ( { o | price = valid.price, items = valid.items, message = valid.message, at = now }, model.nextId )
 
                                                     Nothing ->
                                                         ( { id = model.nextId
                                                           , listingId = listingId
                                                           , from = name
                                                           , price = valid.price
+                                                          , items = valid.items
                                                           , message = valid.message
                                                           , at = now
                                                           , status = OfferOpen

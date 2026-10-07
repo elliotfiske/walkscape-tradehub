@@ -74,8 +74,9 @@ the listing page.
   Every place an estimate shows says which it used.
 - Notifications when an offer gets a response (Discord DM from a bot, or browser
   push). People are out walking, not watching the site.
-- Item-for-item payment (`Payment` already has room for it). Coin-only
-  estimates would ignore these.
+- Done: item-for-item payment. Listings ask for coins, items only, or coins or
+  items (with an optional price); offers add up to 5 item lines, each with its
+  own variant check on the checklist. Only coins feed estimates.
 
 ### Later
 - Chat on an accepted trade, escrow (design 1m), Discord linking for

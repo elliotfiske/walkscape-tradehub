@@ -5,15 +5,18 @@ module Market exposing
     , checkNewOffer
     , confirmTrade
     , describe
+    , describeLine
     , describeTrade
     , isLive
     , item
     , markFellThrough
     , maxActiveListings
+    , maxOfferItems
     , openOfferFrom
     , parseCoins
     , parsePrice
     , pricePoints
+    , sortByPrice
     , tradePending
     , tradeTerms
     , wasAccepted
@@ -29,7 +32,7 @@ import Dict exposing (Dict)
 import Item exposing (Item)
 import Pricing
 import Time
-import Types exposing (Listing, ListingDraft, Offer, OfferStatus(..), Payment(..), Side(..))
+import Types exposing (ItemLine, Listing, ListingDraft, Offer, OfferDraft, OfferStatus(..), Payment(..), Side(..))
 
 
 maxActiveListings : Int
@@ -45,6 +48,13 @@ maxPrice =
 maxQuantity : Int
 maxQuantity =
     1000000
+
+
+{-| Item lines in one offer.
+-}
+maxOfferItems : Int
+maxOfferItems =
+    5
 
 
 {-| For listing notes and offer messages.
@@ -81,68 +91,128 @@ describe listing =
         Buying ->
             "Buying "
     )
-        ++ describeItems listing
+        ++ describeLine (listingLine listing)
 
 
-{-| "Juno Trek sells 1x Shovel axe to Wanderling for 9800 coins", with the
-coins written the way the trade window shows them.
+{-| "Juno Trek sells 1x Shovel axe to Wanderling for 9800 coins" (or "for 2x
+Coal and 1x fine Iron bar"), with the coins written the way the trade window
+shows them.
 -}
 describeTrade : Listing -> Offer -> String
 describeTrade listing offer =
     let
         terms =
             tradeTerms listing offer
+
+        coins =
+            if terms.coins > 0 then
+                [ String.fromInt terms.coins ++ " coins" ]
+
+            else
+                []
     in
-    terms.seller ++ " sells " ++ describeItems listing ++ " to " ++ terms.buyer ++ " for " ++ String.fromInt terms.coins ++ " coins"
+    terms.seller
+        ++ " sells "
+        ++ describeLine (listingLine listing)
+        ++ " to "
+        ++ terms.buyer
+        ++ " for "
+        ++ String.join " and " (coins ++ List.map describeLine terms.items)
 
 
-describeItems : Listing -> String
-describeItems listing =
-    String.fromInt listing.quantity
+{-| The listed items, as a line.
+-}
+listingLine : Listing -> ItemLine
+listingLine listing =
+    { itemId = listing.itemId, variant = listing.variant, quantity = listing.quantity }
+
+
+{-| "2x fine Iron bar", "1x rare Camel egg", "1x Iron pickaxe · Perfect".
+-}
+describeLine : ItemLine -> String
+describeLine line =
+    String.fromInt line.quantity
         ++ "x "
-        ++ (if listing.variant.fine then
+        ++ (if line.variant.fine then
                 "fine "
 
-            else if listing.variant.rare then
+            else if line.variant.rare then
                 "rare "
 
             else
                 ""
            )
-        ++ (item listing |> Maybe.map (\i -> Item.fullName i listing.variant) |> Maybe.withDefault listing.itemId)
+        ++ (Item.byId line.itemId |> Maybe.map (\i -> Item.fullName i line.variant) |> Maybe.withDefault line.itemId)
 
 
+{-| The listing's coin price each, if it has one.
+-}
 unitPrice : Listing -> Maybe Int
 unitPrice listing =
     case listing.payment of
         Coins price ->
             Just price
 
+        ItemsOnly ->
+            Nothing
+
+        CoinsOrItems price ->
+            price
+
+
+{-| Cheapest first (or dearest first when `dearest`), with listings that have no
+coin price last either way.
+-}
+sortByPrice : Bool -> List Listing -> List Listing
+sortByPrice dearest =
+    List.sortBy
+        (\listing ->
+            case unitPrice listing of
+                Just price ->
+                    ( 0
+                    , if dearest then
+                        negate price
+
+                      else
+                        price
+                    )
+
+                Nothing ->
+                    ( 1, 0 )
+        )
+
+
+{-| The coins each an offer pays (0 for none). An offer with no price and no
+items is "at your price"; one with items and no price pays only the items.
+-}
+offerCoinsEach : Listing -> Offer -> Int
+offerCoinsEach listing offer =
+    case ( offer.price, offer.items ) of
+        ( Just price, _ ) ->
+            price
+
+        ( Nothing, [] ) ->
+            unitPrice listing |> Maybe.withDefault 0
+
+        ( Nothing, _ ) ->
+            0
+
 
 {-| What changes hands if `offer` on `listing` is traded: who hands over the
-items, who pays, and the total coins (the offer's price each, or the listed
-price for an offer "at your price").
+listed items, who pays, the total coins (0 for none) and the items paid on top.
 -}
-tradeTerms : Listing -> Offer -> { seller : String, buyer : String, coins : Int }
+tradeTerms : Listing -> Offer -> { seller : String, buyer : String, coins : Int, items : List ItemLine }
 tradeTerms listing offer =
     let
-        each =
-            case ( offer.price, listing.payment ) of
-                ( Just price, _ ) ->
-                    price
-
-                ( Nothing, Coins price ) ->
-                    price
-
         coins =
-            each * listing.quantity
+            offerCoinsEach listing offer * listing.quantity
     in
     case listing.side of
         Selling ->
-            { seller = listing.trader, buyer = offer.from, coins = coins }
+            { seller = listing.trader, buyer = offer.from, coins = coins, items = offer.items }
 
         Buying ->
-            { seller = offer.from, buyer = listing.trader, coins = coins }
+            { seller = offer.from, buyer = listing.trader, coins = coins, items = offer.items }
 
 
 {-| `trader`'s open offer on a listing, if they have one. A trader has at
@@ -337,81 +407,141 @@ validateDraft draft =
                 Result.map2 (\_ note -> { draft | note = note })
                     (case draft.payment of
                         Coins price ->
-                            checkPrice price
+                            checkPrice price |> Result.map (always ())
+
+                        ItemsOnly ->
+                            Ok ()
+
+                        CoinsOrItems price ->
+                            price |> Maybe.map (checkPrice >> Result.map (always ())) |> Maybe.withDefault (Ok ())
                     )
                     (checkText "note" draft.note)
 
 
-{-| Check an offer's price (`Nothing` means "at your price") and message.
+{-| Check an offer on `listing`: what it pays has to be something the listing
+takes, and each item line is checked like a listing. The frontend runs this
+before sending, and the backend runs it again on what arrives.
 -}
-validateOffer : Maybe Int -> String -> Result String { price : Maybe Int, message : String }
-validateOffer price message =
-    Result.map2 (\p m -> { price = p, message = m })
-        (case price of
-            Just p ->
-                checkPrice p |> Result.map Just
+validateOffer : Listing -> OfferDraft -> Result String OfferDraft
+validateOffer listing draft =
+    let
+        price =
+            case draft.price of
+                Just p ->
+                    checkPrice p |> Result.map Just
 
-            Nothing ->
-                Ok Nothing
-        )
-        (checkText "message" message)
+                Nothing ->
+                    Ok Nothing
+
+        takes =
+            case ( listing.payment, draft.price, draft.items ) of
+                ( Coins _, _, _ :: _ ) ->
+                    Err "This listing only takes coins."
+
+                ( ItemsOnly, Just _, _ ) ->
+                    Err "This listing only takes items."
+
+                ( ItemsOnly, Nothing, [] ) ->
+                    Err "Add at least one item."
+
+                ( CoinsOrItems Nothing, Nothing, [] ) ->
+                    Err "Add coins, items or both."
+
+                _ ->
+                    Ok ()
+
+        items =
+            if List.length draft.items > maxOfferItems then
+                Err ("Offer at most " ++ String.fromInt maxOfferItems ++ " items.")
+
+            else
+                draft.items |> List.map validateLine |> combine
+    in
+    Result.map4 (\p () i m -> { price = p, items = i, message = m })
+        price
+        takes
+        items
+        (checkText "message" draft.message)
+
+
+validateLine : ItemLine -> Result String ItemLine
+validateLine line =
+    case Item.byId line.itemId of
+        Nothing ->
+            Err "Pick an item from the list."
+
+        Just lineItem ->
+            if Item.normalizeVariant lineItem line.variant /= line.variant then
+                Err (lineItem.name ++ " doesn't come in that version.")
+
+            else if line.quantity <= 0 then
+                Err ("Enter a quantity above zero for " ++ lineItem.name ++ ".")
+
+            else if line.quantity > maxQuantity then
+                Err "Keep the quantity under a million."
+
+            else
+                Ok line
+
+
+combine : List (Result e a) -> Result e (List a)
+combine =
+    List.foldr (Result.map2 (::)) (Ok [])
 
 
 
 -- PRICES
 
 
-{-| Price points for one listing: its own coin price, plus each offer on it
-that wasn't withdrawn. An offer "at your price" counts as another vote for the
-listed price. An offer both traders confirmed is also a `Pricing.Trade` at that
-price, dated when it went through.
+{-| Price points for one listing. Only coins count: its own coin price if it
+has one, each coin-only offer on it that wasn't withdrawn (an offer "at your
+price" is another vote for the listed price), and each coin-only offer both
+traders confirmed, as a `Pricing.Trade` dated when it went through. Item
+offers say nothing about an item's price in coins.
 -}
 listingPoints : List Offer -> Listing -> List Pricing.Point
 listingPoints offers listing =
-    case unitPrice listing of
-        Just price ->
-            let
-                own =
-                    { price = price
-                    , trader = listing.trader
-                    , at = listing.createdAt
-                    , source =
-                        if listing.side == Selling then
-                            Pricing.Ask
+    let
+        own =
+            case unitPrice listing of
+                Just price ->
+                    [ { price = price
+                      , trader = listing.trader
+                      , at = listing.createdAt
+                      , source =
+                            if listing.side == Selling then
+                                Pricing.Ask
 
-                        else
-                            Pricing.Bid
-                    }
+                            else
+                                Pricing.Bid
+                      }
+                    ]
 
-                fromOffers =
-                    offers
-                        |> List.filter (\o -> o.listingId == listing.id && o.status /= OfferWithdrawn)
-                        |> List.map
-                            (\o ->
-                                { price = Maybe.withDefault price o.price
-                                , trader = o.from
-                                , at = o.at
-                                , source = Pricing.Offer
-                                }
-                            )
+                Nothing ->
+                    []
 
-                trades =
-                    offers
-                        |> List.filter (\o -> o.listingId == listing.id)
-                        |> List.filterMap
-                            (\o ->
-                                case o.status of
-                                    OfferCompleted at ->
-                                        Just { price = Maybe.withDefault price o.price, trader = o.from, at = at, source = Pricing.Trade }
+        coinOffers =
+            offers
+                |> List.filter (\o -> o.listingId == listing.id && List.isEmpty o.items && offerCoinsEach listing o > 0)
 
-                                    _ ->
-                                        Nothing
-                            )
-            in
-            own :: fromOffers ++ trades
+        fromOffers =
+            coinOffers
+                |> List.filter (\o -> o.status /= OfferWithdrawn)
+                |> List.map (\o -> { price = offerCoinsEach listing o, trader = o.from, at = o.at, source = Pricing.Offer })
 
-        Nothing ->
-            []
+        trades =
+            coinOffers
+                |> List.filterMap
+                    (\o ->
+                        case o.status of
+                            OfferCompleted at ->
+                                Just { price = offerCoinsEach listing o, trader = o.from, at = at, source = Pricing.Trade }
+
+                            _ ->
+                                Nothing
+                    )
+    in
+    own ++ fromOffers ++ trades
 
 
 {-| All price points for a price series (see `Item.priceKey`), from listings
