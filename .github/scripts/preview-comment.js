@@ -11,6 +11,9 @@ module.exports = async ({ github, context }) => {
   const lines = [marker, `### Lamdera preview for \`${sha.slice(0, 7)}\``, ''];
   if (env.DEPLOY_RESULT === 'success') {
     lines.push(`**Preview:** ${env.PREVIEW_URL}`);
+    if (!env.PREVIEW_SLOT) {
+      lines.push('', '_All 5 preview slots are held by other unmerged PRs, so this URL probably isn\'t served (only the slots have Lamdera config). Close or merge a PR to free a slot, then push again._');
+    }
     lines.push('', '_Lamdera builds the preview after the push, so it may take a minute to update. Preview backends reset on every deploy._');
   } else {
     lines.push(`**Preview:** ❌ deploy ${env.DEPLOY_RESULT} ([logs](${runUrl}))`);

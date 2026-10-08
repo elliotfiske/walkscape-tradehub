@@ -2,18 +2,6 @@
 
 The backlog. The original starter checklist is done (see git history).
 
-## Needs input from Elliot
-
-- **Discord sign-in on PR previews.** Each PR deploys to
-  `trailpost-pr-<N>.lamdera.app` (`.github/workflows/preview.yml`), and Discord
-  only allows redirect URIs registered in the Developer Portal, so OAuth fails
-  on every preview domain (the "preview account" sign-in still works there).
-  Ideas: register a wildcard-ish set of URIs, route all previews' callbacks
-  through one fixed callback domain that bounces back, or just rely on the
-  preview account. Also check that preview apps get accepted at all without
-  per-app `discordClientId`/`discordClientSecret` values in the Lamdera
-  dashboard ("MISSING PRODUCTION CONFIG" is what killed the starter's previews).
-
 ## Live trading
 
 Trading went live in WalkScape on 2026-10-07. How it works in the game:
