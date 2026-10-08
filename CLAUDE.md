@@ -30,7 +30,7 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and charts. The price page's chart (`Chart.scatter`) is positioned HTML, not SVG, so its marks stay round; each mark has a CSS hover/focus tooltip. |
 | `Pricing.elm` | Pure price-estimate rules. 3+ confirmed trades in the last 30 days: the median of those (`FromTrades`). Otherwise asks/bids/offers (`FromPrices`): median, one vote per trader per day, outliers > 2.5× spread cut. `basisText` says which ("from 5 trades" / "from asks and offers"). |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (payment and offer validation, `tradeTerms`, `sortByPrice`, and the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
-| `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (781 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
+| `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (708 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Screenshot.elm`, `ScreenshotShrink.elm` | Report screenshots: the limits and backend check (3 JPEGs, ~300KB each), and the port to `elm-pkg-js/screenshots.js`, which shrinks a picked image in a canvas. They're stored in `BackendModel.screenshots` and only sent to admins (`AdminLoadScreenshots`). |
 | `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
 | `Name.elm` | WalkScape **character name** validation and look-alike detection. Character names are letters, digits and single spaces, 3–30 chars, where the minimum of 3 doesn't count spaces (the game's character creation caps at 30 and rejects consecutive, leading and trailing spaces, and the claim form trims the last two rather than erroring; examples from scraping the portal leaderboard, where "Slyth Inaru" is a character and `Slyth_Inaru` its portal username, shown in grey parentheses after the character when that account is public). Only ASCII letters, digits and spaces are allowed (no accents; the game's character creation confirms all of this, and compares names case-insensitively like we do); `lookalikeOf` still ignores underscores in case an older claim has one. Names go in URLs, so `Route` percent-encodes and decodes them. |
@@ -119,7 +119,8 @@ admin screen without Discord. The backend refuses it in production.
 Both scripts call https://tools-api-dev.dev.walkscape.app (docs at `/docs/`;
 the spec is embedded in `/docs/swagger-ui-init.js`) through
 `scripts/walkscape_api.py`, and need `WALKSCAPE_DATA_API_KEY` in `.env`
-(gitignored, never commit it).
+(gitignored, never commit it) or in `~/.env.claude-code`, which every worktree
+shares.
 
 - `python3 scripts/import-items.py` regenerates `src/ItemData.elm` with every
   tradeable item. Item ids end up in URLs and stored listings, so if the game
@@ -346,13 +347,32 @@ and edit there instead.
 
 **Production deploys are automatic:** every merge to `main` runs
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which runs
-`npm run deploy` on CI. **Every PR push gets a preview app** at
-`https://<app>-pr-<N>.lamdera.app` via
+`npm run deploy` on CI. **Every PR push gets a preview app** via
 [.github/workflows/preview.yml](.github/workflows/preview.yml), plus a sticky
 PR comment with the preview URL and screenshots. The app name lives in
 `package.json` → `config.lamderaApp`. Preview apps don't run Evergreen and
-reset their backend on every deploy. Discord sign-in doesn't work on previews
-yet; see [TODO.md](TODO.md).
+reset their backend on every deploy.
+
+**Preview slots (so Discord sign-in works on previews).** Discord only accepts
+registered redirect URIs, so previews live at one of 5 fixed URLs,
+`https://<app>-pr-{a,b,c,d,e}.lamdera.app`, each registered in the Developer
+Portal as `<url>/login/OAuthDiscord/callback` (the app builds the redirect URI
+from its own origin, so there's no code involved). `.github/scripts/preview-slot.js`
+hands them out: a slot is free unless an unmerged (open or draft) PR holds it,
+recorded as a `preview-slot-<x>` label on the PR. A PR keeps its slot across
+pushes, a new PR takes the first free one, and closing or merging frees it
+(a new owner just force-pushes the branch, which resets the backend anyway).
+If all 5 are held the PR falls back to `<app>-pr-<N>`, which has no Lamdera
+config and no Discord redirect URI, so it isn't served at all (the PR comment
+says so). Lamdera config is per branch, not inherited from the app: each slot
+branch (`pr-a` .. `pr-e`) has its own `discordClientId` / `discordClientSecret` /
+`adminDiscordUsernames` in the dashboard, set once since the branch names never
+change. They currently point at the **staging Discord application** (the one
+`trailpost-staging` uses), not production's, so the 5 redirect URIs
+(`https://trailpost-pr-<x>.lamdera.app/login/OAuthDiscord/callback`) are
+registered on that app and production's Discord app only lists production URLs.
+Why the new branches came up with staging's values isn't known; check the
+dashboard rather than assuming a preview inherits `trailpost`'s config.
 
 **Every deploy bumps production's Evergreen version, even with no type
 changes**, and a migration is numbered production+1 when `lamdera check` runs.

@@ -262,7 +262,7 @@ suite =
                         |> Expect.equal (Just "Fine · Material")
             , test "only materials and consumables can be fine" <|
                 \_ ->
-                    [ "iron_bar", "cooked_shrimp", "iron_pickaxe", "shovel_axe", "camel_egg", "agility_chip" ]
+                    [ "iron_bar", "cooked_shrimp", "iron_pickaxe", "shovel_axe", "camel_egg", "adjustable_wrench" ]
                         |> List.map (\id -> Page.NewListing.toDraft { form | itemId = Just id, fine = True, price = "50" } |> Result.map (.variant >> .fine))
                         |> Expect.equal [ Ok True, Ok True, Ok False, Ok False, Ok False, Ok False ]
             ]
@@ -306,7 +306,7 @@ suite =
         , describe "Item.normalizeVariant"
             [ test "drops fine, rare and quality where the item can't have them, and defaults crafted quality to Normal" <|
                 \_ ->
-                    [ ( "agility_chip", { fine = True, rare = True, quality = Just Item.Perfect } )
+                    [ ( "adjustable_wrench", { fine = True, rare = True, quality = Just Item.Perfect } )
                     , ( "iron_pickaxe", { fine = True, rare = False, quality = Nothing } )
                     ]
                         |> List.filterMap (\( id, v ) -> Item.byId id |> Maybe.map (\i -> Item.normalizeVariant i v))

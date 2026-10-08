@@ -116,7 +116,8 @@ in your PR.**
 Merging to `main` triggers `.github/workflows/deploy.yml`, which runs
 `npm run deploy` on CI, then re-runs the Tests workflow on every open PR so
 their `Evergreen` check sees the new production version. Every PR push also
-deploys a preview to `<app>-pr-<N>.lamdera.app` (`.github/workflows/preview.yml`).
+deploys a preview to one of five fixed slots, `<app>-pr-{a..e}.lamdera.app`
+(`.github/workflows/preview.yml`; see "Preview slots" in CLAUDE.md).
 The steps below are the manual fallback.
 
 ## Manual deploy
