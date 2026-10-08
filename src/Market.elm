@@ -557,7 +557,19 @@ listingPoints offers listing =
         fromOffers =
             coinOffers
                 |> List.filter (\o -> o.status /= OfferWithdrawn)
-                |> List.map (\o -> { price = offerCoinsEach listing o, trader = o.from, at = o.at, source = Pricing.Offer })
+                |> List.map
+                    (\o ->
+                        { price = offerCoinsEach listing o
+                        , trader = o.from
+                        , at = o.at
+                        , source =
+                            if listing.side == Selling then
+                                Pricing.OfferToBuy
+
+                            else
+                                Pricing.OfferToSell
+                        }
+                    )
 
         trades =
             coinOffers

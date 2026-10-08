@@ -33,6 +33,9 @@ module.exports = {
         danger: '#c0453b',
         discord: '#5865f2',
         sell: '#2d7064',
+        // Chart marks: sellers' and buyers' prices.
+        ask: '#3aa58c',
+        bid: '#6890dc',
         buy: '#2e4b75',
         r: {
           common: '#9aa3a7',

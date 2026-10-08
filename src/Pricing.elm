@@ -12,6 +12,7 @@ module Pricing exposing
     , estimate
     , isWarning
     , minTrades
+    , sourceLabel
     , tradeWindowDays
     , warnPercent
     )
@@ -45,7 +46,10 @@ import Time
 type Source
     = Ask
     | Bid
-    | Offer
+      -- An offer on a sell listing is a buyer's price, and one on a buy
+      -- listing a seller's.
+    | OfferToBuy
+    | OfferToSell
     | Trade
 
 
@@ -274,6 +278,27 @@ estimate now points =
         (quantile 0.5 sorted)
         (quantile 0.25 sorted)
         (quantile 0.75 sorted)
+
+
+{-| "Asking", "Offer to buy" and so on.
+-}
+sourceLabel : Source -> String
+sourceLabel source =
+    case source of
+        Ask ->
+            "Asking"
+
+        Bid ->
+            "Buying at"
+
+        OfferToBuy ->
+            "Offer to buy"
+
+        OfferToSell ->
+            "Offer to sell"
+
+        Trade ->
+            "Traded"
 
 
 {-| "from 5 trades" or "from asks and offers".

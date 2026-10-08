@@ -10,6 +10,7 @@
 //   {"size":[w,h]}  {"goto":"/path","delay":ms}  {"click":"#css"}  {"type":["#css","text"]}
 //   {"select":["#css","value"]}  {"eval":"js expr"}  {"wait":ms}  {"shot":"name","full":true}
 //   {"upload":["#css","/abs/a.png",...]}  clicks #css and picks those files in the file chooser it opens
+//   {"hover":"#css"}  moves the mouse over #css (for :hover tooltips)
 // Screenshots land in $OUT (default <repo>/.context/shots, per worktree) and their paths are printed.
 // A step whose selector isn't found prints "missing <selector>" on stderr.
 //
@@ -69,6 +70,7 @@ const getJ = (port, p) => new Promise((res, rej) => http.get(`http://localhost:$
       else { const chooser = await Promise.race([opened, sleep(5000).then(()=>null)]); if (!chooser) console.error('no file chooser for', s.upload[0]); else await send('DOM.setFileInputFiles', { files: s.upload.slice(1), backendNodeId: chooser.backendNodeId }); }
       await sleep(s.delay || 1500);
     }
+    if (s.hover) { const box = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.hover)}); if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); if (!box) console.error('missing', s.hover); else await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box.x, y: box.y }); await sleep(s.delay || 400); }
     if (s.select) { await ev(`(()=>{const e=document.querySelector(${JSON.stringify(s.select[0])}); e.value=${JSON.stringify(s.select[1])}; e.dispatchEvent(new Event('input',{bubbles:true}));})()`); await sleep(300); }
     if (s.eval) console.log(JSON.stringify(await ev(s.eval)));
     if (s.wait) await sleep(s.wait);
