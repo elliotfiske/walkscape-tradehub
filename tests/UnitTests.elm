@@ -493,7 +493,12 @@ suite =
                     , Market.pricePoints now (Dict.singleton 1 itemsOnly) (Dict.singleton 2 itemTrade) "salty_hops/fine"
                     ]
                         |> List.map (List.map (\p -> ( p.source, p.price )))
-                        |> Expect.equal [ [ ( Ask, 8000 ), ( Offer, 7000 ) ], [ ( Offer, 7000 ) ], [] ]
+                        |> Expect.equal [ [ ( Ask, 8000 ), ( OfferToBuy, 7000 ) ], [ ( OfferToBuy, 7000 ) ], [] ]
+            , test "an offer on a buy listing is a seller's price" <|
+                \_ ->
+                    Market.pricePoints now (Dict.singleton 1 (listing Buying)) (Dict.singleton 4 { openOffer | id = 4, price = Just 7000 }) "salty_hops/fine"
+                        |> List.map .source
+                        |> Expect.equal [ Bid, OfferToSell ]
             , test "a completed trade is a Trade point at its price, dated when it went through, even on a closed listing" <|
                 \_ ->
                     let

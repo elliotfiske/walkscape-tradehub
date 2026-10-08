@@ -165,17 +165,7 @@ viewItem model itemId requested =
                         Ui.empty
 
                       else
-                        Ui.card [ Attr.class "p-4 flex flex-col gap-3" ]
-                            [ Html.div [ Attr.class "flex flex-wrap gap-4 text-[13px] text-muted" ]
-                                [ Html.b [ Attr.class "text-ink" ] [ Html.text "30 days" ]
-                                , legend "bg-gold" "counted price"
-                                , legend "border border-[#e06a5f]" "outlier, excluded"
-                                , legend "bg-[#3a4a52]" "not used"
-                                , legend "bg-leaf h-0.5 w-3 rounded-none" "estimate"
-                                , legend "bg-[#2c5a2a] rounded-sm" "typical range"
-                                ]
-                            , Chart.scatter model.now classified est
-                            ]
+                        Ui.card [ Attr.class "p-4" ] [ Chart.scatter model.now classified est ]
                     , if List.isEmpty classified then
                         Ui.empty
 
@@ -228,12 +218,6 @@ viewItem model itemId requested =
                 ]
 
 
-legend : String -> String -> Html msg
-legend swatch text =
-    Html.span [ Attr.class "flex items-center gap-1.5" ]
-        [ Html.span [ Attr.class ("inline-block w-2 h-2 rounded-full " ++ swatch) ] [], Html.text text ]
-
-
 method : String -> String -> Html msg
 method title body =
     Html.p [] [ Html.b [ Attr.class "text-ink" ] [ Html.text (title ++ " ") ], Html.text body ]
@@ -242,20 +226,6 @@ method title body =
 pointTable : FrontendModel -> List ( Pricing.Point, Pricing.Status ) -> Maybe Pricing.Estimate -> Html msg
 pointTable model classified est =
     let
-        sourceLabel s =
-            case s of
-                Pricing.Ask ->
-                    "Asking"
-
-                Pricing.Bid ->
-                    "Buying at"
-
-                Pricing.Offer ->
-                    "Offer"
-
-                Pricing.Trade ->
-                    "Traded"
-
         statusCell ( p, s ) =
             case s of
                 Pricing.Counted ->
@@ -309,7 +279,7 @@ pointTable model classified est =
                                 , Html.div [ Attr.class "font-bold text-gold" ] [ Html.text (Ui.formatInt p.price) ]
                                 , Html.div [ Attr.class "min-w-0 truncate" ]
                                     [ Html.a [ Attr.href (Route.toString (Route.Profile p.trader)), Attr.class "text-ink hover:text-gold no-underline" ] [ Html.text p.trader ]
-                                    , Html.span [ Attr.class "text-faint text-xs" ] [ Html.text (" · " ++ sourceLabel p.source) ]
+                                    , Html.span [ Attr.class "text-faint text-xs" ] [ Html.text (" · " ++ Pricing.sourceLabel p.source) ]
                                     ]
                                 , Html.div [ Attr.class "text-[13px]" ] [ statusCell ( p, s ) ]
                                 ]

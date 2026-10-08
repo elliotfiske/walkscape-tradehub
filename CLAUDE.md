@@ -27,7 +27,7 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
 | `Backend.elm` | Every `ToBackend` is re-dispatched with a timestamp (`FromFrontendAt`). A 15s `BackendTick` broadcasts listings whose 5-minute go-live delay has passed; until then a listing is only sent to its owner. |
 | `Frontend.elm` | Routing, update, the app shell (header, preview banner, mobile tab bar, toast). |
 | `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
-| `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and SVG charts. |
+| `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and charts. The price page's chart (`Chart.scatter`) is positioned HTML, not SVG, so its marks stay round; each mark has a CSS hover/focus tooltip. |
 | `Pricing.elm` | Pure price-estimate rules. 3+ confirmed trades in the last 30 days: the median of those (`FromTrades`). Otherwise asks/bids/offers (`FromPrices`): median, one vote per trader per day, outliers > 2.5× spread cut. `basisText` says which ("from 5 trades" / "from asks and offers"). |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (payment and offer validation, `tradeTerms`, `sortByPrice`, and the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (708 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
@@ -155,7 +155,8 @@ worktree changes, including the screenshots themselves, so for scenarios that
 run past their first `shot` set `OUT` outside the repo (e.g.
 `OUT=/tmp/shots`); otherwise the dev backend restarts from an older snapshot
 and later sign-ins are lost. `{"upload":["#button","/abs/file.png"]}` picks
-files in the file chooser that button opens. The dev BackendModel is in memory, so restarting `lamdera live` wipes it.
+files in the file chooser that button opens. `{"hover":"#css"}` moves the mouse over an element, for
+`:hover` tooltips. The dev BackendModel is in memory, so restarting `lamdera live` wipes it.
 
 ## Testing
 
