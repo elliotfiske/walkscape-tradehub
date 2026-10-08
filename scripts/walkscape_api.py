@@ -1,7 +1,7 @@
 """Tiny client for the WalkScape Tools API, shared by the import scripts.
 
 Docs: https://tools-api-dev.dev.walkscape.app/docs/
-Needs WALKSCAPE_DATA_API_KEY in the environment or in .env (never committed).
+Needs WALKSCAPE_DATA_API_KEY in the environment, .env or ~/.env.claude-code (never committed).
 """
 
 import json
@@ -15,14 +15,16 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 def api_key():
     key = os.environ.get("WALKSCAPE_DATA_API_KEY")
-    env_file = os.path.join(ROOT, ".env")
-    if not key and os.path.exists(env_file):
+    # The worktree's .env wins; ~/.env.claude-code is shared by every worktree.
+    for env_file in (os.path.join(ROOT, ".env"), os.path.expanduser("~/.env.claude-code")):
+        if key or not os.path.exists(env_file):
+            continue
         for line in open(env_file):
             name, _, value = line.strip().partition("=")
             if name == "WALKSCAPE_DATA_API_KEY":
                 key = value.strip().strip("\"'")
     if not key:
-        sys.exit("WALKSCAPE_DATA_API_KEY isn't set (environment or .env).")
+        sys.exit("WALKSCAPE_DATA_API_KEY isn't set (environment, .env or ~/.env.claude-code).")
     return key
 
 
