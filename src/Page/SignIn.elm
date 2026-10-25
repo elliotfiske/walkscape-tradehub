@@ -231,7 +231,7 @@ viewDone me claim =
     Html.div [ Attr.class "flex-1 flex flex-col items-center text-center gap-3" ]
         [ stepper StepDone
         , Html.h1 [ Attr.class "font-display font-extrabold text-[28px]", Ui.testId "done-heading" ] [ Html.text (claim.name ++ " is linked") ]
-        , Html.p [ Attr.class "text-body" ] [ Html.text "You can post listings and make offers now. Your name shows as unverified until trading opens." ]
+        , Html.p [ Attr.class "text-body" ] [ Html.text "You can post listings and make offers now." ]
         , Ui.card [ Attr.class "w-full text-left p-4 mt-3 flex flex-col gap-3" ]
             [ Html.div [ Attr.class "flex items-center justify-between" ]
                 [ Html.span [ Attr.class "flex items-center gap-2.5 font-semibold" ]

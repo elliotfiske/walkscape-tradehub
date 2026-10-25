@@ -44,7 +44,6 @@ module Ui exposing
     , tradeRecord
     , tradePendingTag
     , tradedTag
-    , unverifiedTag
     , valueMeter
     , variantTag
     )
@@ -487,15 +486,6 @@ lookalikeWarning original =
     callout Bad
         [ Attr.class "px-3 py-2 text-[13px]", testId "lookalike-warning" ]
         [ Html.text ("This name is very close to " ++ original ++ ", who joined earlier. Make sure you're trading with who you think.") ]
-
-
-unverifiedTag : Html msg
-unverifiedTag =
-    Html.span
-        [ Attr.class "font-bold text-[10px] tracking-widest text-gold border border-gold/40 rounded px-1.5 py-0.5"
-        , Attr.title "Trailpost can't verify names yet, so nobody has proved they own this WalkScape name."
-        ]
-        [ Html.text "UNVERIFIED" ]
 
 
 bannedTag : Html msg

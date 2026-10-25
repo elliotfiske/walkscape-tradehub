@@ -52,8 +52,8 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
   leaves for discord.com the pending sign-in is lost and the callback fails.
 - **Verification:** there is no verify step yet (there's no way to check a
   name against WalkScape). Claiming a name goes straight to the done screen
-  (`ClaimStatus.PreviewUnverified`). Names are first-come and shown with an
-  UNVERIFIED tag. In-game names are unique and case-insensitive.
+  (`ClaimStatus.PreviewUnverified`). Names are first-come, and nothing in the UI
+  says they're unverified. In-game names are unique and case-insensitive.
 - **Feedback thread:** the "Feedback?" banner link and the home page's
   "Trailpost thread on the WalkScape Discord" both use `Ui.feedbackThreadUrl`.
 - **No player API:** the WalkScape Tools API only has game data, so profiles
