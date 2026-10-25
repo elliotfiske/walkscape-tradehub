@@ -42,7 +42,7 @@ view model =
             [ feature "Find someone to trade with" "Post a listing and take offers. When you accept one, Trailpost shows you both exactly what goes in the trade window, and what to check before you press Accept."
             , feature "Better than asking around" "A reply in a trade channel is one person's guess. Estimates here are the median of trades people confirmed, or, until an item has a few, of everyone's prices, one vote per trader per day, with outliers cut."
             , feature "Safe to try" "Discord only shares your username with Trailpost, and nothing here touches your WalkScape account."
-            , feature "No pressure tactics" "No countdowns anywhere. New listings wait 5 minutes before going live, so no deal appears and disappears before you can check it."
+            , feature "No pressure tactics" "No countdowns on deals. New listings wait 5 minutes before going live, so no deal appears and disappears before you can check it."
             ]
         , Html.section [ Attr.class "px-4 md:px-[72px] py-10 border-b border-line" ]
             [ Html.h2 [ Attr.class "font-display font-extrabold text-[28px] mb-6" ] [ Html.text "Getting started takes a minute" ]

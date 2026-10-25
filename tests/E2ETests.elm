@@ -1015,6 +1015,103 @@ tests =
                                        ]
                        ]
         ]
+    , start "An admin runs a giveaway: traders enter, earn entries for listing, offering and trading, and one of them wins"
+        [ connect "mod" "/" <|
+            \mod ->
+                signInAsAdmin mod
+                    ++ [ mod.click 100 (Dom.id "admin-tab-giveaways")
+                       , mod.click 100 (Dom.id "giveaway-start")
+                       , mod.checkView 100 (byTestId "giveaway-form-error" >> seesText "Give the giveaway a name")
+                       , mod.input 100 (Dom.id "giveaway-title") "Travel bundle"
+                       , mod.input 100 (Dom.id "prize-item-search") "cooked squid"
+                       , mod.click 100 (Dom.id "prize-item-pick-cooked_squid")
+                       , mod.input 100 (Dom.id "prize-line-0-quantity") "10"
+                       , mod.input 100 (Dom.id "prize-item-search") "wanderlust"
+                       , mod.click 100 (Dom.id "prize-item-pick-wanderlust_walking_stick")
+                       , mod.input 100 (Dom.id "giveaway-days") "0.1"
+                       , mod.click 100 (Dom.id "giveaway-start")
+                       , mod.checkView 300 (byTestId "admin-giveaway-1" >> seesText "Running, ends in")
+                       , mod.checkView 100 (lacksTestId "giveaway-form")
+                       , connect "seller" "/" <|
+                            \seller ->
+                                [ seller.checkView 300 (byTestId "giveaway-banner" >> seesText "Travel bundle: 10 × Cooked squid, Wanderlust walking stick · Normal")
+                                , seller.checkView 100 (byTestId "giveaway-banner-cta" >> seesText "Enter")
+                                , seller.clickLink 100 "/giveaway"
+                                , seller.checkView 100 (lacksTestId "giveaway-banner")
+                                , seller.checkView 100 (byTestId "giveaway-prizes" >> seesText "one winner gets all of them")
+                                , seller.checkView 100 (hasTestId "giveaway-countdown")
+                                , seller.checkView 100 (Query.has [ Selector.id "giveaway-signin" ])
+                                ]
+                                    ++ onboard seller "Juno Trek"
+                                    -- Posted after the giveaway started but before entering, so it counts.
+                                    ++ postListing seller { item = "shovel_axe", price = "9800", quantity = "1" }
+                                    ++ [ seller.clickLink 100 "/giveaway"
+                                       , seller.checkView 100 (byTestId "giveaway-would-have" >> seesText "You'd start with 2 entries.")
+                                       , seller.click 100 (Dom.id "giveaway-enter")
+                                       , seller.checkView 300 (byTestId "giveaway-entries" >> seesText "2")
+                                       , seller.checkView 100 (byTestId "giveaway-entrants" >> seesText "1 trader")
+                                       , connect "buyer" "/" <|
+                                            \buyer ->
+                                                onboard buyer "Wanderling"
+                                                    ++ [ buyer.clickLink 100 "/market"
+                                                       , buyer.clickLink 100 "/giveaway"
+                                                       , buyer.click 100 (Dom.id "giveaway-enter")
+                                                       , buyer.checkView 300 (byTestId "giveaway-entries" >> seesText "1")
+                                                       , buyer.clickLink (minutes 6) "/market"
+                                                       , buyer.clickLink 100 "/listing/2"
+                                                       , buyer.click 100 (Dom.id "send-offer")
+                                                       , seller.clickLink 300 "/market"
+                                                       , seller.clickLink 100 "/listing/2"
+                                                       , seller.click 100 (Dom.id "accept-3")
+                                                       , seller.click 300 (Dom.id "trade-confirm-3")
+                                                       , buyer.click 300 (Dom.id "trade-confirm-3")
+                                                       , buyer.checkView 300 (byTestId "giveaway-banner-cta" >> seesText "3/4 entries")
+                                                       , seller.checkView 100 (byTestId "giveaway-banner-cta" >> seesText "3/4 entries")
+                                                       , mod.click 100 (Dom.id "admin-refresh")
+                                                       , mod.checkView 300 (byTestId "admin-entrant-Juno Trek" >> seesText "listing · trade")
+                                                       , mod.checkView 100 (byTestId "admin-entrant-Wanderling" >> seesText "offer · trade")
+                                                       , mod.checkView 100 (Query.hasNot [ Selector.id "admin-draw-1" ])
+                                                       , mod.sendToBackend 100 (Types.AdminRequest (Types.DrawGiveaway 1))
+                                                       , mod.checkView 300 (byTestId "toast" >> seesText "Wait until the giveaway ends.")
+                                                       , buyer.checkView (minutes 120) (byTestId "giveaway-banner-status" >> seesText "GIVEAWAY ENDED")
+                                                       , buyer.checkView 100 (byTestId "giveaway-banner-cta" >> seesText "Drawing soon")
+                                                       , mod.click 100 (Dom.id "admin-draw-1")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (byTestId "admin-giveaway-1" >> seesText "Won by")
+                                                       , mod.click 100 (Dom.id "admin-tab-log")
+                                                       , mod.checkView 100 (seesText "as the winner of Travel bundle (3 of 6 entries)")
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                case Dict.get 1 backend.giveaways |> Maybe.andThen .winner of
+                                                                    Just winner ->
+                                                                        if List.member winner [ "Juno Trek", "Wanderling" ] then
+                                                                            Ok ()
+
+                                                                        else
+                                                                            Err ("unexpected winner " ++ winner)
+
+                                                                    Nothing ->
+                                                                        Err "the giveaway should have a winner"
+                                                            )
+                                                       , connect "guest" "/giveaway" <|
+                                                            \guest ->
+                                                                [ guest.checkView 300 (hasTestId "giveaway-winner")
+                                                                , guest.checkView 100 (byTestId "giveaway-entrants" >> seesText "2 traders")
+                                                                , guest.clickLink 100 "/market"
+                                                                , guest.checkView 100 (byTestId "giveaway-banner-cta" >> seesText "Won by")
+                                                                ]
+                                                       , Effect.Test.checkState 100
+                                                            (\data ->
+                                                                if List.length (List.filter ((==) "giveaway_entered") (trackedEvents data)) == 2 then
+                                                                    Ok ()
+
+                                                                else
+                                                                    Err ("expected two giveaway_entered events, got " ++ String.join ", " (trackedEvents data))
+                                                            )
+                                                       ]
+                                       ]
+                       ]
+        ]
     , start "An admin deletes an offer, a listing that isn't live yet, and releases a name"
         [ connect "seller" "/" <|
             \seller ->

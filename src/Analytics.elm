@@ -36,6 +36,7 @@ type Event
     | TradeCompleted
     | TradeFellThrough
     | ReportSubmitted
+    | GiveawayEntered
 
 
 track : Event -> Command FrontendOnly toBackend msg
@@ -99,6 +100,9 @@ name event =
 
         ReportSubmitted ->
             "report_submitted"
+
+        GiveawayEntered ->
+            "giveaway_entered"
 
 
 metadata : Event -> List ( String, Encode.Value )
