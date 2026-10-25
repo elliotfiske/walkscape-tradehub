@@ -265,7 +265,8 @@ type alias AdminUser =
 {-| A prize draw an admin runs. One winner, drawn at random from `entrants`
 (the traders who opted in) and weighted by `Giveaway.entries`, gets every item
 in `prizes`. Entries come from what traders did between `startsAt` and
-`endsAt`, so things done before opting in count too.
+`endsAt`, so things done before opting in count too. `passedOver` are earlier
+winners an admin drew again over (most recent first), who can't win it again.
 -}
 type alias Giveaway =
     { id : Int
@@ -275,6 +276,7 @@ type alias Giveaway =
     , endsAt : Time.Posix
     , entrants : List String
     , winner : Maybe String
+    , passedOver : List String
     }
 
 
@@ -315,6 +317,7 @@ type AdminAction
     | SetReportResolved Int Bool
     | StartGiveaway GiveawayDraft
     | DrawGiveaway Int
+    | RedrawGiveaway Int
     | CancelGiveaway Int
 
 

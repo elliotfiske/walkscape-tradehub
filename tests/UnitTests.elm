@@ -608,6 +608,14 @@ suite =
                     [ 0, 2, 3, 6, 99 ]
                         |> List.map (\roll -> Giveaway.pickWeighted roll [ ( "Vimes", 3 ), ( "Belkarama", 1 ), ( "Mallory", 4 ) ])
                         |> Expect.equal [ Just "Vimes", Just "Vimes", Just "Belkarama", Just "Mallory", Just "Mallory" ]
+            , test "drawing again leaves out the winner, anyone passed over, and anyone who can't win" <|
+                \_ ->
+                    let
+                        redrawn =
+                            { giveaway | entrants = [ "Vimes", "Belkarama", "Mallory", "Hollowfen" ], winner = Just "Vimes", passedOver = [ "Mallory" ] }
+                    in
+                    Giveaway.tickets ((/=) "Hollowfen") redrawn (Dict.singleton 1 selling) Dict.empty
+                        |> Expect.equal [ ( "Belkarama", 1 ) ]
             , test "nobody to draw from means no winner" <|
                 \_ -> Giveaway.pickWeighted 0 [] |> Expect.equal Nothing
             , test "how long it runs is read in days" <|
@@ -668,6 +676,7 @@ giveaway =
     , endsAt = Time.millisToPosix (8 * day)
     , entrants = [ "Vimes", "Belkarama" ]
     , winner = Nothing
+    , passedOver = []
     }
 
 

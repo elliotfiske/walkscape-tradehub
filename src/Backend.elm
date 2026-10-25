@@ -669,6 +669,44 @@ adminAction adminName now action model =
                 Nothing ->
                     Err ("There's no player called " ++ name ++ ".")
 
+        withGiveaway giveawayId f =
+            case Dict.get giveawayId model.giveaways of
+                Just giveaway ->
+                    f giveaway
+
+                Nothing ->
+                    Err "That giveaway doesn't exist."
+
+        -- Pick a winner for `giveaway`, weighted by entries, from everyone who
+        -- can still win it (banned players and released names can't).
+        drawWinner giveaway nobody logText =
+            let
+                canWin name =
+                    Users.byName name model |> Maybe.map (\u -> u.ban == Nothing) |> Maybe.withDefault False
+
+                tickets =
+                    Giveaway.tickets canWin giveaway model.listings model.offers
+
+                totalEntries =
+                    List.sum (List.map Tuple.second tickets)
+
+                ( roll, _ ) =
+                    Random.step (Random.int 0 (totalEntries - 1)) (Random.initialSeed (Time.posixToMillis now))
+            in
+            case Giveaway.pickWeighted roll tickets of
+                Just winner ->
+                    let
+                        entries =
+                            tickets |> List.filter (\( name, _ ) -> name == winner) |> List.map Tuple.second |> List.sum
+
+                        ( newModel, cmd ) =
+                            saveGiveaway { giveaway | winner = Just winner } model
+                    in
+                    Ok ( newModel, logText winner (String.fromInt entries) (String.fromInt totalEntries), cmd )
+
+                Nothing ->
+                    Err nobody
+
         -- Re-send a changed account to its owner and, if it's public, to everyone.
         announce user newModel =
             Command.batch
@@ -829,6 +867,7 @@ adminAction adminName now action model =
                             , endsAt = Time.millisToPosix (Time.posixToMillis now + valid.hours * 60 * 60 * 1000)
                             , entrants = []
                             , winner = Nothing
+                            , passedOver = []
                             }
 
                         ( newModel, cmd ) =
@@ -837,24 +876,8 @@ adminAction adminName now action model =
                     Ok ( newModel, "Started the giveaway " ++ giveaway.title ++ " (" ++ (giveaway.prizes |> List.map Market.describeLine |> String.join ", ") ++ ")", cmd )
 
         DrawGiveaway giveawayId ->
-            case Dict.get giveawayId model.giveaways of
-                Just giveaway ->
-                    let
-                        -- Banned players and released names can't win.
-                        eligible name =
-                            Users.byName name model |> Maybe.map (\u -> u.ban == Nothing) |> Maybe.withDefault False
-
-                        weighted =
-                            giveaway.entrants
-                                |> List.filter eligible
-                                |> List.map (\name -> ( name, Giveaway.total (Giveaway.entries giveaway model.listings model.offers name) ))
-
-                        totalWeight =
-                            List.sum (List.map Tuple.second weighted)
-
-                        ( roll, _ ) =
-                            Random.step (Random.int 0 (totalWeight - 1)) (Random.initialSeed (Time.posixToMillis now))
-                    in
+            withGiveaway giveawayId
+                (\giveaway ->
                     if giveaway.winner /= Nothing then
                         Err "This giveaway already has a winner."
 
@@ -862,31 +885,23 @@ adminAction adminName now action model =
                         Err "Wait until the giveaway ends."
 
                     else
-                        case Giveaway.pickWeighted roll weighted of
-                            Just winner ->
-                                let
-                                    ( newModel, cmd ) =
-                                        saveGiveaway { giveaway | winner = Just winner } model
-                                in
-                                Ok
-                                    ( newModel
-                                    , "Drew "
-                                        ++ winner
-                                        ++ " as the winner of "
-                                        ++ giveaway.title
-                                        ++ " ("
-                                        ++ String.fromInt (Giveaway.total (Giveaway.entries giveaway model.listings model.offers winner))
-                                        ++ " of "
-                                        ++ String.fromInt totalWeight
-                                        ++ " entries)"
-                                    , cmd
-                                    )
+                        drawWinner giveaway
+                            "Nobody can win: no one entered, or everyone who did is banned."
+                            (\winner entries totalEntries -> "Drew " ++ winner ++ " as the winner of " ++ giveaway.title ++ " (" ++ entries ++ " of " ++ totalEntries ++ " entries)")
+                )
 
-                            Nothing ->
-                                Err "Nobody can win: no one entered, or everyone who did is banned."
+        RedrawGiveaway giveawayId ->
+            withGiveaway giveawayId
+                (\giveaway ->
+                    case giveaway.winner of
+                        Just previous ->
+                            drawWinner { giveaway | passedOver = previous :: giveaway.passedOver }
+                                "Nobody else can win: everyone else who entered was passed over already or is banned."
+                                (\winner entries totalEntries -> "Drew again for " ++ giveaway.title ++ ": " ++ winner ++ " instead of " ++ previous ++ " (" ++ entries ++ " of " ++ totalEntries ++ " entries left)")
 
-                Nothing ->
-                    Err "That giveaway doesn't exist."
+                        Nothing ->
+                            Err "Draw a winner first."
+                )
 
         CancelGiveaway giveawayId ->
             case Dict.get giveawayId model.giveaways of

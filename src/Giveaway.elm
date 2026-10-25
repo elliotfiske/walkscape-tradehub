@@ -9,6 +9,7 @@ module Giveaway exposing
     , maxEntries
     , open
     , pickWeighted
+    , tickets
     , timeLeft
     , total
     , validateDraft
@@ -191,6 +192,17 @@ validateDraft draft =
             |> List.map Market.validateLine
             |> List.foldr (Result.map2 (::)) (Ok [])
             |> Result.map (\prizes -> { draft | title = title, prizes = prizes })
+
+
+{-| Who's in the draw and how many entries each has: entrants who can win
+(`canWin` rules out banned players), leaving out the current winner and anyone
+already passed over, so drawing again picks someone new.
+-}
+tickets : (String -> Bool) -> Giveaway -> Dict Int Listing -> Dict Int Offer -> List ( String, Int )
+tickets canWin giveaway listings offers =
+    giveaway.entrants
+        |> List.filter (\name -> canWin name && Just name /= giveaway.winner && not (List.member name giveaway.passedOver))
+        |> List.map (\name -> ( name, total (entries giveaway listings offers name) ))
 
 
 {-| The winner for a random number `roll` in [0, total weight): each name gets

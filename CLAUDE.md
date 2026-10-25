@@ -114,7 +114,8 @@ what to show. Reports show a copy of the trade they are about (if any) and a
 "Show screenshots" button. Admins can resolve reports, delete listings (any state) and
 offers, ban/unban players, release a claimed name, and start, draw or cancel a
 giveaway (Giveaways tab; Draw only shows once it has ended, and banned players
-can't win). Banning or releasing a
+can't win). "Draw again" replaces a winner who never answered: they're kept in
+`Giveaway.passedOver` and can't win that giveaway again. Banning or releasing a
 name deletes that player's listings and offers. A banned account can still
 sign in and browse, but every other request fails. Every action is written to
 `BackendModel.adminLog`.

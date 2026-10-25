@@ -125,6 +125,7 @@ type alias Giveaway =
     , endsAt : Time.Posix
     , entrants : List String
     , winner : Maybe String
+    , passedOver : List String
     }
 
 
@@ -288,6 +289,7 @@ type AdminAction
     | SetReportResolved Int Bool
     | StartGiveaway GiveawayDraft
     | DrawGiveaway Int
+    | RedrawGiveaway Int
     | CancelGiveaway Int
 
 

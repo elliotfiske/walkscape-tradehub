@@ -1078,8 +1078,30 @@ tests =
                                                        , mod.click 100 (Dom.id "admin-draw-1")
                                                        , mod.click 100 (Dom.id "admin-confirm")
                                                        , mod.checkView 300 (byTestId "admin-giveaway-1" >> seesText "Won by")
+                                                       , mod.click 100 (Dom.id "admin-redraw-1")
+                                                       , mod.checkView 100 (byTestId "admin-confirm-box" >> seesText "can't win this one again")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (byTestId "admin-giveaway-1" >> seesText "PASSED OVER")
+                                                       , Effect.Test.checkBackend 100
+                                                            (\backend ->
+                                                                case Dict.get 1 backend.giveaways |> Maybe.map (\g -> ( g.winner, g.passedOver )) of
+                                                                    Just ( Just winner, [ previous ] ) ->
+                                                                        if winner /= previous && List.sort [ winner, previous ] == [ "Juno Trek", "Wanderling" ] then
+                                                                            Ok ()
+
+                                                                        else
+                                                                            Err ("drawing again should pick the other entrant, got " ++ winner ++ " over " ++ previous)
+
+                                                                    _ ->
+                                                                        Err "the giveaway should have a new winner and one passed over"
+                                                            )
+                                                       -- Both entrants have now won once, so there's nobody left.
+                                                       , mod.click 100 (Dom.id "admin-redraw-1")
+                                                       , mod.click 100 (Dom.id "admin-confirm")
+                                                       , mod.checkView 300 (byTestId "toast" >> seesText "Nobody else can win")
                                                        , mod.click 100 (Dom.id "admin-tab-log")
                                                        , mod.checkView 100 (seesText "as the winner of Travel bundle (3 of 6 entries)")
+                                                       , mod.checkView 100 (seesText "Drew again for Travel bundle:")
                                                        , Effect.Test.checkBackend 100
                                                             (\backend ->
                                                                 case Dict.get 1 backend.giveaways |> Maybe.andThen .winner of

@@ -181,6 +181,13 @@ confirmBox model action =
                     DrawGiveaway _ ->
                         ( "Draw the winner now? Everyone sees who won straight away.", "Draw winner" )
 
+                    RedrawGiveaway giveawayId ->
+                        let
+                            winner =
+                                Dict.get giveawayId model.giveaways |> Maybe.andThen .winner |> Maybe.withDefault "The winner"
+                        in
+                        ( "Draw again? " ++ winner ++ " won't get the prizes and can't win this one again, and everyone sees the new winner. Do this if they never answered.", "Draw again" )
+
                     CancelGiveaway _ ->
                         ( "Cancel this giveaway? It disappears for everyone, with its entries. This can't be undone.", "Cancel giveaway" )
 
@@ -707,7 +714,7 @@ giveawayCard model data giveaway =
                         ]
 
                   else
-                    Ui.empty
+                    Ui.button Ui.Secondary Ui.Compact ("admin-redraw-" ++ idText) (AdminActionClicked (RedrawGiveaway giveaway.id)) "Draw again"
                 ]
             , Html.div [ Attr.class "flex flex-wrap gap-x-4 gap-y-1" ] (List.map Ui.itemLine giveaway.prizes)
             , if List.isEmpty entrants then
@@ -730,6 +737,11 @@ giveawayCard model data giveaway =
 
                                       else
                                         Ui.empty
+                                    , if List.member name giveaway.passedOver then
+                                        Html.span [ Attr.class "font-bold text-[10px] tracking-widest text-muted border border-rule rounded px-1.5 py-0.5", Attr.title "An admin drew again over them" ] [ Html.text "PASSED OVER" ]
+
+                                      else
+                                        Ui.empty
                                     , Html.span [ Attr.class "flex-1 text-faint text-xs" ] [ Html.text (entryTags entries) ]
                                     , Html.span [ Attr.class "font-bold text-gold" ] [ Html.text (Ui.plural (Giveaway.total entries) "entry" "entries") ]
                                     ]
@@ -737,5 +749,6 @@ giveawayCard model data giveaway =
                     )
             ]
         , confirmBox model (DrawGiveaway giveaway.id)
+        , confirmBox model (RedrawGiveaway giveaway.id)
         , confirmBox model (CancelGiveaway giveaway.id)
         ]

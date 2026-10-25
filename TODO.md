@@ -74,8 +74,8 @@ Admins start them in `/admin` → Giveaways; see CLAUDE.md for the entry rules.
 - No guard against trading with a friend for the trade entry (each kind only
   counts once, so it's worth 1 entry). If it happens, check entrants' trades in
   the admin tab before drawing. Those trades also feed price estimates.
-- No redraw if the winner never answers. For now, cancel isn't an option after
-  the draw; add "Draw again" (skipping the last winner) if it comes up.
+- "Draw again" replaces a winner who never answers, but nothing tracks
+  whether they did: admins decide when to give up on them.
 - Admins can enter their own giveaways if they've claimed a name.
 
 ### Later
