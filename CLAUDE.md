@@ -18,6 +18,11 @@ wants (`Listing.wants`, up to 5, shown on the listing and in the market); only c
 Trailpost can't see in-game trades, but a trade both sides confirmed is a
 price: with 3 or more in the last 30 days, an item's estimate is their median,
 and otherwise it comes from asks, bids and offers. The backlog for live trading is in [TODO.md](TODO.md).
+Admins can run a **giveaway** (`/giveaway`, a banner on every page while it's
+on): traders opt in for 1 entry and get 1 more each for posting a listing,
+making an offer and completing a trade while it runs (once each, counted even
+from before they entered, so up to 4). After it ends an admin draws one winner,
+weighted by entries, who gets every prize.
 
 ## Map of the code
 
@@ -26,10 +31,11 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
 | `Types.elm` | All models/messages. Public identity of a trader is their claimed WalkScape name. |
 | `Backend.elm` | Every `ToBackend` is re-dispatched with a timestamp (`FromFrontendAt`). A 15s `BackendTick` broadcasts listings whose 5-minute go-live delay has passed; until then a listing is only sent to its owner. |
 | `Frontend.elm` | Routing, update, the app shell (header, preview banner, mobile tab bar, toast). |
-| `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin. |
+| `Page/*.elm` | One module per screen: Home, SignIn (sign-in + onboarding steps), Market, Listing (offers), NewListing, Prices (index + item), Trades, Profile, Report, Admin, Giveaway (the page and the banner `appShell` shows). |
 | `Ui.elm`, `Chart.elm` | Shared components (design tokens are in `tailwind.config.js`) and charts. The price page's chart (`Chart.scatter`) is positioned HTML, not SVG, so its marks stay round; each mark has a CSS hover/focus tooltip. |
 | `Pricing.elm` | Pure price-estimate rules. 3+ confirmed trades in the last 30 days: the median of those (`FromTrades`). Otherwise asks/bids/offers (`FromPrices`): median, one vote per trader per day, outliers > 2.5× spread cut. `basisText` says which ("from 5 trades" / "from asks and offers"). |
 | `Market.elm`, `Derived.elm` | Listing/offer rules shared by both sides (payment and offer validation, `tradeTerms`, `sortByPrice`, and the trade lifecycle: `checkAccept`, `checkNewOffer`, `checkClose`, `confirmTrade`, `markFellThrough`), and frontend-derived values (estimates, stats, filtered market). |
+| `Giveaway.elm` | Giveaway rules shared by both sides: `entries` (worked out from listings and offers, nothing is stored per trader), `current` (the undrawn one, or the last drawn for a week), `pickWeighted` for the draw, and the admin form's checks. One undrawn giveaway at a time. |
 | `Item.elm`, `ItemData.elm` | Item types and the catalog. `ItemData.elm` is **generated** by `python3 scripts/import-items.py` from the WalkScape Tools API (708 items, those with `canBeTraded`; ids like `iron_pickaxe`). Loot has a fixed rarity, crafted items take a quality, everything else is `Plain "Material"` etc. Materials and consumables can also be **fine**, and pet eggs (type `egg`) can be **rare** (shown in red, like the game's egg label): a listing's `Item.Variant` is `{ fine, rare, quality }`, and each variant is its own price series (`Item.priceKey`: `iron_bar`, `iron_bar/fine`, `camel_egg/rare`, `iron_pickaxe/perfect`) and price page (`/prices/iron_bar?fine=1`, `/prices/camel_egg?rare=1`). The API's `canBeFine` is true for nearly everything, so `scripts/import-items.py` keeps it only for materials and consumables. Icons are `public/icons/<id>.png`, pulled by `python3 scripts/pull-icons.py` (see below). |
 | `Screenshot.elm`, `ScreenshotShrink.elm` | Report screenshots: the limits and backend check (3 JPEGs, ~300KB each), and the port to `elm-pkg-js/screenshots.js`, which shrinks a picked image in a canvas. They're stored in `BackendModel.screenshots` and only sent to admins (`AdminLoadScreenshots`). |
 | `Analytics.elm` | Typed Simple Analytics events (`Analytics.track`), sent through a port to `elm-pkg-js/analytics.js`. See "Analytics events". |
@@ -52,8 +58,8 @@ and otherwise it comes from asks, bids and offers. The backlog for live trading 
   leaves for discord.com the pending sign-in is lost and the callback fails.
 - **Verification:** there is no verify step yet (there's no way to check a
   name against WalkScape). Claiming a name goes straight to the done screen
-  (`ClaimStatus.PreviewUnverified`). Names are first-come and shown with an
-  UNVERIFIED tag. In-game names are unique and case-insensitive.
+  (`ClaimStatus.PreviewUnverified`). Names are first-come, and nothing in the UI
+  says they're unverified. In-game names are unique and case-insensitive.
 - **Feedback thread:** the "Feedback?" banner link and the home page's
   "Trailpost thread on the WalkScape Discord" both use `Ui.feedbackThreadUrl`.
 - **No player API:** the WalkScape Tools API only has game data, so profiles
@@ -94,6 +100,7 @@ identify a trader.
 | `trade_confirmed` | "It went through" pressed |
 | `trade_completed` | "It went through" pressed by the second side, which completes the trade |
 | `trade_fell_through` | "It fell through" sent with a reason |
+| `giveaway_entered` | "Enter the giveaway" pressed |
 
 The E2E tests assert the event sequence with `trackedEvents`.
 
@@ -105,7 +112,10 @@ Admins are the Discord accounts whose username is in the comma-separated
 `Users.isAdmin` on every `AdminLoad` / `AdminRequest`; the page only decides
 what to show. Reports show a copy of the trade they are about (if any) and a
 "Show screenshots" button. Admins can resolve reports, delete listings (any state) and
-offers, ban/unban players, and release a claimed name. Banning or releasing a
+offers, ban/unban players, release a claimed name, and start, draw or cancel a
+giveaway (Giveaways tab; Draw only shows once it has ended, and banned players
+can't win). "Draw again" replaces a winner who never answered: they're kept in
+`Giveaway.passedOver` and can't win that giveaway again. Banning or releasing a
 name deletes that player's listings and offers. A banned account can still
 sign in and browse, but every other request fails. Every action is written to
 `BackendModel.adminLog`.
@@ -163,7 +173,7 @@ files in the file chooser that button opens. `{"hover":"#css"}` moves the mouse 
 `npm test` runs `tests/E2ETests.elm` (lamdera/program-test user journeys:
 onboarding, claim errors, 5-minute go-live, offers + accept, item-for-item offers, trades going
 through or falling through, estimates, look-alikes,
-validation, reports with trades and screenshots, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
+validation, reports with trades and screenshots, giveaways, sign-out) and `tests/UnitTests.elm` (pricing, names, routes,
 listing form). In program-test, `clickLink` needs a matching `href` in the
 current view, and `pushUrl` must be given a path (not an absolute URL) or the
 simulated router falls back to `/`.

@@ -12,9 +12,11 @@ import Effect.Subscription as Subscription exposing (Subscription)
 import Effect.Task
 import Effect.Time
 import Env
+import Giveaway
 import Lamdera as L
 import Market
 import Name
+import Random
 import Screenshot
 import Time
 import Types
@@ -84,6 +86,7 @@ init =
       , reports = []
       , screenshots = Dict.empty
       , adminLog = []
+      , giveaways = Dict.empty
       , nextId = 1
       , pendingAuths = Dict.empty
       }
@@ -180,6 +183,7 @@ initialData user model =
     { listings = listings
     , offers = model.offers |> Dict.values |> List.filter (\o -> List.member o.listingId listingIds)
     , traders = Users.traders model
+    , giveaways = Dict.values model.giveaways
     }
 
 
@@ -584,6 +588,24 @@ handleRequest sessionId clientId now msg model =
                                 )
                 )
 
+        EnterGiveaway giveawayId ->
+            withReadyUser
+                (\name ->
+                    case Dict.get giveawayId model.giveaways of
+                        Just giveaway ->
+                            if Giveaway.hasEnded now giveaway then
+                                fail "This giveaway has ended."
+
+                            else if List.member name giveaway.entrants then
+                                fail "You've already entered."
+
+                            else
+                                saveGiveaway { giveaway | entrants = giveaway.entrants ++ [ name ] } model
+
+                        Nothing ->
+                            fail "That giveaway doesn't exist."
+                )
+
         AdminLoad ->
             withAdmin (\_ -> ( model, Effect.Lamdera.sendToFrontend clientId (AdminDataSent (adminData model)) ))
 
@@ -646,6 +668,44 @@ adminAction adminName now action model =
 
                 Nothing ->
                     Err ("There's no player called " ++ name ++ ".")
+
+        withGiveaway giveawayId f =
+            case Dict.get giveawayId model.giveaways of
+                Just giveaway ->
+                    f giveaway
+
+                Nothing ->
+                    Err "That giveaway doesn't exist."
+
+        -- Pick a winner for `giveaway`, weighted by entries, from everyone who
+        -- can still win it (banned players and released names can't).
+        drawWinner giveaway nobody logText =
+            let
+                canWin name =
+                    Users.byName name model |> Maybe.map (\u -> u.ban == Nothing) |> Maybe.withDefault False
+
+                tickets =
+                    Giveaway.tickets canWin giveaway model.listings model.offers
+
+                totalEntries =
+                    List.sum (List.map Tuple.second tickets)
+
+                ( roll, _ ) =
+                    Random.step (Random.int 0 (totalEntries - 1)) (Random.initialSeed (Time.posixToMillis now))
+            in
+            case Giveaway.pickWeighted roll tickets of
+                Just winner ->
+                    let
+                        entries =
+                            tickets |> List.filter (\( name, _ ) -> name == winner) |> List.map Tuple.second |> List.sum
+
+                        ( newModel, cmd ) =
+                            saveGiveaway { giveaway | winner = Just winner } model
+                    in
+                    Ok ( newModel, logText winner (String.fromInt entries) (String.fromInt totalEntries), cmd )
+
+                Nothing ->
+                    Err nobody
 
         -- Re-send a changed account to its owner and, if it's public, to everyone.
         announce user newModel =
@@ -731,15 +791,29 @@ adminAction adminName now action model =
 
                         ( newModel, removals ) =
                             removeWhere (\l -> l.trader == name) (\o -> o.from == name) (saveUser released model)
+
+                        -- Whoever claims the name next shouldn't inherit its entries.
+                        ( withoutEntries, giveawayCmds ) =
+                            newModel.giveaways
+                                |> Dict.values
+                                |> List.filter (\g -> Giveaway.isOpen g && List.member name g.entrants)
+                                |> List.foldl
+                                    (\g ( m, cmds ) ->
+                                        saveGiveaway { g | entrants = List.filter ((/=) name) g.entrants } m
+                                            |> Tuple.mapSecond (\cmd -> cmd :: cmds)
+                                    )
+                                    ( newModel, [] )
                     in
                     Ok
-                        ( newModel
+                        ( withoutEntries
                         , "Released the name " ++ name
                         , Command.batch
-                            [ removals
-                            , sendToUser user.id (YouAre (Just (Users.toMe released))) newModel
-                            , Effect.Lamdera.broadcast (TraderRemoved name)
-                            ]
+                            ([ removals
+                             , sendToUser user.id (YouAre (Just (Users.toMe released))) withoutEntries
+                             , Effect.Lamdera.broadcast (TraderRemoved name)
+                             ]
+                                ++ giveawayCmds
+                            )
                         )
                 )
 
@@ -775,6 +849,72 @@ adminAction adminName now action model =
                 _ ->
                     Err "That report doesn't exist."
 
+        StartGiveaway draft ->
+            case ( Giveaway.open (Dict.values model.giveaways), Giveaway.validateDraft draft ) of
+                ( Just running, _ ) ->
+                    Err ("Draw or cancel " ++ running.title ++ " first. Only one giveaway runs at a time.")
+
+                ( Nothing, Err err ) ->
+                    Err err
+
+                ( Nothing, Ok valid ) ->
+                    let
+                        giveaway =
+                            { id = model.nextId
+                            , title = valid.title
+                            , prizes = valid.prizes
+                            , startsAt = now
+                            , endsAt = Time.millisToPosix (Time.posixToMillis now + valid.hours * 60 * 60 * 1000)
+                            , entrants = []
+                            , winner = Nothing
+                            , passedOver = []
+                            }
+
+                        ( newModel, cmd ) =
+                            saveGiveaway giveaway { model | nextId = model.nextId + 1 }
+                    in
+                    Ok ( newModel, "Started the giveaway " ++ giveaway.title ++ " (" ++ (giveaway.prizes |> List.map Market.describeLine |> String.join ", ") ++ ")", cmd )
+
+        DrawGiveaway giveawayId ->
+            withGiveaway giveawayId
+                (\giveaway ->
+                    if giveaway.winner /= Nothing then
+                        Err "This giveaway already has a winner."
+
+                    else if Giveaway.isRunning now giveaway then
+                        Err "Wait until the giveaway ends."
+
+                    else
+                        drawWinner giveaway
+                            "Nobody can win: no one entered, or everyone who did is banned."
+                            (\winner entries totalEntries -> "Drew " ++ winner ++ " as the winner of " ++ giveaway.title ++ " (" ++ entries ++ " of " ++ totalEntries ++ " entries)")
+                )
+
+        RedrawGiveaway giveawayId ->
+            withGiveaway giveawayId
+                (\giveaway ->
+                    case giveaway.winner of
+                        Just previous ->
+                            drawWinner { giveaway | passedOver = previous :: giveaway.passedOver }
+                                "Nobody else can win: everyone else who entered was passed over already or is banned."
+                                (\winner entries totalEntries -> "Drew again for " ++ giveaway.title ++ ": " ++ winner ++ " instead of " ++ previous ++ " (" ++ entries ++ " of " ++ totalEntries ++ " entries left)")
+
+                        Nothing ->
+                            Err "Draw a winner first."
+                )
+
+        CancelGiveaway giveawayId ->
+            case Dict.get giveawayId model.giveaways of
+                Just giveaway ->
+                    Ok
+                        ( { model | giveaways = Dict.remove giveawayId model.giveaways }
+                        , "Cancelled the giveaway " ++ giveaway.title
+                        , Effect.Lamdera.broadcast (GiveawayRemoved giveawayId)
+                        )
+
+                Nothing ->
+                    Err "That giveaway doesn't exist."
+
 
 {-| Delete matching listings (with every offer on them) and matching offers,
 and tell everyone they're gone.
@@ -808,6 +948,13 @@ closeListing listing model =
             { model | listings = Dict.insert listing.id closed model.listings }
     in
     ( newModel, publishListing closed newModel )
+
+
+saveGiveaway : Types.Giveaway -> Model -> ( Model, Cmd_ )
+saveGiveaway giveaway model =
+    ( { model | giveaways = Dict.insert giveaway.id giveaway model.giveaways }
+    , Effect.Lamdera.broadcast (GiveawayUpserted giveaway)
+    )
 
 
 updateOffer : Offer -> Model -> ( Model, Cmd_ )

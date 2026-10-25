@@ -23,6 +23,7 @@ module Market exposing
     , wasAccepted
     , unitPrice
     , validateDraft
+    , validateLine
     , validateOffer
     )
 

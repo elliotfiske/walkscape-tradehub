@@ -1,19 +1,21 @@
 module Page.Admin exposing (view)
 
 {-| Moderation for the people listed in `Env.adminDiscordUsernames`: reports,
-every listing and offer (including ones that aren't live yet), players, and a
-log of what admins did. The backend checks every request, so this page only
+every listing and offer (including ones that aren't live yet), players,
+giveaways, and a log of what admins did. The backend checks every request, so this page only
 decides what to show.
 -}
 
 import Dict
+import Giveaway
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Market
+import Page.NewListing
 import Route
 import Time
-import Types exposing (AdminAction(..), AdminData, AdminTab(..), AdminUser, FrontendModel, FrontendMsg(..), Listing, Offer, OfferStatus(..), Report)
+import Types exposing (AdminAction(..), AdminData, AdminTab(..), AdminUser, FrontendModel, FrontendMsg(..), Giveaway, Listing, Offer, OfferStatus(..), Report)
 import Ui
 
 
@@ -69,6 +71,7 @@ viewAdmin model data =
             [ tab "admin-tab-reports" "Reports" (Just (List.length openReports)) AdminReports
             , tab "admin-tab-listings" "Listings" (Just (List.length data.listings)) AdminListings
             , tab "admin-tab-players" "Players" (Just (List.length data.users)) AdminPlayers
+            , tab "admin-tab-giveaways" "Giveaways" Nothing AdminGiveaways
             , tab "admin-tab-log" "Log" Nothing AdminLog
             ]
         , if page.tab == AdminListings || page.tab == AdminPlayers then
@@ -95,6 +98,9 @@ viewAdmin model data =
                         |> List.sortBy (.joinedAt >> Time.posixToMillis >> negate)
                         |> List.map (playerCard model data)
                         |> orEmpty "No players."
+
+                AdminGiveaways ->
+                    giveaways model data
 
                 AdminLog ->
                     data.log
@@ -168,6 +174,22 @@ confirmBox model action =
 
                     SetReportResolved _ _ ->
                         ( "", "OK" )
+
+                    StartGiveaway _ ->
+                        ( "", "OK" )
+
+                    DrawGiveaway _ ->
+                        ( "Draw the winner now? Everyone sees who won straight away.", "Draw winner" )
+
+                    RedrawGiveaway giveawayId ->
+                        let
+                            winner =
+                                Dict.get giveawayId model.giveaways |> Maybe.andThen .winner |> Maybe.withDefault "The winner"
+                        in
+                        ( "Draw again? " ++ winner ++ " won't get the prizes and can't win this one again, and everyone sees the new winner. Do this if they never answered.", "Draw again" )
+
+                    CancelGiveaway _ ->
+                        ( "Cancel this giveaway? It disappears for everyone, with its entries. This can't be undone.", "Cancel giveaway" )
 
             needsReason =
                 case action of
@@ -568,4 +590,165 @@ playerCard model data user =
             ]
         , confirmBox model (BanPlayer user.name "")
         , confirmBox model (ReleaseName user.name)
+        ]
+
+
+{-| The open giveaway with its entrants, or the form to start one, and the
+ones already drawn.
+-}
+giveaways : FrontendModel -> AdminData -> List (Html FrontendMsg)
+giveaways model data =
+    let
+        all =
+            Dict.values model.giveaways |> List.sortBy (.startsAt >> Time.posixToMillis >> negate)
+    in
+    (case Giveaway.open all of
+        Just _ ->
+            Ui.empty
+
+        Nothing ->
+            giveawayForm model
+    )
+        :: List.map (giveawayCard model data) all
+
+
+giveawayForm : FrontendModel -> Html FrontendMsg
+giveawayForm model =
+    let
+        form =
+            model.giveawayForm
+    in
+    Ui.card [ Attr.class "p-4 flex flex-col gap-3", Ui.testId "giveaway-form" ]
+        [ Ui.sectionLabel "Start a giveaway"
+        , Html.p [ Attr.class "text-sm text-muted" ]
+            [ Html.text "It starts as soon as you press Start and shows at the top of every page. One winner gets every prize." ]
+        , Html.div []
+            [ Ui.label "Name"
+            , Ui.textInput [ Attr.id "giveaway-title", Attr.placeholder "Travel bundle" ] form.title GiveawayTitleChanged
+            ]
+        , Page.NewListing.itemLinesEditor
+            { prefix = "prize"
+            , label = "Prizes"
+            , lines = form.prizes
+            , query = form.prizeQuery
+            , onQuery = GiveawayPrizeQueryChanged
+            , onPick = GiveawayPrizePicked
+            , onQuantity = GiveawayPrizeQuantityChanged
+            , onVariant = GiveawayPrizeVariantPicked
+            , onRemove = GiveawayPrizeRemoved
+            }
+        , Html.div [ Attr.class "w-40" ]
+            [ Ui.label "Runs for (days)"
+            , Ui.textInput [ Attr.id "giveaway-days", Attr.attribute "inputmode" "decimal" ] form.days GiveawayDaysChanged
+            ]
+        , case form.error of
+            Just err ->
+                Html.p [ Attr.class "text-sm text-warn", Ui.testId "giveaway-form-error" ] [ Html.text err ]
+
+            Nothing ->
+                Ui.empty
+        , Ui.button Ui.Primary Ui.Block "giveaway-start" GiveawaySubmitted "Start giveaway"
+        ]
+
+
+giveawayCard : FrontendModel -> AdminData -> Giveaway -> Html FrontendMsg
+giveawayCard model data giveaway =
+    let
+        idText =
+            String.fromInt giveaway.id
+
+        listings =
+            data.listings |> List.map (\l -> ( l.id, l )) |> Dict.fromList
+
+        offers =
+            data.offers |> List.map (\o -> ( o.id, o )) |> Dict.fromList
+
+        entrants =
+            giveaway.entrants
+                |> List.map (\name -> ( name, Giveaway.entries giveaway listings offers name ))
+                |> List.sortBy (Tuple.second >> Giveaway.total >> negate)
+
+        totalEntries =
+            entrants |> List.map (Tuple.second >> Giveaway.total) |> List.sum
+
+        status =
+            case giveaway.winner of
+                Just winner ->
+                    Html.span [ Attr.class "text-leaf" ] [ Html.text ("Won by " ++ winner) ]
+
+                Nothing ->
+                    if Giveaway.hasEnded model.now giveaway then
+                        Html.span [ Attr.class "text-gold" ] [ Html.text "Ended, ready to draw" ]
+
+                    else
+                        Html.span [ Attr.class "text-leaf" ] [ Html.text ("Running, ends in " ++ Giveaway.timeLeft model.now giveaway.endsAt) ]
+
+        entryTags entries =
+            [ ( entries.listed, "listing" ), ( entries.offered, "offer" ), ( entries.traded, "trade" ) ]
+                |> List.filter Tuple.first
+                |> List.map Tuple.second
+                |> String.join " · "
+
+        isBanned name =
+            List.any (\u -> u.name == name && u.ban /= Nothing) data.users
+    in
+    Html.div [ Attr.class "flex flex-col gap-2", Ui.testId ("admin-giveaway-" ++ idText) ]
+        [ Ui.card [ Attr.class "p-3.5 flex flex-col gap-2.5" ]
+            [ Html.div [ Attr.class "flex items-start gap-3 flex-wrap" ]
+                [ Html.div [ Attr.class "flex-1 min-w-0" ]
+                    [ Html.div [ Attr.class "font-bold text-ink" ] [ Html.text giveaway.title ]
+                    , Html.div [ Attr.class "text-xs text-muted flex gap-1.5 flex-wrap" ]
+                        [ Html.text ("started " ++ Ui.timeAgo model.now giveaway.startsAt ++ " ·")
+                        , status
+                        , Html.text ("· " ++ Ui.plural (List.length entrants) "entrant" "entrants" ++ ", " ++ Ui.plural totalEntries "entry" "entries")
+                        ]
+                    ]
+                , if Giveaway.isOpen giveaway then
+                    Html.div [ Attr.class "flex gap-2" ]
+                        [ if Giveaway.hasEnded model.now giveaway then
+                            Ui.button Ui.Primary Ui.Compact ("admin-draw-" ++ idText) (AdminActionClicked (DrawGiveaway giveaway.id)) "Draw winner"
+
+                          else
+                            Ui.empty
+                        , Ui.button Ui.Danger Ui.Compact ("admin-cancel-giveaway-" ++ idText) (AdminActionClicked (CancelGiveaway giveaway.id)) "Cancel"
+                        ]
+
+                  else
+                    Ui.button Ui.Secondary Ui.Compact ("admin-redraw-" ++ idText) (AdminActionClicked (RedrawGiveaway giveaway.id)) "Draw again"
+                ]
+            , Html.div [ Attr.class "flex flex-wrap gap-x-4 gap-y-1" ] (List.map Ui.itemLine giveaway.prizes)
+            , if List.isEmpty entrants then
+                Html.p [ Attr.class "text-sm text-faint" ] [ Html.text "Nobody has entered yet." ]
+
+              else
+                Html.div [ Attr.class "flex flex-col border-t border-line pt-1" ]
+                    (entrants
+                        |> List.map
+                            (\( name, entries ) ->
+                                Html.div [ Attr.class "flex items-center gap-2 text-sm py-1", Ui.testId ("admin-entrant-" ++ name) ]
+                                    [ profileLink name
+                                    , if isBanned name then
+                                        Ui.bannedTag
+
+                                      else
+                                        Ui.empty
+                                    , if giveaway.winner == Just name then
+                                        Html.span [ Attr.class "font-bold text-[10px] tracking-widest text-leaf border border-leaf/50 rounded px-1.5 py-0.5" ] [ Html.text "WINNER" ]
+
+                                      else
+                                        Ui.empty
+                                    , if List.member name giveaway.passedOver then
+                                        Html.span [ Attr.class "font-bold text-[10px] tracking-widest text-muted border border-rule rounded px-1.5 py-0.5", Attr.title "An admin drew again over them" ] [ Html.text "PASSED OVER" ]
+
+                                      else
+                                        Ui.empty
+                                    , Html.span [ Attr.class "flex-1 text-faint text-xs" ] [ Html.text (entryTags entries) ]
+                                    , Html.span [ Attr.class "font-bold text-gold" ] [ Html.text (Ui.plural (Giveaway.total entries) "entry" "entries") ]
+                                    ]
+                            )
+                    )
+            ]
+        , confirmBox model (DrawGiveaway giveaway.id)
+        , confirmBox model (RedrawGiveaway giveaway.id)
+        , confirmBox model (CancelGiveaway giveaway.id)
         ]

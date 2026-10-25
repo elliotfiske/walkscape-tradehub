@@ -14,6 +14,9 @@ module Types exposing
     , FellThroughForm
     , FrontendModel
     , FrontendMsg(..)
+    , Giveaway
+    , GiveawayDraft
+    , GiveawayForm
     , InitialData
     , ItemLine
     , Listing
@@ -65,8 +68,7 @@ type Provider
 
 
 type ClaimStatus
-    = -- There's no way to verify a name yet, so every claim is shown as
-      -- unverified.
+    = -- There's no way to verify a name yet. Not shown in the UI.
       PreviewUnverified
 
 
@@ -260,6 +262,33 @@ type alias AdminUser =
     }
 
 
+{-| A prize draw an admin runs. One winner, drawn at random from `entrants`
+(the traders who opted in) and weighted by `Giveaway.entries`, gets every item
+in `prizes`. Entries come from what traders did between `startsAt` and
+`endsAt`, so things done before opting in count too. `passedOver` are earlier
+winners an admin drew again over (most recent first), who can't win it again.
+-}
+type alias Giveaway =
+    { id : Int
+    , title : String
+    , prizes : List ItemLine
+    , startsAt : Time.Posix
+    , endsAt : Time.Posix
+    , entrants : List String
+    , winner : Maybe String
+    , passedOver : List String
+    }
+
+
+{-| What the admin form sends to start a giveaway. It starts straight away.
+-}
+type alias GiveawayDraft =
+    { title : String
+    , prizes : List ItemLine
+    , hours : Int
+    }
+
+
 type alias AdminLogEntry =
     { at : Time.Posix
     , by : String
@@ -286,12 +315,17 @@ type AdminAction
     | UnbanPlayer String
     | ReleaseName String
     | SetReportResolved Int Bool
+    | StartGiveaway GiveawayDraft
+    | DrawGiveaway Int
+    | RedrawGiveaway Int
+    | CancelGiveaway Int
 
 
 type alias InitialData =
     { listings : List Listing
     , offers : List Offer
     , traders : List Trader
+    , giveaways : List Giveaway
     }
 
 
@@ -332,6 +366,7 @@ type AdminTab
     = AdminReports
     | AdminListings
     | AdminPlayers
+    | AdminGiveaways
     | AdminLog
 
 
@@ -361,6 +396,17 @@ type alias ListingForm =
     , note : String
     , error : Maybe String
     , submitting : Bool
+    }
+
+
+{-| The admin's "Start a giveaway" form. `days` is how long it runs.
+-}
+type alias GiveawayForm =
+    { title : String
+    , prizes : List OfferLineForm
+    , prizeQuery : String
+    , days : String
+    , error : Maybe String
     }
 
 
@@ -422,6 +468,7 @@ type alias FrontendModel =
     , listings : Dict Int Listing
     , offers : Dict Int Offer
     , traders : Dict String Trader
+    , giveaways : Dict Int Giveaway
     , filters : MarketFilters
     , filtersOpen : Bool
     , claimName : String
@@ -436,6 +483,7 @@ type alias FrontendModel =
     , admin : Maybe AdminData
     , adminPage : AdminPage
     , adminScreenshots : Dict Int (List String)
+    , giveawayForm : GiveawayForm
     }
 
 
@@ -511,6 +559,15 @@ type FrontendMsg
     | AdminConfirmed
     | AdminCancelled
     | AdminRefreshClicked
+    | GiveawayEnterClicked Int
+    | GiveawayTitleChanged String
+    | GiveawayDaysChanged String
+    | GiveawayPrizeQueryChanged String
+    | GiveawayPrizePicked String
+    | GiveawayPrizeQuantityChanged Int String
+    | GiveawayPrizeVariantPicked Int Item.Variant
+    | GiveawayPrizeRemoved Int
+    | GiveawaySubmitted
     | NoOpFrontendMsg
 
 
@@ -524,6 +581,8 @@ type ToFrontend
     | OfferRemoved Int
     | TraderUpserted Trader
     | TraderRemoved String
+    | GiveawayUpserted Giveaway
+    | GiveawayRemoved Int
     | ClaimRejected String
     | ListingCreated Int
     | ReportReceived
@@ -561,6 +620,7 @@ type alias BackendModel =
     , reports : List Report
     , screenshots : Dict Int String
     , adminLog : List AdminLogEntry
+    , giveaways : Dict Int Giveaway
     , nextId : Int
     , pendingAuths : Dict Auth.Common.SessionId Auth.Common.PendingAuth
     }
@@ -585,6 +645,7 @@ type ToBackend
     | ConfirmTrade Int
     | MarkFellThrough Int String
     | SubmitReport ReportDraft
+    | EnterGiveaway Int
     | AdminLoad
     | AdminLoadScreenshots Int
     | AdminRequest AdminAction
