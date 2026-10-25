@@ -20,6 +20,7 @@ type Route
     | SignIn
     | Onboarding
     | Admin
+    | GiveawayPage
     | NotFound
 
 
@@ -40,6 +41,7 @@ parser =
         , Parser.map SignIn (s "signin")
         , Parser.map Onboarding (s "welcome")
         , Parser.map Admin (s "admin")
+        , Parser.map GiveawayPage (s "giveaway")
         ]
 
 
@@ -97,6 +99,9 @@ toString route =
 
         Admin ->
             "/admin"
+
+        GiveawayPage ->
+            "/giveaway"
 
         NotFound ->
             "/"

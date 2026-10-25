@@ -17,6 +17,7 @@ import Effect.Lamdera
 import Effect.Task
 import Effect.Subscription as Subscription exposing (Subscription)
 import Effect.Time
+import Giveaway
 import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events as Events
@@ -25,6 +26,7 @@ import Lamdera as L
 import Market
 import OAuth.AuthorizationCode as OAuth
 import Page.Admin
+import Page.Giveaway
 import Page.Home
 import Page.Listing
 import Page.Market
@@ -44,6 +46,7 @@ import Types
         , AdminTab(..)
         , FrontendModel
         , FrontendMsg(..)
+        , GiveawayForm
         , ListingForm
         , MarketSort(..)
         , MarketTab(..)
@@ -83,8 +86,9 @@ app_ =
     }
 
 
-{-| Once a second while a listing's go-live countdown is on screen or the
-backend hasn't sent us anything yet (see `Tick`), otherwise every ten seconds.
+{-| Once a second while a listing's go-live countdown is on screen, a
+giveaway's countdown is in its last hour (when it shows seconds), or the backend
+hasn't sent us anything yet (see `Tick`), otherwise every ten seconds.
 -}
 subscriptions : FrontendModel -> Subscription FrontendOnly FrontendMsg
 subscriptions model =
@@ -98,11 +102,20 @@ subscriptions model =
 
                 _ ->
                     False
+
+        giveawayEnding =
+            case Giveaway.current model.now (Dict.values model.giveaways) of
+                Just giveaway ->
+                    Giveaway.isRunning model.now giveaway
+                        && (Time.posixToMillis giveaway.endsAt - Time.posixToMillis model.now < 60 * 60 * 1000)
+
+                Nothing ->
+                    False
     in
     Subscription.batch
         [ Effect.Time.every
             (Duration.seconds
-                (if countingDown || not model.loaded then
+                (if countingDown || giveawayEnding || not model.loaded then
                     1
 
                  else
@@ -185,6 +198,16 @@ offerFormFor model listingId =
             emptyOfferForm
 
 
+emptyGiveawayForm : GiveawayForm
+emptyGiveawayForm =
+    { title = "", prizes = [], prizeQuery = "", days = "7", error = Nothing }
+
+
+updateGiveawayForm : (GiveawayForm -> GiveawayForm) -> Model -> ( Model, Cmd_ )
+updateGiveawayForm f model =
+    ( { model | giveawayForm = f model.giveawayForm }, Command.none )
+
+
 emptyReportForm : ReportForm
 emptyReportForm =
     { about = ""
@@ -215,6 +238,7 @@ init url key =
             , listings = Dict.empty
             , offers = Dict.empty
             , traders = Dict.empty
+            , giveaways = Dict.empty
             , filters =
                 { tab = AllListings
                 , rarities = []
@@ -243,6 +267,7 @@ init url key =
             , admin = Nothing
             , adminPage = { tab = AdminReports, search = "", confirming = Nothing, banReason = "" }
             , adminScreenshots = Dict.empty
+            , giveawayForm = emptyGiveawayForm
             }
 
         getTime =
@@ -910,6 +935,54 @@ update msg model =
         AdminRefreshClicked ->
             ( model, loadAdmin model )
 
+        GiveawayEnterClicked giveawayId ->
+            ( model
+            , Command.batch
+                [ Analytics.track Analytics.GiveawayEntered
+                , Effect.Lamdera.sendToBackend (EnterGiveaway giveawayId)
+                ]
+            )
+
+        GiveawayTitleChanged title ->
+            updateGiveawayForm (\f -> { f | title = title, error = Nothing }) model
+
+        GiveawayDaysChanged days ->
+            updateGiveawayForm (\f -> { f | days = days, error = Nothing }) model
+
+        GiveawayPrizeQueryChanged query ->
+            updateGiveawayForm (\f -> { f | prizeQuery = query }) model
+
+        GiveawayPrizePicked itemId ->
+            updateGiveawayForm (\f -> { f | prizes = addLine f.prizeQuery itemId f.prizes, prizeQuery = "", error = Nothing }) model
+
+        GiveawayPrizeQuantityChanged index quantity ->
+            updateGiveawayForm (\f -> { f | prizes = updateAt index (\line -> { line | quantity = quantity }) f.prizes, error = Nothing }) model
+
+        GiveawayPrizeVariantPicked index variant ->
+            updateGiveawayForm (\f -> { f | prizes = updateAt index (\line -> { line | variant = variant }) f.prizes, error = Nothing }) model
+
+        GiveawayPrizeRemoved index ->
+            updateGiveawayForm (\f -> { f | prizes = List.take index f.prizes ++ List.drop (index + 1) f.prizes, error = Nothing }) model
+
+        GiveawaySubmitted ->
+            let
+                form =
+                    model.giveawayForm
+
+                draft =
+                    Result.map2 (\prizes hours -> { title = form.title, prizes = prizes, hours = hours })
+                        (Market.parseLines form.prizes)
+                        (Giveaway.hoursFromDays form.days)
+                        |> Result.andThen Giveaway.validateDraft
+            in
+            case draft of
+                Ok valid ->
+                    -- The form is cleared when the new giveaway arrives.
+                    ( model, Effect.Lamdera.sendToBackend (AdminRequest (StartGiveaway valid)) )
+
+                Err err ->
+                    updateGiveawayForm (\f -> { f | error = Just err }) model
+
         NoOpFrontendMsg ->
             ( model, Command.none )
 
@@ -934,6 +1007,7 @@ updateFromBackend msg model =
                 , listings = data.listings |> List.map (\l -> ( l.id, l )) |> Dict.fromList
                 , offers = data.offers |> List.map (\o -> ( o.id, o )) |> Dict.fromList
                 , traders = data.traders |> List.map (\t -> ( t.name, t )) |> Dict.fromList
+                , giveaways = data.giveaways |> List.map (\g -> ( g.id, g )) |> Dict.fromList
               }
             , Command.none
             )
@@ -1024,6 +1098,22 @@ updateFromBackend msg model =
         TraderRemoved name ->
             ( { model | traders = Dict.remove name model.traders }, Command.none )
 
+        GiveawayUpserted giveaway ->
+            ( { model
+                | giveaways = Dict.insert giveaway.id giveaway model.giveaways
+                , giveawayForm =
+                    if Dict.member giveaway.id model.giveaways then
+                        model.giveawayForm
+
+                    else
+                        emptyGiveawayForm
+              }
+            , Command.none
+            )
+
+        GiveawayRemoved giveawayId ->
+            ( { model | giveaways = Dict.remove giveawayId model.giveaways }, Command.none )
+
         AdminDataSent data ->
             ( { model | admin = Just data }, Command.none )
 
@@ -1092,7 +1182,7 @@ view model =
           -- ?dev is a content-hash cache-buster stamped by scripts/cachebust.js
           -- (dev watcher + pre-commit) from the hash of output.css, so the URL
           -- changes only when the CSS actually changes.
-          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=1de0a24d" ] []
+          Html.node "link" [ Attr.rel "stylesheet", Attr.href "/output.css?dev=d717a61f" ] []
         , Html.node "link"
             [ Attr.rel "stylesheet"
             , Attr.href "https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600&display=swap"
@@ -1156,6 +1246,9 @@ pageTitle route =
         Route.Admin ->
             suffix "Admin"
 
+        Route.GiveawayPage ->
+            suffix "Giveaway"
+
         Route.NotFound ->
             suffix "Not found"
 
@@ -1193,6 +1286,9 @@ viewPage model =
         Route.Admin ->
             Page.Admin.view model
 
+        Route.GiveawayPage ->
+            Page.Giveaway.view model
+
         Route.SignIn ->
             Ui.empty
 
@@ -1221,6 +1317,7 @@ appShell model content =
     Html.div [ Attr.class "min-h-screen bg-shell flex flex-col" ]
         [ viewHeader model
         , tradingBanner
+        , Page.Giveaway.banner model
         , viewBanNotice model
         , Html.main_ [ Attr.class "flex-1 flex flex-col pb-20 md:pb-0" ] [ content ]
         , viewTabBar model

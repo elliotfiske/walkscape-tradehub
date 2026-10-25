@@ -1,6 +1,7 @@
 module UnitTests exposing (suite)
 
 import Expect
+import Giveaway
 import Item
 import Market
 import Name
@@ -572,7 +573,111 @@ suite =
                             , Err "That trade isn't pending."
                             ]
             ]
+        , describe "Giveaway"
+            [ test "each kind of thing counts once, only inside the giveaway's window, for both sides of a trade" <|
+                \_ ->
+                    let
+                        -- Vimes listed before it started; Belkarama offered and
+                        -- they traded while it ran; Mallory offered after it ended.
+                        listings =
+                            Dict.singleton 1 selling
+
+                        offers =
+                            Dict.fromList
+                                [ ( 2, { accepted | at = Time.millisToPosix (2 * day), status = OfferCompleted (Time.millisToPosix (3 * day)) } )
+                                , ( 3, { openOffer | at = Time.millisToPosix (9 * day) } )
+                                , ( 4, { openOffer | id = 4, at = Time.millisToPosix (4 * day), from = "Belkarama" } )
+                                ]
+                    in
+                    [ "Vimes", "Belkarama", "Mallory" ]
+                        |> List.map (\name -> Giveaway.entries giveaway listings offers name)
+                        |> Expect.equal
+                            [ { entered = True, listed = False, offered = False, traded = True }
+                            , { entered = True, listed = False, offered = True, traded = True }
+                            , { entered = False, listed = False, offered = False, traded = False }
+                            ]
+            , test "entries are 1 for entering plus 1 for each kind, and none until you enter" <|
+                \_ ->
+                    [ Giveaway.total { entered = True, listed = True, offered = True, traded = True }
+                    , Giveaway.total { entered = True, listed = False, offered = True, traded = False }
+                    , Giveaway.total { entered = False, listed = True, offered = True, traded = True }
+                    ]
+                        |> Expect.equal [ 4, 2, 0 ]
+            , test "the draw gives each name a slice as wide as its entries" <|
+                \_ ->
+                    [ 0, 2, 3, 6, 99 ]
+                        |> List.map (\roll -> Giveaway.pickWeighted roll [ ( "Vimes", 3 ), ( "Belkarama", 1 ), ( "Mallory", 4 ) ])
+                        |> Expect.equal [ Just "Vimes", Just "Vimes", Just "Belkarama", Just "Mallory", Just "Mallory" ]
+            , test "drawing again leaves out the winner, anyone passed over, and anyone who can't win" <|
+                \_ ->
+                    let
+                        redrawn =
+                            { giveaway | entrants = [ "Vimes", "Belkarama", "Mallory", "Hollowfen" ], winner = Just "Vimes", passedOver = [ "Mallory" ] }
+                    in
+                    Giveaway.tickets ((/=) "Hollowfen") redrawn (Dict.singleton 1 selling) Dict.empty
+                        |> Expect.equal [ ( "Belkarama", 1 ) ]
+            , test "nobody to draw from means no winner" <|
+                \_ -> Giveaway.pickWeighted 0 [] |> Expect.equal Nothing
+            , test "how long it runs is read in days" <|
+                \_ ->
+                    [ "7", "1.5", " 0.5 ", "0", "61", "a week" ]
+                        |> List.map Giveaway.hoursFromDays
+                        |> Expect.equal
+                            [ Ok 168
+                            , Ok 36
+                            , Ok 12
+                            , Err "Run it for at least an hour."
+                            , Err "Run it for at most 60 days."
+                            , Err "Enter how many days it runs, like 7."
+                            ]
+            , test "a draft needs a name and between 1 and 5 valid prizes" <|
+                \_ ->
+                    [ Giveaway.validateDraft { title = "  ", prizes = [ line "coal" 1 ], hours = 24 }
+                    , Giveaway.validateDraft { title = "Bundle", prizes = [], hours = 24 }
+                    , Giveaway.validateDraft { title = "Bundle", prizes = List.repeat 6 (line "coal" 1), hours = 24 }
+                    , Giveaway.validateDraft { title = "Bundle", prizes = [ line "coal" 0 ], hours = 24 }
+                    , Giveaway.validateDraft { title = " Bundle ", prizes = [ line "coal" 2 ], hours = 24 }
+                    ]
+                        |> Expect.equal
+                            [ Err "Give the giveaway a name, like \"Travel bundle\"."
+                            , Err "Add at least one prize."
+                            , Err "Add at most 5 prizes."
+                            , Err "Enter a quantity above zero for Coal."
+                            , Ok { title = "Bundle", prizes = [ line "coal" 2 ], hours = 24 }
+                            ]
+            , test "time left reads in days, hours or minutes" <|
+                \_ ->
+                    [ 3 * day + 4 * 3600000 + 59000, 4 * 3600000 + 12 * 60000, 12 * 60000 + 5000, -5000 ]
+                        |> List.map (\ms -> Giveaway.timeLeft (Time.millisToPosix 0) (Time.millisToPosix ms))
+                        |> Expect.equal [ "3d 4h", "4h 12m", "12m 05s", "0m 00s" ]
+            , test "the current giveaway is the open one, or the last one drawn for a week after it ended" <|
+                \_ ->
+                    let
+                        drawn =
+                            { giveaway | id = 9, winner = Just "Vimes" }
+                    in
+                    [ Giveaway.current (Time.millisToPosix (20 * day)) [ drawn, giveaway ] |> Maybe.map .id
+                    , Giveaway.current (Time.millisToPosix (10 * day)) [ drawn ] |> Maybe.map .id
+                    , Giveaway.current (Time.millisToPosix (16 * day)) [ drawn ] |> Maybe.map .id
+                    ]
+                        |> Expect.equal [ Just 7, Just 9, Nothing ]
+            ]
         ]
+
+
+{-| Runs from day 1 to day 8, and Vimes and Belkarama entered.
+-}
+giveaway : Types.Giveaway
+giveaway =
+    { id = 7
+    , title = "Travel bundle"
+    , prizes = [ line "cooked_squid" 10 ]
+    , startsAt = Time.millisToPosix day
+    , endsAt = Time.millisToPosix (8 * day)
+    , entrants = [ "Vimes", "Belkarama" ]
+    , winner = Nothing
+    , passedOver = []
+    }
 
 
 listing : Side -> Types.Listing
