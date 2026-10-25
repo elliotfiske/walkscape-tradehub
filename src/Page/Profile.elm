@@ -45,7 +45,7 @@ view model name =
                             Ui.bannedTag
 
                           else
-                            Ui.unverifiedTag
+                            Ui.empty
                         , if model.me /= Nothing then
                             Ui.discordLine model.now trader
 

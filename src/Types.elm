@@ -65,8 +65,7 @@ type Provider
 
 
 type ClaimStatus
-    = -- There's no way to verify a name yet, so every claim is shown as
-      -- unverified.
+    = -- There's no way to verify a name yet. Not shown in the UI.
       PreviewUnverified
 
 

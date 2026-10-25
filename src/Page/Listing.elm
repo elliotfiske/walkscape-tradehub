@@ -781,8 +781,7 @@ traderCard model name =
             [ Html.div [ Attr.class "flex flex-col gap-1" ]
                 [ Html.div [ Attr.class "font-display font-extrabold text-xl" ] [ Html.text name ]
                 , Html.div [ Attr.class "flex items-center gap-2" ]
-                    [ Ui.unverifiedTag
-                    , if model.me /= Nothing then
+                    [ if model.me /= Nothing then
                         trader |> Maybe.map (Ui.discordLine model.now) |> Maybe.withDefault Ui.empty
 
                       else
