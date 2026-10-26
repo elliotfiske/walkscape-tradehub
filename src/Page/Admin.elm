@@ -175,6 +175,9 @@ confirmBox model action =
                     SetReportResolved _ _ ->
                         ( "", "OK" )
 
+                    SetExcludedFromPrices _ _ ->
+                        ( "", "OK" )
+
                     StartGiveaway _ ->
                         ( "", "OK" )
 
@@ -427,9 +430,19 @@ listingCard model data listing =
                         , profileLink listing.trader
                         , Html.text ("· " ++ Ui.timeAgo model.now listing.createdAt ++ " ·")
                         , Html.span [ Attr.class statusClass ] [ Html.text statusText ]
+                        , if listing.excludedFromPrices then
+                            Html.text "· not in price estimates"
+
+                          else
+                            Ui.empty
                         ]
                     ]
                 , Ui.priceText listing
+                , if listing.excludedFromPrices then
+                    Ui.button Ui.Secondary Ui.Compact ("admin-count-prices-" ++ idText) (AdminActionClicked (SetExcludedFromPrices listing.id False)) "Count in prices"
+
+                  else
+                    Ui.button Ui.Secondary Ui.Compact ("admin-exclude-prices-" ++ idText) (AdminActionClicked (SetExcludedFromPrices listing.id True)) "Leave out of prices"
                 , Ui.button Ui.Danger Ui.Compact ("admin-delete-listing-" ++ idText) (AdminActionClicked (DeleteListing listing.id)) "Delete"
                 ]
             , if String.isEmpty listing.note then

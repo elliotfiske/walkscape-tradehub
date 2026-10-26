@@ -138,6 +138,10 @@ type alias ItemLine =
     }
 
 
+{-| `excludedFromPrices` is set by an admin for a listing whose price isn't a
+real one (a giveaway posted as a 1-coin sale, say). Neither it nor its offers
+count towards estimates (`Market.pricePoints`).
+-}
 type alias Listing =
     { id : Int
     , trader : String
@@ -151,6 +155,7 @@ type alias Listing =
     , createdAt : Time.Posix
     , liveAt : Time.Posix
     , closed : Bool
+    , excludedFromPrices : Bool
     }
 
 
@@ -315,6 +320,7 @@ type AdminAction
     | UnbanPlayer String
     | ReleaseName String
     | SetReportResolved Int Bool
+    | SetExcludedFromPrices Int Bool
     | StartGiveaway GiveawayDraft
     | DrawGiveaway Int
     | RedrawGiveaway Int

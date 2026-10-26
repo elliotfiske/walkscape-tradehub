@@ -112,7 +112,9 @@ Admins are the Discord accounts whose username is in the comma-separated
 `Users.isAdmin` on every `AdminLoad` / `AdminRequest`; the page only decides
 what to show. Reports show a copy of the trade they are about (if any) and a
 "Show screenshots" button. Admins can resolve reports, delete listings (any state) and
-offers, ban/unban players, release a claimed name, and start, draw or cancel a
+offers, leave a listing out of price estimates (`Listing.excludedFromPrices`,
+for one whose price isn't real, like an old giveaway posted as a 1-coin sale;
+its offers are left out too), ban/unban players, release a claimed name, and start, draw or cancel a
 giveaway (Giveaways tab; Draw only shows once it has ended, and banned players
 can't win). "Draw again" replaces a winner who never answered: they're kept in
 `Giveaway.passedOver` and can't win that giveaway again. Banning or releasing a

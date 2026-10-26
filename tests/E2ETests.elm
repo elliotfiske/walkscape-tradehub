@@ -1180,6 +1180,38 @@ tests =
                                        ]
                        ]
         ]
+    , start "An admin leaves a giveaway listing out of price estimates"
+        [ connect "seller" "/" <|
+            \seller ->
+                onboard seller "Juno Trek"
+                    ++ postListing seller { item = "shovel_axe", price = "1", quantity = "1" }
+                    ++ [ connect "buyer" "/" <|
+                            \buyer ->
+                                onboard buyer "Pikewalker"
+                                    ++ [ buyer.clickLink (minutes 6) "/market"
+                                       , buyer.clickLink 100 "/listing/1"
+                                       , buyer.click 100 (Dom.id "send-offer")
+                                       , buyer.checkView 300 (byTestId "fair-value" >> seesText "Right at the estimate")
+                                       , connect "mod" "/" <|
+                                            \mod ->
+                                                signInAsAdmin mod
+                                                    ++ [ mod.click 100 (Dom.id "admin-tab-listings")
+                                                       , mod.click 100 (Dom.id "admin-exclude-prices-1")
+                                                       , mod.checkView 300 (byTestId "admin-listing-1" >> seesText "not in price estimates")
+                                                       , buyer.checkView 100 (lacksTestId "fair-value")
+                                                       , buyer.checkView 100 (byTestId "offers-feed-note" >> seesText "isn't counted in price estimates")
+                                                       , mod.click 100 (Dom.id "admin-tab-log")
+                                                       , mod.checkView 100 (seesText "Left listing #1")
+                                                       , mod.click 100 (Dom.id "admin-tab-listings")
+                                                       , mod.click 100 (Dom.id "admin-count-prices-1")
+                                                       , mod.checkView 300 (Query.has [ Selector.id "admin-exclude-prices-1" ])
+                                                       , buyer.clickLink 100 "/market"
+                                                       , buyer.clickLink 100 "/listing/1"
+                                                       , buyer.checkView 100 (byTestId "fair-value" >> seesText "Right at the estimate")
+                                                       ]
+                                       ]
+                       ]
+        ]
     , start "Only admins can open the admin screen"
         [ connect "s1" "/" <|
             \user ->
