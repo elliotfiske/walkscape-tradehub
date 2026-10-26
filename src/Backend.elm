@@ -365,6 +365,7 @@ handleRequest sessionId clientId now msg model =
                                         , createdAt = now
                                         , liveAt = Time.millisToPosix (Time.posixToMillis now + goLiveDelayMs)
                                         , closed = False
+                                        , excludedFromPrices = False
                                         }
 
                                     newModel =
@@ -816,6 +817,32 @@ adminAction adminName now action model =
                             )
                         )
                 )
+
+        SetExcludedFromPrices listingId excluded ->
+            case Dict.get listingId model.listings of
+                Just listing ->
+                    let
+                        changed =
+                            { listing | excludedFromPrices = excluded }
+
+                        newModel =
+                            { model | listings = Dict.insert listingId changed model.listings }
+
+                        described =
+                            "listing #" ++ String.fromInt listingId ++ " (" ++ Market.describe listing ++ " by " ++ listing.trader ++ ")"
+                    in
+                    Ok
+                        ( newModel
+                        , if excluded then
+                            "Left " ++ described ++ " out of price estimates"
+
+                          else
+                            "Put " ++ described ++ " back in price estimates"
+                        , publishListing changed newModel
+                        )
+
+                Nothing ->
+                    Err "That listing doesn't exist."
 
         SetReportResolved reportId resolved ->
             case List.filter (\r -> r.id == reportId) model.reports of

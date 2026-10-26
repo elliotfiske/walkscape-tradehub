@@ -510,6 +510,10 @@ suite =
                         |> List.filter (\p -> p.source == Trade)
                         |> List.map (\p -> ( p.price, Time.posixToMillis p.at ))
                         |> Expect.equal [ ( 7500, 3 * day ) ]
+            , test "a listing an admin left out of prices gives no points, nor do its offers" <|
+                \_ ->
+                    Market.pricePoints now (Dict.singleton 1 { selling | excludedFromPrices = True }) (Dict.singleton 4 { openOffer | id = 4, price = Just 7000 }) "salty_hops/fine"
+                        |> Expect.equal []
             ]
         , describe "Market trade rules"
             [ test "a listing with an accepted offer has a trade pending until it's resolved" <|
@@ -694,6 +698,7 @@ listing side =
     , createdAt = Time.millisToPosix 0
     , liveAt = Time.millisToPosix 0
     , closed = False
+    , excludedFromPrices = False
     }
 
 

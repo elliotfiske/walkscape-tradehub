@@ -895,6 +895,9 @@ update msg model =
                 SetReportResolved _ _ ->
                     ( model, Effect.Lamdera.sendToBackend (AdminRequest action) )
 
+                SetExcludedFromPrices _ _ ->
+                    ( model, Effect.Lamdera.sendToBackend (AdminRequest action) )
+
                 UnbanPlayer _ ->
                     ( model, Effect.Lamdera.sendToBackend (AdminRequest action) )
 

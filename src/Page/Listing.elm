@@ -453,7 +453,15 @@ offersSection model listing isMine =
     Ui.card [ Attr.class "p-4 flex flex-col gap-3" ]
         [ Html.div [ Attr.class "flex items-baseline justify-between" ]
             [ Ui.sectionLabel ("Offers · " ++ String.fromInt (List.length offers))
-            , Html.span [ Attr.class "text-xs text-faint" ] [ Html.text "Offers are public and feed the price estimate" ]
+            , Html.span [ Attr.class "text-xs text-faint", Ui.testId "offers-feed-note" ]
+                [ Html.text
+                    (if listing.excludedFromPrices then
+                        "Offers are public. This listing isn't counted in price estimates"
+
+                     else
+                        "Offers are public and feed the price estimate"
+                    )
+                ]
             ]
         , if List.isEmpty offers then
             Html.p [ Attr.class "text-sm text-muted", Ui.testId "no-offers" ] [ Html.text "No offers yet." ]
@@ -694,7 +702,10 @@ offerForm model listing myOffer =
                 )
             , Html.p [ Attr.class "text-xs text-faint" ]
                 [ Html.text
-                    (if takesItems listing then
+                    (if listing.excludedFromPrices then
+                        "If they accept, you trade in WalkScape."
+
+                     else if takesItems listing then
                         "If they accept, you trade in WalkScape. Offers in coins alone also go into the price estimate."
 
                      else

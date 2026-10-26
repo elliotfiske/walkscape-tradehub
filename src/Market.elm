@@ -588,7 +588,8 @@ listingPoints offers listing =
 
 
 {-| All price points for a price series (see `Item.priceKey`), from listings
-that have gone live (closed ones too, which is where completed trades are).
+that have gone live (closed ones too, which is where completed trades are),
+except the ones an admin left out (`excludedFromPrices`).
 -}
 pricePoints : Time.Posix -> Dict Int Listing -> Dict Int Offer -> String -> List Pricing.Point
 pricePoints now listings offers key =
@@ -598,6 +599,6 @@ pricePoints now listings offers key =
     in
     listings
         |> Dict.values
-        |> List.filter (\l -> isLive now l && Item.priceKey l.itemId l.variant == key)
+        |> List.filter (\l -> isLive now l && not l.excludedFromPrices && Item.priceKey l.itemId l.variant == key)
         |> List.concatMap (listingPoints offerList)
         |> List.sortBy (.at >> Time.posixToMillis)
